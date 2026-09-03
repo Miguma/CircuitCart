@@ -2,9 +2,14 @@
 
 import React from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export function MarketplaceFooter() {
   const currentYear = new Date().getFullYear();
+
+  const handleComingSoon = (feature: string) => {
+    toast.info(`${feature} documentation coming soon.`);
+  };
 
   return (
     <footer className="w-full bg-[#19131b] text-[#b9adb6] border-t border-white/10 pt-10 pb-8 mt-16">
@@ -12,7 +17,10 @@ export function MarketplaceFooter() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-white/10">
           {/* Brand Mark Column */}
           <div className="md:col-span-4 space-y-3">
-            <Link href="/" className="inline-flex items-center gap-2 select-none">
+            <Link
+              href="/marketplace"
+              className="inline-flex items-center gap-2 select-none focus-visible:outline-2 focus-visible:outline-[#e59bc9] rounded-xs"
+            >
               <svg
                 width="20"
                 height="20"
@@ -57,22 +65,22 @@ export function MarketplaceFooter() {
             </h4>
             <ul className="space-y-1.5 text-xs text-[#b9adb6]">
               <li>
-                <Link href="/marketplace" className="hover:text-[#e59bc9] transition-colors">
+                <Link href="/marketplace" className="hover:text-[#e59bc9] transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]">
                   All Categories
                 </Link>
               </li>
               <li>
-                <Link href="/marketplace" className="hover:text-[#e59bc9] transition-colors">
+                <Link href="/marketplace" className="hover:text-[#e59bc9] transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]">
                   Featured Deals
                 </Link>
               </li>
               <li>
-                <Link href="/marketplace" className="hover:text-[#e59bc9] transition-colors">
+                <Link href="/marketplace" className="hover:text-[#e59bc9] transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]">
                   Pre-owned Finds
                 </Link>
               </li>
               <li>
-                <Link href="/marketplace" className="hover:text-[#e59bc9] transition-colors">
+                <Link href="/marketplace" className="hover:text-[#e59bc9] transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]">
                   Popular in Gaming
                 </Link>
               </li>
@@ -86,17 +94,29 @@ export function MarketplaceFooter() {
             </h4>
             <ul className="space-y-1.5 text-xs text-[#b9adb6]">
               <li>
-                <button type="button" onClick={() => alert("Help Center doc coming soon.")} className="hover:text-[#e59bc9] transition-colors">
+                <button
+                  type="button"
+                  onClick={() => handleComingSoon("Help Center")}
+                  className="hover:text-[#e59bc9] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
                   Help Center
                 </button>
               </li>
               <li>
-                <button type="button" onClick={() => alert("Buyer Protection info coming soon.")} className="hover:text-[#e59bc9] transition-colors">
+                <button
+                  type="button"
+                  onClick={() => handleComingSoon("Buyer Protection")}
+                  className="hover:text-[#e59bc9] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
                   Buyer Protection
                 </button>
               </li>
               <li>
-                <button type="button" onClick={() => alert("Return policy info coming soon.")} className="hover:text-[#e59bc9] transition-colors">
+                <button
+                  type="button"
+                  onClick={() => handleComingSoon("Return Policy")}
+                  className="hover:text-[#e59bc9] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
                   Return Policy
                 </button>
               </li>
@@ -110,17 +130,28 @@ export function MarketplaceFooter() {
             </h4>
             <ul className="space-y-1.5 text-xs text-[#b9adb6]">
               <li>
-                <button type="button" onClick={() => alert("Seller onboarding coming soon.")} className="hover:text-[#e59bc9] transition-colors">
+                <Link
+                  href="/marketplace/sell"
+                  className="hover:text-[#e59bc9] transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
                   Start Selling on CircuitCart
-                </button>
+                </Link>
               </li>
               <li>
-                <button type="button" onClick={() => alert("Seller Hub info coming soon.")} className="hover:text-[#e59bc9] transition-colors">
+                <button
+                  type="button"
+                  onClick={() => handleComingSoon("Seller Protection Policy")}
+                  className="hover:text-[#e59bc9] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
                   Seller Protection Policy
                 </button>
               </li>
               <li>
-                <button type="button" onClick={() => alert("Verified Seller Guide coming soon.")} className="hover:text-[#e59bc9] transition-colors">
+                <button
+                  type="button"
+                  onClick={() => handleComingSoon("Verified Seller Guide")}
+                  className="hover:text-[#e59bc9] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
                   Verified Seller Guide
                 </button>
               </li>
@@ -133,11 +164,19 @@ export function MarketplaceFooter() {
           <p>© {currentYear} CircuitCart Marketplace. All rights reserved.</p>
 
           <div className="flex items-center gap-4">
-            <button type="button" onClick={() => alert("Privacy policy doc coming soon.")} className="hover:text-[#e59bc9] transition-colors">
+            <button
+              type="button"
+              onClick={() => handleComingSoon("Privacy Policy")}
+              className="hover:text-[#e59bc9] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+            >
               Privacy Policy
             </button>
             <span>•</span>
-            <button type="button" onClick={() => alert("Terms of service doc coming soon.")} className="hover:text-[#e59bc9] transition-colors">
+            <button
+              type="button"
+              onClick={() => handleComingSoon("Terms of Service")}
+              className="hover:text-[#e59bc9] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+            >
               Terms of Service
             </button>
           </div>

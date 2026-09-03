@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Smartphone,
   Watch,
@@ -9,15 +10,53 @@ import {
   Headphones,
   Monitor,
   Gamepad2,
-  ArrowRight,
   ShieldCheck,
   Sparkles,
   RefreshCw,
-  ChevronRight,
+  Home,
+  ShoppingCart,
+  Search,
+  User,
+  Heart,
 } from "lucide-react";
+
+interface ShowcaseProduct {
+  id: number;
+  name: string;
+  price: number;
+  image: string;
+  tags: string[];
+}
 
 export default function CircuitCartShowcasePage() {
   const [activeTab, setActiveTab] = useState<"new" | "bestseller" | "featured">("new");
+  const [favorites, setFavorites] = useState<number[]>([6]); // Galaxy Fold is favorited in Figma reference
+  const [bentoVisible, setBentoVisible] = useState(false);
+  const bentoRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setBentoVisible(true);
+          observer.disconnect(); // Trigger once only per page load
+        }
+      },
+      { threshold: 0.15 }
+    );
+
+    if (bentoRef.current) {
+      observer.observe(bentoRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  const toggleFavorite = (id: number) => {
+    setFavorites((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   const categories = [
     { name: "Phones", icon: Smartphone },
@@ -28,99 +67,108 @@ export default function CircuitCartShowcasePage() {
     { name: "Gaming", icon: Gamepad2 },
   ];
 
-  const showcaseProducts = [
+  const showcaseProducts: ShowcaseProduct[] = [
     {
-      id: "sc-1",
-      name: "Apple iPhone 15 Pro Max 128GB",
-      category: "Phones",
-      price: "₱68,900",
-      gradientFrom: "#432c45",
-      gradientTo: "#281729",
-      tab: "new",
+      id: 1,
+      name: "iPhone 14 Pro Max 128GB Deep Purple",
+      price: 48990,
+      image: "/images/products/Iphone 14 pro (1).png",
+      tags: ["new", "bestseller"],
     },
     {
-      id: "sc-2",
+      id: 2,
       name: "Blackmagic Pocket Cinema Camera 6K",
-      category: "Cameras",
-      price: "₱74,500",
-      gradientFrom: "#544061",
-      gradientTo: "#34243b",
-      tab: "new",
+      price: 118990,
+      image: "/images/products/blackmagic-pocket-camera.png",
+      tags: ["new", "featured"],
     },
     {
-      id: "sc-3",
-      name: "Apple Watch Series 9 GPS 41mm",
-      category: "Smart Watches",
-      price: "₱19,500",
-      gradientFrom: "#684d72",
-      gradientTo: "#4a3054",
-      tab: "new",
+      id: 3,
+      name: "Apple Watch Series 9 GPS 41mm Starlight Aluminium",
+      price: 22990,
+      image: "/images/products/apple-watch-series-9.png",
+      tags: ["new"],
     },
     {
-      id: "sc-4",
-      name: "AirPods Max Silver Starlight",
-      category: "Headphones",
-      price: "₱32,500",
-      gradientFrom: "#a37282",
-      gradientTo: "#7d4e5d",
-      tab: "new",
+      id: 4,
+      name: "AirPods Max Silver Starlight Aluminium",
+      price: 32990,
+      image: "/images/products/airpods-max.png",
+      tags: ["new", "featured"],
     },
     {
-      id: "sc-5",
-      name: "Samsung Galaxy Watch6 Classic",
-      category: "Smart Watches",
-      price: "₱14,990",
-      gradientFrom: "#694975",
-      gradientTo: "#432c45",
-      tab: "bestseller",
+      id: 5,
+      name: "Samsung Galaxy Watch6 Classic 47mm Black",
+      price: 18990,
+      image:
+        "/images/products/Samsung Galaxy Watch6 Classic 47mm Black (1).png",
+      tags: ["new", "bestseller"],
     },
     {
-      id: "sc-6",
-      name: "Galaxy Z Fold5 Unlocked 256GB",
-      category: "Phones",
-      price: "₱64,900",
-      gradientFrom: "#3a233e",
-      gradientTo: "#201524",
-      tab: "bestseller",
+      id: 6,
+      name: "Galaxy Z Fold5 256GB Phantom Black",
+      price: 72990,
+      image: "/images/products/Galaxy Z Fold5.png",
+      tags: ["new", "featured"],
     },
     {
-      id: "sc-7",
+      id: 7,
       name: "Galaxy Buds FE Graphite",
-      category: "Headphones",
-      price: "₱4,250",
-      gradientFrom: "#684e70",
-      gradientTo: "#442f4b",
-      tab: "featured",
+      price: 4990,
+      image: "/images/products/galaxy-buds-fe.png",
+      tags: ["new", "bestseller"],
     },
     {
-      id: "sc-8",
-      name: "Apple iPad 9 10.2\" 64GB Wi-Fi",
-      category: "Computers",
-      price: "₱16,500",
-      gradientFrom: "#7d6484",
-      gradientTo: "#544061",
-      tab: "featured",
+      id: 8,
+      name: "iPad 9th Gen 10.2-inch 64GB Wi-Fi Silver",
+      price: 17990,
+      image: "/images/products/ipad-9.png",
+      tags: ["new", "bestseller"],
     },
   ];
 
-  const filteredProducts = showcaseProducts.filter((p) => p.tab === activeTab);
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      maximumFractionDigits: 0,
+    }).format(price);
+
+  const filteredProducts = showcaseProducts.filter((product) => {
+    if (activeTab === "new") return true; // New Arrival displays all 8 products
+    return product.tags.includes(activeTab);
+  });
+
+  const tabList: { key: "new" | "bestseller" | "featured"; label: string }[] = [
+    { key: "new", label: "New Arrival" },
+    { key: "bestseller", label: "Bestseller" },
+    { key: "featured", label: "Featured Products" },
+  ];
 
   return (
-    <div className="min-h-screen w-full bg-[#140e16] text-[#faf7f7] font-sans overflow-x-hidden selection:bg-[#6a4f6d] selection:text-white">
+    <div className="min-h-screen w-full bg-[#735b64] text-[#faf7f7] font-sans overflow-x-hidden selection:bg-[#523d46] selection:text-white pb-16">
       {/* ========================================================= */}
-      {/* 1. FLOATING NAVIGATION BAR */}
+      {/* 1. FLOATING PILL NAVIGATION BAR */}
       {/* ========================================================= */}
-      <header className="sticky top-0 z-50 w-full bg-[#18101b]/90 backdrop-blur-md border-b border-[#34243b]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo / Brand Mark -> / */}
-          <Link href="/" className="inline-flex items-center gap-2.5 select-none focus-visible:outline-2 focus-visible:outline-[#a37282] rounded-xs">
+      <header className="w-full flex items-center justify-center pt-6 pb-2 px-4 select-none">
+        <nav
+          aria-label="Quick Navigation"
+          className="inline-flex items-center gap-3.5 sm:gap-5 glass-showcase-nav px-4 sm:px-6 py-2 rounded-full text-zinc-300"
+        >
+          {/* Subtle CircuitCart Brand Mark */}
+          <Link
+            href="/"
+            aria-label="CircuitCart Showcase Home"
+            title="CircuitCart Showcase"
+            className="inline-flex items-center gap-1.5 pr-2.5 sm:pr-3 border-r border-[#836974]/40 text-white hover:text-[#e59bc9] transition-colors focus-visible:outline-2 focus-visible:outline-white rounded-md"
+          >
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 20 20"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className="text-pink-300 size-5 shrink-0"
+              className="text-[#e59bc9] size-4 shrink-0"
               aria-hidden="true"
             >
               <path
@@ -142,215 +190,265 @@ export default function CircuitCartShowcasePage() {
               <circle cx="8" cy="16.5" r="1.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
               <circle cx="15" cy="16.5" r="1.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
             </svg>
-            <span className="text-xl font-bold tracking-tight text-white">
-              Circuit<span className="text-pink-300">Cart</span>
+            <span className="text-xs font-bold tracking-tight text-white hidden xs:inline sm:inline">
+              Circuit<span className="text-[#e59bc9]">Cart</span>
             </span>
           </Link>
 
-          {/* Center Navigation Links (Scroll targets) */}
-          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold tracking-wide text-zinc-300">
-            <a href="#categories" className="hover:text-pink-300 transition-colors">
-              Categories
-            </a>
-            <a href="#featured" className="hover:text-pink-300 transition-colors">
-              Featured
-            </a>
-            <a href="#about" className="hover:text-pink-300 transition-colors">
-              About
-            </a>
-          </nav>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="px-4 py-2 text-xs font-semibold text-zinc-200 hover:text-white transition-colors border border-[#48334c] hover:border-[#6a4f6d] rounded-xl"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/register"
-              className="px-4 py-2 text-xs font-semibold text-white bg-[#544061] hover:bg-[#684d72] rounded-xl shadow-xs transition-all"
-            >
-              Create account
-            </Link>
-          </div>
-        </div>
+          <Link
+            href="/"
+            title="Showcase Home (Active)"
+            aria-label="Showcase Home"
+            className="text-white bg-white/20 p-1.5 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <Home className="size-4" />
+          </Link>
+          <Link
+            href="/marketplace"
+            title="Marketplace"
+            aria-label="Marketplace"
+            className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white rounded-full p-1.5"
+          >
+            <ShoppingCart className="size-4" />
+          </Link>
+          <Link
+            href="/marketplace"
+            title="Search Products"
+            aria-label="Search Products"
+            className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white rounded-full p-1.5"
+          >
+            <Search className="size-4" />
+          </Link>
+          <Link
+            href="/login"
+            title="Account Login"
+            aria-label="Account Login"
+            className="hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white rounded-full p-1.5"
+          >
+            <User className="size-4" />
+          </Link>
+        </nav>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
+      <main className="w-full py-4 space-y-9 sm:space-y-11">
         {/* ========================================================= */}
-        {/* 2. HERO SECTION */}
+        {/* 2. HERO FEATURE CARD (Exact Figma Dimensions & Hierarchy) */}
         {/* ========================================================= */}
         <section
           id="hero"
-          className="w-full bg-gradient-to-br from-[#241727] via-[#1a111c] to-[#120a14] border border-[#3b2740] rounded-3xl p-8 sm:p-12 md:p-16 overflow-hidden relative shadow-2xl"
+          className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"
         >
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-            {/* Left Copy Column */}
-            <div className="md:col-span-7 space-y-4">
-              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-pink-300/80">
-                Pro.Beyond.
-              </span>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-                iPhone 15 Pro <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-300 to-rose-200">
-                  CircuitCart
+          <div className="w-full bg-[#1c151e] border border-[#3b2e3c]/60 rounded-[32px] sm:rounded-[44px] overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.35)] h-auto md:h-[clamp(540px,46vw,700px)] min-h-[520px] flex items-center">
+            <div className="w-full h-full flex flex-col md:flex-row items-center justify-between">
+              {/* Left Copy Column (~42% desktop width with generous left padding) */}
+              <div className="w-full md:w-[42%] md:flex-none flex flex-col justify-center pl-6 sm:pl-10 md:pl-16 lg:pl-20 pr-6 py-10 md:py-0 z-10 space-y-4">
+                <span className="text-xs sm:text-sm font-semibold tracking-wider text-[#a78b9d] uppercase">
+                  Pro.Beyond.
                 </span>
-              </h1>
-              <p className="text-sm sm:text-base text-zinc-400 max-w-lg leading-relaxed">
-                Created to change everything for the better. For everyone. Discover verified technology from trusted sellers.
-              </p>
-              <div className="pt-4">
-                <Link
-                  href="/marketplace"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-[#544061] hover:bg-[#684d72] border border-[#7d6484]/40 rounded-xl shadow-lg transition-all"
-                >
-                  <span>Shop Now</span>
-                  <ArrowRight className="size-4" />
-                </Link>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl tracking-tight text-white leading-[1.04]">
+                  <span className="font-extralight block">iPhone</span>
+                  <span className="font-extralight block">14</span>
+                  <span className="font-bold block text-white">Pro</span>
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-400 max-w-xs leading-relaxed font-normal pt-1">
+                  Created to change everything for the better. For everyone
+                </p>
+                <div className="pt-2">
+                  <Link
+                    href="/marketplace"
+                    className="inline-flex items-center justify-center px-6 py-2.5 text-xs sm:text-sm font-semibold text-white bg-transparent border border-zinc-400/50 hover:bg-white/10 hover:border-white rounded-lg transition-all shadow-xs focus-visible:outline-2 focus-visible:outline-white"
+                  >
+                    Shop Now
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right Product Artwork Column (~58% desktop width, center-right positioned, 35-50px bottom gap) */}
+              <div className="w-full md:w-[58%] md:flex-none h-full flex items-end justify-center md:justify-center relative pr-4 md:pr-10 lg:pr-14 pb-[35px] sm:pb-[45px]">
+                <div className="relative w-[82%] sm:w-[68%] md:w-[84%] max-w-[480px] h-[340px] sm:h-[420px] md:h-[90%] flex items-end justify-center">
+                  <Image
+                    src="/images/Iphone Image.png"
+                    alt="iPhone 14 Pro"
+                    width={520}
+                    height={640}
+                    priority
+                    sizes="(max-width: 640px) 90vw, (max-width: 1024px) 55vw, 44vw"
+                    className="w-full h-full object-contain object-bottom drop-shadow-[0_25px_35px_rgba(0,0,0,0.45)] select-none pointer-events-none"
+                  />
+                </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Right Visual Graphic Column */}
-            <div className="md:col-span-5 flex items-center justify-center">
-              <div className="relative w-64 h-80 sm:w-72 sm:h-96 bg-gradient-to-b from-[#38263e] to-[#201524] border-4 border-[#544061]/50 rounded-[42px] p-3 shadow-2xl flex flex-col items-center justify-between">
-                {/* Dynamic Island / Notch */}
-                <div className="w-24 h-4 bg-[#120a14] rounded-full mt-1 z-10" />
-
-                {/* Display Graphic */}
-                <div className="w-full flex-1 rounded-[32px] bg-gradient-to-tr from-[#694975] via-[#3a233e] to-[#876690] flex flex-col items-center justify-center p-4 text-center my-2">
-                  <Sparkles className="size-8 text-pink-200 mb-2 animate-pulse" />
-                  <span className="text-xs font-semibold uppercase tracking-widest text-pink-100/70">
-                    CircuitCart
-                  </span>
-                  <span className="text-2xl font-extrabold text-white mt-1">
-                    9:41
-                  </span>
-                  <span className="text-[11px] text-pink-200/80 mt-1">
-                    Verified Electronics
-                  </span>
+        {/* ========================================================= */}
+        {/* 3. PRODUCT BENTO SECTION (Wider Container: 92vw / 1600px, 2.42:1 Ratio) */}
+        {/* ========================================================= */}
+        <section
+          ref={bentoRef}
+          aria-label="Featured Product Bento Grid"
+          className="w-[92vw] max-w-[1600px] mx-auto px-1 sm:px-2"
+        >
+          {/* Main 2-Column Grid: 50% Left Composition / 50% MacBook Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-[clamp(12px,1.1vw,18px)] lg:aspect-[2.42/1] items-stretch">
+            {/* LEFT COMPOSITION: Explicit Grid Areas (PlayStation on top, AirPods & Vision Pro below) */}
+            <div className="grid grid-cols-1 sm:grid-cols-[0.95fr_1.05fr] sm:grid-rows-[1.3fr_1fr] sm:[grid-template-areas:'playstation_playstation'_'airpods_vision'] gap-[clamp(12px,1.1vw,18px)] h-full">
+              {/* Card 1: PlayStation 5 (Top Left, Spanning both cols in top row) */}
+              <div
+                style={{ transitionDelay: bentoVisible ? "0ms" : "0ms" }}
+                className={`sm:[grid-area:playstation] order-1 min-w-0 min-h-0 bg-[#ededed] rounded-[clamp(22px,2vw,32px)] overflow-hidden relative flex flex-row items-center shadow-xs transition-all duration-500 ease-out motion-reduce:transition-none motion-reduce:transform-none group min-h-[200px] sm:min-h-[230px] lg:min-h-0 z-0 ${
+                  bentoVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[14px]"
+                }`}
+              >
+                {/* Console Artwork (Left: -10%, Bottom: 0, Height: 98%, ends cleanly before 41% width) */}
+                <div className="absolute left-[-10%] bottom-0 h-[98%] w-auto max-w-none pointer-events-none select-none z-10">
+                  <Image
+                    src="/images/playstation-5.png"
+                    alt="PlayStation 5"
+                    width={500}
+                    height={450}
+                    sizes="(max-width: 768px) 50vw, 30vw"
+                    className="h-full w-auto max-w-none object-contain object-left-bottom drop-shadow-md group-hover:scale-105 transition-transform duration-500"
+                  />
                 </div>
 
-                {/* Home Indicator */}
-                <div className="w-28 h-1 bg-white/40 rounded-full mb-1" />
+                {/* Right Typography (Starts ~47% from left, vertically centered) */}
+                <div className="ml-[47%] pr-6 sm:pr-8 py-4 space-y-1.5 sm:space-y-2 z-20 relative">
+                  <h3 className="text-[clamp(24px,2.1vw,38px)] font-normal text-[#1d1720] tracking-tight leading-tight">
+                    Playstation 5
+                  </h3>
+                  <p className="text-[clamp(11px,0.8vw,14px)] text-[#716872] leading-relaxed line-clamp-3 max-w-[280px]">
+                    Incredibly powerful CPUs, GPUs, and an SSD with integrated I/O will redefine your PlayStation experience.
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 3: AirPods Max (Bottom Left under PlayStation) */}
+              <div
+                style={{ transitionDelay: bentoVisible ? "60ms" : "0ms" }}
+                className={`sm:[grid-area:airpods] order-3 sm:order-none min-w-0 min-h-0 bg-[#ededed] rounded-[clamp(22px,2vw,32px)] overflow-hidden relative flex flex-row items-center shadow-xs transition-all duration-500 ease-out motion-reduce:transition-none motion-reduce:transform-none group min-h-[160px] sm:min-h-[180px] lg:min-h-0 z-0 ${
+                  bentoVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[14px]"
+                }`}
+              >
+                {/* Left Artwork (Intentionally cropped left side, visible right earcup only in left ~38% of card) */}
+                <div className="absolute left-[-58%] top-1/2 -translate-y-1/2 h-[106%] w-auto max-w-none pointer-events-none select-none z-10">
+                  <Image
+                    src="/images/airpods.png"
+                    alt="Apple AirPods Max"
+                    width={500}
+                    height={500}
+                    sizes="(max-width: 768px) 45vw, 25vw"
+                    className="h-full w-auto max-w-none object-contain object-center drop-shadow-sm group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+
+                {/* Right Text (Starts ~46% from left) */}
+                <div className="ml-[46%] pr-4 sm:pr-6 py-3 space-y-1 z-20 relative">
+                  <h3 className="text-[clamp(16px,1.3vw,22px)] text-[#1d1720] leading-tight font-normal">
+                    <span className="block">Apple</span>
+                    <span className="block">AirPods</span>
+                    <span className="block font-medium">Max</span>
+                  </h3>
+                  <p className="text-[clamp(10px,0.7vw,12px)] text-[#716872] leading-tight pt-0.5 line-clamp-2 max-w-[130px]">
+                    Computational audio. Listen, it&apos;s powerful
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 4: Apple Vision Pro (Bottom Beside AirPods under PlayStation) */}
+              <div
+                style={{ transitionDelay: bentoVisible ? "120ms" : "0ms" }}
+                className={`sm:[grid-area:vision] order-4 sm:order-none min-w-0 min-h-0 bg-[#2f2f31] rounded-[clamp(22px,2vw,32px)] overflow-hidden relative flex flex-row items-center shadow-xs transition-all duration-500 ease-out motion-reduce:transition-none motion-reduce:transform-none group min-h-[160px] sm:min-h-[180px] lg:min-h-0 z-0 ${
+                  bentoVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[14px]"
+                }`}
+              >
+                {/* Left Artwork (Top: 45%, Width: 40%, translateY(-50%), stays inside left 40%) */}
+                <div className="absolute left-0 top-[45%] -translate-y-1/2 w-[40%] h-auto max-w-none pointer-events-none select-none z-10">
+                  <Image
+                    src="/images/apple-vision-pro.png"
+                    alt="Apple Vision Pro"
+                    width={320}
+                    height={260}
+                    sizes="(max-width: 768px) 45vw, 18vw"
+                    className="w-full h-auto max-w-none object-contain object-left drop-shadow-md group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+
+                {/* Right Light Text (Starts ~48% from left) */}
+                <div className="ml-[48%] pr-4 sm:pr-6 py-3 space-y-1 z-20 relative">
+                  <h3 className="text-[clamp(16px,1.3vw,22px)] text-white leading-tight font-normal">
+                    <span className="block">Apple</span>
+                    <span className="block">Vision <span className="font-medium">Pro</span></span>
+                  </h3>
+                  <p className="text-[clamp(10px,0.7vw,12px)] text-zinc-400 leading-tight pt-0.5 line-clamp-2 max-w-[130px]">
+                    An immersive way to experience entertainment
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COMPOSITION: MacBook Air (50% width, spans full height of left composition) */}
+            <div
+              style={{ transitionDelay: bentoVisible ? "180ms" : "0ms" }}
+              className={`order-2 lg:order-none min-w-0 min-h-0 bg-[#ededed] rounded-[clamp(22px,2vw,32px)] overflow-hidden relative flex flex-row items-center shadow-xs transition-all duration-500 ease-out motion-reduce:transition-none motion-reduce:transform-none group h-full min-h-[300px] sm:min-h-[380px] lg:min-h-0 z-0 ${
+                bentoVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[14px]"
+              }`}
+            >
+              {/* Left Content (8% from left edge, vertically centered slightly above middle) */}
+              <div className="ml-[8%] max-w-[240px] sm:max-w-[280px] space-y-2.5 sm:space-y-3 z-20 relative py-6 my-auto">
+                <h3 className="text-[clamp(34px,3.5vw,56px)] tracking-tight text-[#1d1720] leading-[1.0]">
+                  <span className="font-light block">Macbook</span>
+                  <span className="font-bold block">Air</span>
+                </h3>
+                <p className="text-[clamp(11px,0.8vw,14px)] text-[#716872] leading-relaxed line-clamp-3 pt-1">
+                  The new 15-inch MacBook Air makes room for more of what you love with a spacious Liquid Retina display.
+                </p>
+                <div className="pt-2">
+                  <Link
+                    href="/marketplace"
+                    className="inline-flex items-center justify-center px-6 py-2 text-xs font-medium text-[#1d1720] bg-transparent border border-[#1d1720]/60 hover:bg-[#1d1720] hover:text-white rounded-lg transition-all shadow-xs focus-visible:outline-2 focus-visible:outline-[#1d1720]"
+                  >
+                    Shop Now
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right Laptop Artwork (Left: 59%, Bottom: 5%, Height: 88%, fills height, right cropped) */}
+              <div
+                style={{
+                  left: "59%",
+                  bottom: "5%",
+                  height: "88%",
+                  width: "auto",
+                  maxWidth: "none",
+                  right: "auto",
+                }}
+                className="absolute pointer-events-none select-none z-10"
+              >
+                <Image
+                  src="/images/macbook-air.png"
+                  alt="Apple MacBook Air"
+                  width={1200}
+                  height={1000}
+                  sizes="(max-width: 768px) 100vw, 60vw"
+                  className="h-full w-auto max-w-none object-contain object-left-bottom drop-shadow-2xl group-hover:scale-105 transition-transform duration-500"
+                />
               </div>
             </div>
           </div>
         </section>
 
         {/* ========================================================= */}
-        {/* 3. FEATURED BENTO DISCOVERY GRID */}
+        {/* 4. BROWSE BY CATEGORY SECTION (80-90px gap, Dark Heading per Figma) */}
         {/* ========================================================= */}
-        <section aria-label="Featured Showcase Grid" className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          {/* Card 1: Playstation 5 */}
-          <div className="md:col-span-6 bg-[#1f1523] border border-[#38263e] rounded-3xl p-8 flex flex-col justify-between hover:border-[#6a4f6d] transition-all group">
-            <div className="space-y-3">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-pink-300/80">
-                Gaming Console
-              </span>
-              <h3 className="text-2xl font-bold text-white group-hover:text-pink-200 transition-colors">
-                PlayStation 5
-              </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
-                Incredibly powerful CPUs, GPUs, and an SSD with integrated I/O will redefine your PlayStation experience.
-              </p>
-            </div>
-            <div className="pt-6">
-              <Link
-                href="/marketplace"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-300 hover:text-white transition-colors"
-              >
-                <span>Explore Gaming</span>
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 2: Macbook Air */}
-          <div className="md:col-span-6 bg-[#25192a] border border-[#38263e] rounded-3xl p-8 flex flex-col justify-between hover:border-[#6a4f6d] transition-all group">
-            <div className="space-y-3">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-pink-300/80">
-                Laptops
-              </span>
-              <h3 className="text-2xl font-bold text-white group-hover:text-pink-200 transition-colors">
-                MacBook Air M2
-              </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
-                The 15-inch MacBook Air makes room for more of what you love with a spacious Liquid Retina display.
-              </p>
-            </div>
-            <div className="pt-6">
-              <Link
-                href="/marketplace"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-300 hover:text-white transition-colors"
-              >
-                <span>Shop Laptops</span>
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 3: AirPods Max */}
-          <div className="md:col-span-6 bg-[#1a121c] border border-[#38263e] rounded-3xl p-8 flex flex-col justify-between hover:border-[#6a4f6d] transition-all group">
-            <div className="space-y-3">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-pink-300/80">
-                Audio
-              </span>
-              <h3 className="text-2xl font-bold text-white group-hover:text-pink-200 transition-colors">
-                AirPods Max
-              </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
-                Computational audio. High-fidelity acoustic design with Active Noise Cancellation.
-              </p>
-            </div>
-            <div className="pt-6">
-              <Link
-                href="/marketplace"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-300 hover:text-white transition-colors"
-              >
-                <span>Discover Audio</span>
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 4: Apple Vision Pro */}
-          <div className="md:col-span-6 bg-[#281b2d] border border-[#38263e] rounded-3xl p-8 flex flex-col justify-between hover:border-[#6a4f6d] transition-all group">
-            <div className="space-y-3">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-pink-300/80">
-                Spatial Computing
-              </span>
-              <h3 className="text-2xl font-bold text-white group-hover:text-pink-200 transition-colors">
-                Apple Vision Pro
-              </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
-                An immersive way to experience entertainment and personal workspace computing.
-              </p>
-            </div>
-            <div className="pt-6">
-              <Link
-                href="/marketplace"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-300 hover:text-white transition-colors"
-              >
-                <span>View Innovations</span>
-                <ChevronRight className="size-4" />
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ========================================================= */}
-        {/* 4. BROWSE BY CATEGORY SECTION */}
-        {/* ========================================================= */}
-        <section id="categories" className="space-y-6 pt-4">
+        <section id="categories" className="w-[92vw] max-w-[1600px] mx-auto px-1 sm:px-2 pt-[75px] sm:pt-[85px] space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-medium text-[#1d1720] tracking-tight">
               Browse By Category
             </h2>
             <Link
               href="/marketplace"
-              className="text-xs font-semibold text-pink-300 hover:text-white transition-colors"
+              className="text-xs sm:text-sm font-normal text-[#716872] hover:text-[#1d1720] transition-colors"
             >
               See all in Marketplace →
             </Link>
@@ -363,10 +461,10 @@ export default function CircuitCartShowcasePage() {
                 <Link
                   key={cat.name}
                   href="/marketplace"
-                  className="bg-[#1f1523] border border-[#38263e] hover:border-[#6a4f6d] hover:bg-[#281b2d] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 transition-all text-center group"
+                  className="bg-white/95 border border-[#e7dfe2] hover:bg-white hover:border-[#6e546f] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 transition-all text-center group shadow-xs hover:shadow-md"
                 >
-                  <IconElem className="size-6 text-pink-300 group-hover:scale-110 transition-transform" />
-                  <span className="text-xs font-semibold text-zinc-300 group-hover:text-white">
+                  <IconElem className="size-6 text-[#6e546f] group-hover:scale-110 transition-transform" />
+                  <span className="text-xs font-bold text-[#1d1720]">
                     {cat.name}
                   </span>
                 </Link>
@@ -376,91 +474,110 @@ export default function CircuitCartShowcasePage() {
         </section>
 
         {/* ========================================================= */}
-        {/* 5. SPOTLIGHT PRODUCTS SECTION */}
+        {/* 5. SHOWCASE PRODUCT GRID (Figma Product Cards & Accessible Tabs) */}
         {/* ========================================================= */}
-        <section id="featured" className="space-y-6 pt-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="text-2xl font-bold text-white tracking-tight">
-              CircuitCart Showcase
-            </h2>
-
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-2 bg-[#18101b] border border-[#34243b] p-1 rounded-xl self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setActiveTab("new")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === "new"
-                    ? "bg-[#544061] text-white shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                New Arrival
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("bestseller")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === "bestseller"
-                    ? "bg-[#544061] text-white shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Bestseller
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("featured")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === "featured"
-                    ? "bg-[#544061] text-white shadow-xs"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Featured
-              </button>
-            </div>
+        <section
+          id="featured"
+          aria-label="Showcase Products"
+          className="w-full max-w-[1240px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6"
+        >
+          {/* Accessible Tabs Header (Underline Style per Figma) */}
+          <div
+            role="tablist"
+            aria-label="Product filter tabs"
+            className="flex items-center gap-6 sm:gap-8 border-b border-[#8a707c]/40 pb-px"
+          >
+            {tabList.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  role="tab"
+                  id={`tab-${tab.key}`}
+                  aria-selected={isActive}
+                  aria-controls={`panel-${tab.key}`}
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`text-sm sm:text-base transition-all pb-1.5 focus-visible:outline-2 focus-visible:outline-[#1d1720] rounded-xs cursor-pointer ${
+                    isActive
+                      ? "text-[#1d1720] font-semibold border-b-2 border-[#1d1720]"
+                      : "text-[#4a3a42] hover:text-[#1d1720] font-medium"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
-            {filteredProducts.map((prod) => (
-              <div
-                key={prod.id}
-                className="bg-[#1e1522] border border-[#38263e] rounded-2xl p-4 flex flex-col justify-between hover:border-[#6a4f6d] transition-all group"
-              >
-                <div>
-                  <div
-                    className="w-full h-40 rounded-xl mb-3.5 flex items-center justify-center p-3 text-center"
-                    style={{
-                      background: `linear-gradient(135deg, ${prod.gradientFrom}, ${prod.gradientTo})`,
-                    }}
+          {/* Product Cards 4-Column Grid */}
+          <div
+            role="tabpanel"
+            id={`panel-${activeTab}`}
+            aria-labelledby={`tab-${activeTab}`}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 transition-opacity duration-200 ease-out"
+          >
+            {filteredProducts.map((product) => {
+              const isFav = favorites.includes(product.id);
+              return (
+                <div
+                  key={product.id}
+                  className="bg-[#8b6d79] rounded-xl p-4 sm:p-5 flex flex-col justify-between items-center relative shadow-xs transition-all duration-200"
+                >
+                  {/* Upper-right Favorite Heart Button */}
+                  <button
+                    type="button"
+                    aria-label={
+                      isFav
+                        ? `Remove ${product.name} from favorites`
+                        : `Add ${product.name} to favorites`
+                    }
+                    onClick={() => toggleFavorite(product.id)}
+                    className="absolute top-3.5 right-3.5 p-1 rounded-full text-[#cbb8c2] hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-[#1d1720] z-10 cursor-pointer"
                   >
-                    <span className="text-xs font-bold text-white line-clamp-2">
-                      {prod.name}
-                    </span>
+                    <Heart
+                      className={`size-4.5 transition-colors ${
+                        isFav
+                          ? "fill-[#e13b4f] text-[#e13b4f]"
+                          : "stroke-[1.75]"
+                      }`}
+                    />
+                  </button>
+
+                  {/* Product Artwork in Upper Half */}
+                  <div className="w-full h-40 sm:h-44 flex items-center justify-center relative my-1 sm:my-2">
+                    <Image
+                      src={product.image}
+                      alt={product.name}
+                      width={220}
+                      height={220}
+                      sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 25vw"
+                      className="max-h-[145px] sm:max-h-[155px] w-auto h-auto object-contain pointer-events-none drop-shadow-sm select-none"
+                    />
                   </div>
 
-                  <span className="text-[11px] font-semibold text-pink-300 uppercase tracking-wider block mb-1">
-                    {prod.category}
-                  </span>
-                  <h3 className="text-sm font-bold text-white line-clamp-1 mb-2">
-                    {prod.name}
+                  {/* Centered Product Title (Max 3 lines / Clamped to 2-3 lines) */}
+                  <h3 className="text-center text-xs sm:text-[13px] font-medium text-[#1d1720] leading-snug line-clamp-2 h-9 flex items-center justify-center mt-1 px-1">
+                    {product.name}
                   </h3>
-                </div>
 
-                <div className="pt-3 border-t border-[#34243b] space-y-3">
-                  <div className="text-lg font-extrabold text-white">
-                    {prod.price}
+                  {/* Formatted Philippine Peso Price */}
+                  <div className="text-center text-sm sm:text-base font-bold text-[#1d1720] mt-1.5 mb-2">
+                    {formatPrice(product.price)}
                   </div>
-                  <Link
-                    href="/marketplace"
-                    className="w-full h-9 inline-flex items-center justify-center text-xs font-semibold bg-[#544061] text-white hover:bg-[#684d72] rounded-xl transition-all"
-                  >
-                    Buy Now
-                  </Link>
+
+                  {/* Full-width Compact Black Buy Now Button (Routes to /login) */}
+                  <div className="w-full mt-auto pt-1">
+                    <Link
+                      href="/login"
+                      className="w-full h-9 sm:h-10 inline-flex items-center justify-center text-xs font-semibold bg-[#1d1720] hover:bg-[#2b1f2e] text-white rounded-lg transition-all hover:-translate-y-px shadow-xs focus-visible:outline-2 focus-visible:outline-white"
+                    >
+                      Buy Now
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -469,40 +586,42 @@ export default function CircuitCartShowcasePage() {
         {/* ========================================================= */}
         <section
           id="discounts"
-          className="w-full bg-gradient-to-r from-[#2c1d30] via-[#201524] to-[#2c1d30] border border-[#3d2944] rounded-3xl p-8 sm:p-10 space-y-6"
+          className="w-[92vw] max-w-[1600px] mx-auto px-1 sm:px-2"
         >
-          <div className="text-center space-y-2">
-            <span className="inline-block px-3 py-1 bg-[#544061] text-pink-200 text-xs font-bold rounded-full uppercase tracking-wider">
-              Special Promotion
-            </span>
-            <h2 className="text-3xl font-extrabold text-white tracking-tight">
-              Discounts up to -50% with CircuitCart
-            </h2>
-            <p className="text-xs text-zinc-400 max-w-md mx-auto">
-              Verified tech deals on pre-owned and open-box laptops, smartphones, and accessories.
-            </p>
-          </div>
+          <div className="w-full bg-[#1c151e] border border-[#3b2e3c]/60 rounded-3xl p-8 sm:p-10 space-y-6 shadow-xl">
+            <div className="text-center space-y-2">
+              <span className="inline-block px-3 py-1 bg-[#544061] text-pink-200 text-xs font-bold rounded-full uppercase tracking-wider">
+                Special Promotion
+              </span>
+              <h2 className="text-3xl font-extrabold text-white tracking-tight">
+                Discounts up to -50% with CircuitCart
+              </h2>
+              <p className="text-xs text-zinc-400 max-w-md mx-auto">
+                Verified tech deals on pre-owned and open-box laptops, smartphones, and accessories.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {showcaseProducts.slice(0, 4).map((p) => (
-              <div
-                key={`disc-${p.id}`}
-                className="bg-[#18101b] border border-[#38263e] rounded-2xl p-4 text-center space-y-3"
-              >
-                <div className="text-xs font-bold text-white line-clamp-1">
-                  {p.name}
-                </div>
-                <div className="text-base font-extrabold text-pink-300">
-                  {p.price}
-                </div>
-                <Link
-                  href="/marketplace"
-                  className="w-full h-8 inline-flex items-center justify-center text-xs font-semibold bg-[#544061] text-white hover:bg-[#684d72] rounded-xl transition-all"
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {showcaseProducts.slice(0, 4).map((p) => (
+                <div
+                  key={`disc-${p.id}`}
+                  className="bg-[#241b26] border border-[#3d2f40] rounded-2xl p-4 text-center space-y-3"
                 >
-                  Buy Now
-                </Link>
-              </div>
-            ))}
+                  <div className="text-xs font-bold text-white line-clamp-1">
+                    {p.name}
+                  </div>
+                  <div className="text-base font-extrabold text-pink-300">
+                    {formatPrice(p.price)}
+                  </div>
+                  <Link
+                    href="/login"
+                    className="w-full h-8 inline-flex items-center justify-center text-xs font-semibold bg-[#544061] text-white hover:bg-[#684d72] rounded-xl transition-all"
+                  >
+                    Buy Now
+                  </Link>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -511,46 +630,48 @@ export default function CircuitCartShowcasePage() {
         {/* ========================================================= */}
         <section
           id="about"
-          className="w-full bg-[#1b121e] border border-[#38263e] rounded-3xl p-8 sm:p-12 space-y-8"
+          className="w-[92vw] max-w-[1600px] mx-auto px-1 sm:px-2"
         >
-          <div className="max-w-2xl space-y-3">
-            <h2 className="text-3xl font-extrabold text-white tracking-tight">
-              About CircuitCart
-            </h2>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              CircuitCart is the trusted technology marketplace tailored for Cebu and the Visayas. We connect buyers and sellers through verified listings, transparent condition ratings, and safe local trading.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-[#140e16] border border-[#34243b] rounded-2xl p-6 space-y-3">
-              <ShieldCheck className="size-7 text-emerald-400" />
-              <h3 className="text-base font-bold text-white">
-                Verified Tech Sellers
-              </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Every listing is backed by seller verification to ensure authentic hardware and safe transactions.
+          <div className="w-full bg-white border border-[#e7dfe2] rounded-3xl p-8 sm:p-12 space-y-8 shadow-sm text-[#1d1720]">
+            <div className="max-w-2xl space-y-3">
+              <h2 className="text-3xl font-extrabold text-[#1d1720] tracking-tight">
+                About CircuitCart
+              </h2>
+              <p className="text-sm text-[#716872] leading-relaxed">
+                CircuitCart is the trusted technology marketplace tailored for Cebu and the Visayas. We connect buyers and sellers through verified listings, transparent condition ratings, and safe local trading.
               </p>
             </div>
 
-            <div className="bg-[#140e16] border border-[#34243b] rounded-2xl p-6 space-y-3">
-              <Sparkles className="size-7 text-pink-300" />
-              <h3 className="text-base font-bold text-white">
-                Transparent Conditions
-              </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Detailed specs, condition grades (New, Like New, Good, Fair), and honest pricing in Philippine Pesos.
-              </p>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-[#fbf9fa] border border-[#e7dfe2] rounded-2xl p-6 space-y-3">
+                <ShieldCheck className="size-7 text-[#6e546f]" />
+                <h3 className="text-base font-bold text-[#1d1720]">
+                  Verified Tech Sellers
+                </h3>
+                <p className="text-xs text-[#716872] leading-relaxed">
+                  Every listing is backed by seller verification to ensure authentic hardware and safe transactions.
+                </p>
+              </div>
 
-            <div className="bg-[#140e16] border border-[#34243b] rounded-2xl p-6 space-y-3">
-              <RefreshCw className="size-7 text-purple-300" />
-              <h3 className="text-base font-bold text-white">
-                Better Electronics Lifecycle
-              </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Giving quality pre-owned laptops, smartphones, and gaming gear a second life in our tech ecosystem.
-              </p>
+              <div className="bg-[#fbf9fa] border border-[#e7dfe2] rounded-2xl p-6 space-y-3">
+                <Sparkles className="size-7 text-[#6e546f]" />
+                <h3 className="text-base font-bold text-[#1d1720]">
+                  Transparent Conditions
+                </h3>
+                <p className="text-xs text-[#716872] leading-relaxed">
+                  Detailed specs, condition grades (New, Like New, Good, Fair), and honest pricing in Philippine Pesos.
+                </p>
+              </div>
+
+              <div className="bg-[#fbf9fa] border border-[#e7dfe2] rounded-2xl p-6 space-y-3">
+                <RefreshCw className="size-7 text-[#6e546f]" />
+                <h3 className="text-base font-bold text-[#1d1720]">
+                  Better Electronics Lifecycle
+                </h3>
+                <p className="text-xs text-[#716872] leading-relaxed">
+                  Giving quality pre-owned laptops, smartphones, and gaming gear a second life in our tech ecosystem.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -559,9 +680,9 @@ export default function CircuitCartShowcasePage() {
       {/* ========================================================= */}
       {/* 8. FOOTER */}
       {/* ========================================================= */}
-      <footer className="w-full bg-[#100a12] border-t border-[#2a1a2e] pt-12 pb-8 mt-16 text-zinc-400 text-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-[#2a1a2e]">
+      <footer className="w-full bg-[#18111a] border-t border-[#2d1f2e] pt-12 pb-8 mt-12 text-zinc-400 text-xs">
+        <div className="w-[92vw] max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-[#2d1f2e]">
             <div className="md:col-span-5 space-y-3">
               <Link href="/" className="inline-flex items-center gap-2 select-none">
                 <svg
@@ -636,7 +757,7 @@ export default function CircuitCartShowcasePage() {
               <div className="flex items-center gap-3 pt-1">
                 <Link
                   href="/login"
-                  className="px-4 py-2 bg-[#1e1522] border border-[#34243b] text-white hover:bg-[#34243b] rounded-xl transition-colors"
+                  className="px-4 py-2 bg-[#261a28] border border-[#3b2a3d] text-white hover:bg-[#3b2a3d] rounded-xl transition-colors"
                 >
                   Sign in
                 </Link>

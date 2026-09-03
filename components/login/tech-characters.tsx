@@ -2,25 +2,23 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
-export type MascotState =
-  | "entering"
-  | "idle"
-  | "cursor"
+export type AuthPhase = "idle" | "checking" | "error" | "success";
+export type FocusedField =
+  | "name"
   | "email"
-  | "field-error"
-  | "password-empty"
-  | "password-hidden" // legacy fallback
-  | "password-typing"
-  | "password-visible"
-  | "checking"
-  | "error"
-  | "success";
+  | "password"
+  | "confirmPassword"
+  | "terms"
+  | null;
 
 interface TechCharactersProps {
-  state?: MascotState;
+  authPhase?: AuthPhase;
+  focusedField?: FocusedField;
+  isPasswordVisible?: boolean;
+  passwordLength?: number;
   className?: string;
   showBubble?: boolean;
-  customMessage?: string;
+  defaultMessage?: string;
 }
 
 type MascotName = "mon" | "phone" | "key" | "ctrl";
@@ -39,10 +37,13 @@ const PUPIL_SMOOTHING = 0.34;
 const BODY_SMOOTHING = 0.22;
 
 export function TechCharacters({
-  state = "idle",
+  authPhase = "idle",
+  focusedField = null,
+  isPasswordVisible = false,
+  passwordLength = 0,
   className = "",
   showBubble = true,
-  customMessage,
+  defaultMessage = "Ready to find your next upgrade?",
 }: TechCharactersProps) {
   const animationFrameRef = useRef<number | null>(null);
 
@@ -157,21 +158,15 @@ export function TechCharacters({
     };
   }, []);
 
-  let activeState: MascotState = state;
-  if (isEntering && state === "idle") {
-    activeState = "entering";
-  }
+  const isEnteringState = isEntering && authPhase === "idle";
+  const isChecking = authPhase === "checking";
+  const isError = authPhase === "error";
+  const isSuccess = authPhase === "success";
 
-  const isChecking = activeState === "checking";
-  const isError = activeState === "error";
-  const isSuccess = activeState === "success";
-  const isEnteringState = activeState === "entering";
-
-  const isPasswordTyping = activeState === "password-typing" || activeState === "password-hidden";
-  const isPasswordVisible = activeState === "password-visible";
-  const isPasswordEmpty = activeState === "password-empty";
-  const isEmail = activeState === "email";
-  const isFieldError = activeState === "field-error";
+  const isPasswordTyping = !isPasswordVisible && (focusedField === "password" || focusedField === "confirmPassword") && passwordLength > 0;
+  const isPasswordEmpty = !isPasswordVisible && (focusedField === "password" || focusedField === "confirmPassword") && passwordLength === 0;
+  const isEmail = focusedField === "email";
+  const isFieldError = false; // Kept for layout compatibility
 
   // Pointer Gaze active
   const isPointerGaze =
@@ -186,7 +181,7 @@ export function TechCharacters({
   const resolveLiveState = useCallback((): ActiveMessage => {
     if (isSuccess) {
       return {
-        text: "Welcome back!",
+        text: defaultMessage?.includes("join") ? "Welcome to CircuitCart!" : "Welcome back!",
         speaker: "group",
         priority: 1,
         isTemporary: false,
@@ -194,7 +189,7 @@ export function TechCharacters({
     }
     if (isChecking) {
       return {
-        text: "Checking your account…",
+        text: defaultMessage?.includes("join") ? "Creating your account…" : "Checking your account…",
         speaker: "group",
         priority: 2,
         isTemporary: false,
@@ -208,67 +203,24 @@ export function TechCharacters({
         isTemporary: false,
       };
     }
-    if (isPasswordVisible) {
-      return {
-        text: "We’re looking away.",
-        speaker: "group",
-        priority: 4,
-        isTemporary: false,
-      };
-    }
-    if (isPasswordTyping || isPasswordEmpty) {
-      return {
-        text: "Is that a secret?",
-        speaker: "group",
-        priority: 7,
-        isTemporary: false,
-      };
-    }
-    if (isEmail) {
-      return {
-        text: "Good to see you again.",
-        speaker: "group",
-        priority: 8,
-        isTemporary: false,
-      };
-    }
-    if (isFieldError) {
-      return {
-        text: "Let’s check that again.",
-        speaker: "group",
-        priority: 8,
-        isTemporary: false,
-      };
-    }
 
     if (isPointerMovingRef.current && isPointerGaze) {
       return {
         text: "We see you looking around.",
         speaker: "group",
-        priority: 9,
+        priority: 8,
         isTemporary: true,
         duration: 1600,
       };
     }
 
     return {
-      text: customMessage ?? "Ready to find your next upgrade?",
+      text: defaultMessage ?? "Ready to find your next upgrade?",
       speaker: "group",
-      priority: 10,
+      priority: 9,
       isTemporary: false,
     };
-  }, [
-    isSuccess,
-    isChecking,
-    isError,
-    isPasswordVisible,
-    isPasswordTyping,
-    isPasswordEmpty,
-    isEmail,
-    isFieldError,
-    isPointerGaze,
-    customMessage,
-  ]);
+  }, [isSuccess, isChecking, isError, isPointerGaze, defaultMessage]);
 
   // Central Dispatcher: Enforces priority, tokens, text fade (80ms out/140ms in), and timer cleanup
   const dispatchMessage = useCallback(
@@ -331,15 +283,59 @@ export function TechCharacters({
     dispatchMessageRef.current = dispatchMessage;
   }, [dispatchMessage]);
 
-  // Sync state changes with central message controller
+  // Sync persistent state changes with central message controller
   useEffect(() => {
     const liveMsg = resolveLiveState();
 
     // If state change is higher or equal priority, dispatch it
     if (liveMsg.priority <= currentActiveMsg.current.priority) {
-      dispatchMessage(liveMsg);
+      const timer = setTimeout(() => {
+        dispatchMessage(liveMsg);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [state, resolveLiveState, dispatchMessage]);
+  }, [authPhase, resolveLiveState, dispatchMessage]);
+
+  // Handle temporary field focus messages
+  useEffect(() => {
+    if (focusedField) {
+      let text = "";
+      if (focusedField === "name") text = "What should we call you?";
+      else if (focusedField === "email") text = defaultMessage?.includes("join") ? "Looking good so far." : "Good to see you again.";
+      else if (focusedField === "password") text = "Is that a secret?";
+      else if (focusedField === "confirmPassword") text = "One more time.";
+      else if (focusedField === "terms") text = "Almost there!";
+
+      if (text) {
+        const timer = setTimeout(() => {
+          dispatchMessage({
+            text,
+            speaker: "group",
+            priority: 7,
+            isTemporary: true,
+            duration: 1600,
+          });
+        }, 0);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [focusedField, defaultMessage, dispatchMessage]);
+
+  // Handle temporary password visible message
+  useEffect(() => {
+    if (isPasswordVisible) {
+      const timer = setTimeout(() => {
+        dispatchMessage({
+          text: "We’re looking away.",
+          speaker: "group",
+          priority: 4,
+          isTemporary: true,
+          duration: 1600,
+        });
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [isPasswordVisible, dispatchMessage]);
 
   // Poke handler for click, tap, and keyboard interaction
   const handlePoke = useCallback(
@@ -654,7 +650,7 @@ export function TechCharacters({
     }
   }, [isPointerGaze, returnMascotsToNeutral]);
 
-  const enableBlink = activeState === "idle" && !entranceBeat && !pokedMascot;
+  const enableBlink = authPhase === "idle" && !focusedField && !isPasswordVisible && !entranceBeat && !pokedMascot;
 
   return (
     <div

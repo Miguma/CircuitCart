@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Search,
   Heart,
@@ -10,46 +11,118 @@ import {
   PlusCircle,
   SlidersHorizontal,
   ChevronDown,
+  User,
+  Package,
+  Settings,
+  LogOut,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useMarketplace } from "./marketplace-provider";
+import { CATEGORIES, CategoryFilter } from "./marketplace-data";
+import { toast } from "sonner";
 
 interface MarketplaceHeaderProps {
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  wishlistCount: number;
-  cartCount: number;
-  selectedCategory: string;
-  onSelectCategory: (cat: string) => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  selectedCategory?: CategoryFilter;
+  onSelectCategory?: (cat: CategoryFilter) => void;
 }
 
 export function MarketplaceHeader({
-  searchQuery,
-  onSearchChange,
-  wishlistCount,
-  cartCount,
-  selectedCategory,
-  onSelectCategory,
-}: MarketplaceHeaderProps) {
-  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  searchQuery: propSearchQuery,
+  onSearchChange: propOnSearchChange,
+  selectedCategory: propSelectedCategory,
+  onSelectCategory: propOnSelectCategory,
+}: MarketplaceHeaderProps = {}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const {
+    searchQuery: ctxSearchQuery,
+    setSearchQuery: ctxSetSearchQuery,
+    selectedCategory: ctxSelectedCategory,
+    setSelectedCategory: ctxSetSelectedCategory,
+    favorites,
+    totalCartCount,
+    unreadNotificationsCount,
+    demoProfile,
+  } = useMarketplace();
 
-  const categories = [
-    "All",
-    "Laptops",
-    "Gaming",
-    "Components",
-    "Mobile",
-    "Audio",
-    "Accessories",
-  ];
+  // Use props if provided, otherwise fallback to context
+  const searchQuery = propSearchQuery ?? ctxSearchQuery;
+  const onSearchChange = propOnSearchChange ?? ctxSetSearchQuery;
+  const selectedCategory = propSelectedCategory ?? ctxSelectedCategory;
+  const onSelectCategory = propOnSelectCategory ?? ctxSetSelectedCategory;
+
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const categoryMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const userButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Close menus on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        categoryMenuRef.current &&
+        !categoryMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowCategoryMenu(false);
+      }
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Keyboard accessibility for dropdowns (Escape to close)
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (showCategoryMenu) setShowCategoryMenu(false);
+        if (showUserMenu) {
+          setShowUserMenu(false);
+          userButtonRef.current?.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showCategoryMenu, showUserMenu]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pathname !== "/marketplace") {
+      router.push("/marketplace");
+    }
+  };
+
+  const handleCategoryPick = (cat: (typeof CATEGORIES)[number]) => {
+    onSelectCategory(cat);
+    setShowCategoryMenu(false);
+    if (pathname !== "/marketplace") {
+      router.push("/marketplace");
+    }
+  };
+
+  const handleLogout = () => {
+    setShowUserMenu(false);
+    toast.info("Logged out of demo session.");
+    router.push("/login");
+  };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#211a24]/95 backdrop-blur-md border-b border-white/10 shadow-lg transition-all">
+    <header className="sticky top-0 z-40 w-full glass-marketplace-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ROW 1: Logo, Search (desktop), Actions */}
         <div className="flex items-center justify-between h-16 gap-3 sm:gap-6">
           {/* Logo / Brand Mark */}
           <Link
-            href="/"
+            href="/marketplace"
             className="inline-flex items-center gap-2 select-none focus-visible:outline-2 focus-visible:outline-[#e59bc9] rounded-xs shrink-0"
           >
             <svg
@@ -86,13 +159,18 @@ export function MarketplaceHeader({
           </Link>
 
           {/* DESKTOP SEARCH & CATEGORY SELECTOR */}
-          <div className="hidden md:flex items-center flex-1 max-w-2xl relative gap-2">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="hidden md:flex items-center flex-1 max-w-2xl relative gap-2"
+          >
             {/* Category Dropdown Trigger */}
-            <div className="relative">
+            <div className="relative" ref={categoryMenuRef}>
               <button
                 type="button"
+                aria-haspopup="listbox"
+                aria-expanded={showCategoryMenu}
                 onClick={() => setShowCategoryMenu((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 h-10 px-3 text-xs font-semibold text-[#fffafa] bg-[#342339] border border-white/10 hover:bg-[#45304b] rounded-xl transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 h-10 px-3 text-xs font-semibold text-[#fffafa] bg-[#342339] border border-white/10 hover:bg-[#45304b] rounded-xl transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer"
               >
                 <SlidersHorizontal className="size-3.5 text-[#e59bc9]" />
                 <span className="truncate max-w-[90px]">{selectedCategory}</span>
@@ -101,16 +179,18 @@ export function MarketplaceHeader({
 
               {/* Category Dropdown Menu */}
               {showCategoryMenu && (
-                <div className="absolute top-12 left-0 w-44 bg-[#211a24] border border-white/10 rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95">
-                  {categories.map((cat) => (
+                <div
+                  role="listbox"
+                  className="absolute top-12 left-0 w-44 glass-dropdown rounded-xl py-1.5 z-50 animate-in fade-in zoom-in-95"
+                >
+                  {CATEGORIES.map((cat) => (
                     <button
                       key={cat}
                       type="button"
-                      onClick={() => {
-                        onSelectCategory(cat);
-                        setShowCategoryMenu(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors ${
+                      role="option"
+                      aria-selected={selectedCategory === cat}
+                      onClick={() => handleCategoryPick(cat)}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors cursor-pointer ${
                         selectedCategory === cat
                           ? "bg-[#65486f] text-[#fffafa] font-semibold"
                           : "text-[#b9adb6] hover:bg-[#342339] hover:text-[#fffafa]"
@@ -134,89 +214,156 @@ export function MarketplaceHeader({
                 className="w-full h-10 pl-10 pr-4 bg-[#342339] border border-white/10 text-[#fffafa] placeholder:text-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-sm transition-all"
               />
             </div>
-          </div>
+          </form>
 
           {/* ACTIONS & USER MENU */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Sell Button */}
-            <Button
-              type="button"
-              onClick={() => alert("Seller listing creation will be built in a future step.")}
-              className="hidden sm:inline-flex items-center gap-1.5 h-10 px-4 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-[#fffafa] rounded-xl shadow-xs transition-colors"
+            <Link
+              href="/marketplace/sell"
+              className="hidden sm:inline-flex items-center gap-1.5 h-10 px-4 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-[#fffafa] rounded-xl shadow-xs transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
             >
               <PlusCircle className="size-4 text-[#e59bc9]" />
               <span>Sell</span>
-            </Button>
+            </Link>
 
-            {/* Wishlist Button */}
-            <button
-              type="button"
-              onClick={() => alert(`Wishlist contains ${wishlistCount} item(s).`)}
-              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors"
-              aria-label={`Wishlist with ${wishlistCount} items`}
+            {/* Favorites Button */}
+            <Link
+              href="/marketplace/favorites"
+              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              aria-label={`Favorites with ${favorites.length} items`}
             >
               <Heart className="size-5" />
-              {wishlistCount > 0 && (
+              {favorites.length > 0 && (
                 <span className="absolute top-1 right-1 size-4 bg-[#b78bd7] text-[#19131b] text-[10px] font-extrabold rounded-full flex items-center justify-center">
-                  {wishlistCount}
+                  {favorites.length}
                 </span>
               )}
-            </button>
+            </Link>
 
             {/* Cart Button */}
-            <button
-              type="button"
-              onClick={() => alert(`Shopping cart contains ${cartCount} item(s).`)}
-              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors"
-              aria-label={`Cart with ${cartCount} items`}
+            <Link
+              href="/marketplace/cart"
+              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              aria-label={`Cart with ${totalCartCount} items`}
             >
               <ShoppingCart className="size-5" />
-              {cartCount > 0 && (
+              {totalCartCount > 0 && (
                 <span className="absolute top-1 right-1 size-4 bg-[#e59bc9] text-[#19131b] text-[10px] font-extrabold rounded-full flex items-center justify-center">
-                  {cartCount}
+                  {totalCartCount}
                 </span>
               )}
-            </button>
+            </Link>
 
-            {/* Notifications */}
-            <button
-              type="button"
-              onClick={() => alert("You have 2 new buyer updates.")}
-              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors"
-              aria-label="Notifications"
+            {/* Notifications Button */}
+            <Link
+              href="/marketplace/notifications"
+              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              aria-label={`Notifications ${unreadNotificationsCount > 0 ? `(${unreadNotificationsCount} unread)` : ""}`}
             >
               <Bell className="size-5" />
-              <span className="absolute top-1.5 right-1.5 size-2 bg-emerald-400 rounded-full ring-2 ring-[#211a24]" />
-            </button>
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 size-2.5 bg-emerald-400 rounded-full ring-2 ring-[#211a24]" />
+              )}
+            </Link>
 
-            {/* User Profile Avatar / Menu */}
-            <div className="pl-1 border-l border-white/10">
+            {/* User Profile Avatar / Accessible Dropdown Menu */}
+            <div className="pl-1 border-l border-white/10 relative" ref={userMenuRef}>
               <button
+                ref={userButtonRef}
                 type="button"
-                onClick={() => alert("User profile menu: Demo Account (demo@marketplace.test)")}
-                className="flex items-center gap-2 p-1.5 text-[#fffafa] hover:bg-[#342339] rounded-xl transition-colors"
-                aria-label="User menu"
+                aria-haspopup="menu"
+                aria-expanded={showUserMenu}
+                onClick={() => setShowUserMenu((prev) => !prev)}
+                className="flex items-center gap-2 p-1.5 text-[#fffafa] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer"
+                aria-label="User account menu"
               >
                 <div className="size-7 rounded-full bg-[#65486f] border border-white/10 flex items-center justify-center text-xs font-bold text-[#fffafa]">
-                  D
+                  {demoProfile.name.charAt(0) || "D"}
                 </div>
+                <span className="hidden lg:inline text-xs font-semibold max-w-[90px] truncate text-[#fffafa]">
+                  {demoProfile.name}
+                </span>
+                <ChevronDown className="size-3.5 text-[#b9adb6] hidden sm:block" />
               </button>
+
+              {/* User Dropdown Menu */}
+              {showUserMenu && (
+                <div
+                  role="menu"
+                  aria-orientation="vertical"
+                  className="absolute right-0 top-12 w-56 glass-dropdown rounded-2xl py-2 z-50 animate-in fade-in zoom-in-95"
+                >
+                  {/* Account Summary Header */}
+                  <div className="px-4 py-2 border-b border-white/10 mb-1">
+                    <div className="text-xs font-bold text-[#fffafa] truncate">
+                      {demoProfile.name}
+                    </div>
+                    <div className="text-[11px] text-[#b9adb6] truncate">
+                      {demoProfile.email}
+                    </div>
+                  </div>
+
+                  {/* Menu Items */}
+                  <Link
+                    href="/marketplace/profile"
+                    role="menuitem"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#fffafa] hover:bg-[#342339] hover:text-[#e59bc9] transition-colors"
+                  >
+                    <User className="size-3.5 text-[#e59bc9]" />
+                    <span>View profile</span>
+                  </Link>
+
+                  <Link
+                    href="/marketplace/orders"
+                    role="menuitem"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#fffafa] hover:bg-[#342339] hover:text-[#e59bc9] transition-colors"
+                  >
+                    <Package className="size-3.5 text-[#e59bc9]" />
+                    <span>My orders</span>
+                  </Link>
+
+                  <Link
+                    href="/marketplace/settings"
+                    role="menuitem"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#fffafa] hover:bg-[#342339] hover:text-[#e59bc9] transition-colors"
+                  >
+                    <Settings className="size-3.5 text-[#e59bc9]" />
+                    <span>Settings</span>
+                  </Link>
+
+                  <div className="my-1 border-t border-white/10" />
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition-colors text-left cursor-pointer"
+                  >
+                    <LogOut className="size-3.5" />
+                    <span>Log out</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ROW 2: MOBILE SEARCH INPUT */}
-        <div className="flex md:hidden pb-3">
-          <div className="relative w-full">
+        {/* ROW 2: Mobile Search Bar */}
+        <div className="flex md:hidden items-center pb-3 pt-1">
+          <form onSubmit={handleSearchSubmit} className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#b9adb6]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search products, brands, or categories"
-              className="w-full h-10 pl-10 pr-4 bg-[#342339] border border-white/10 text-[#fffafa] placeholder:text-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-sm transition-all"
+              placeholder="Search products, brands, categories..."
+              className="w-full h-10 pl-10 pr-4 bg-[#342339] border border-white/10 text-[#fffafa] placeholder:text-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-xs transition-all"
             />
-          </div>
+          </form>
         </div>
       </div>
     </header>

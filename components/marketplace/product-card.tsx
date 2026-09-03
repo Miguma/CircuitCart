@@ -1,7 +1,22 @@
 "use client";
 
 import React from "react";
-import { Heart, Eye, MapPin, CheckCircle2, Star, ShoppingCart } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  Heart,
+  Eye,
+  MapPin,
+  CheckCircle2,
+  Star,
+  ShoppingCart,
+  Laptop,
+  Smartphone,
+  Headphones,
+  Gamepad2,
+  Cpu,
+  Layers,
+} from "lucide-react";
 import { Product } from "./marketplace-data";
 
 interface ProductCardProps {
@@ -19,10 +34,28 @@ export function ProductCard({
   onQuickView,
   onAddToCart,
 }: ProductCardProps) {
+  const getFallbackIcon = (category: string) => {
+    switch (category) {
+      case "Laptops":
+        return <Laptop className="size-10 text-[#65486f]" />;
+      case "Mobile":
+        return <Smartphone className="size-10 text-[#65486f]" />;
+      case "Audio":
+        return <Headphones className="size-10 text-[#65486f]" />;
+      case "Gaming":
+        return <Gamepad2 className="size-10 text-[#65486f]" />;
+      case "Components":
+        return <Cpu className="size-10 text-[#65486f]" />;
+      default:
+        return <Layers className="size-10 text-[#65486f]" />;
+    }
+  };
+
   return (
-    <div className="group bg-[#f8f3f3] border border-[#eadcde] hover:border-[#65486f]/40 rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg relative">
-      {/* Top Bar: Condition Badge & Wishlist Button */}
+    <div className="group bg-[#f8f3f3] border border-[#eadcde] hover:border-[#65486f]/40 rounded-2xl p-4 flex flex-col justify-between transition-all duration-150 ease-out hover:-translate-y-0.5 active:translate-y-0 motion-reduce:transform-none hover:shadow-lg relative">
+      {/* Clickable Card Link Area */}
       <div>
+        {/* Top Bar: Condition Badge & Wishlist Button */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <span
             className={`px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider rounded-md ${
@@ -40,59 +73,83 @@ export function ProductCard({
 
           <button
             type="button"
-            onClick={() => onToggleWishlist(product.id)}
-            className={`p-1.5 rounded-full transition-all ${
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleWishlist(product.id);
+            }}
+            className={`p-1.5 rounded-full transition-colors cursor-pointer relative z-10 ${
               isWishlisted
                 ? "text-rose-600 bg-rose-50 hover:bg-rose-100"
                 : "text-[#716872] hover:text-[#1d1720] hover:bg-[#eadcde]"
             }`}
-            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            aria-label={isWishlisted ? `Remove ${product.name} from saved items` : `Save ${product.name}`}
           >
             <Heart className={`size-4 ${isWishlisted ? "fill-rose-600" : ""}`} />
           </button>
         </div>
 
-        {/* Product Visual Banner / Tech Graphic */}
-        <div
-          className="w-full h-36 rounded-xl mb-3.5 flex items-center justify-center relative overflow-hidden group-hover:scale-[1.01] transition-transform duration-200 shadow-inner"
-          style={{
-            background: `linear-gradient(135deg, ${product.gradientFrom}, ${product.gradientTo})`,
-          }}
+        {/* Product Visual Container with Real Image */}
+        <Link
+          href={`/marketplace/products/${product.id}`}
+          className="block relative rounded-xl mb-3.5 overflow-hidden bg-[#ebe2e5] border border-[#ded0d5] aspect-[4/3] flex items-center justify-center p-4 focus-visible:outline-2 focus-visible:outline-[#65486f]"
+          aria-label={`View details for ${product.name}`}
         >
-          <div className="text-white/90 text-center px-4">
-            <span className="text-xs font-semibold uppercase tracking-widest text-pink-200/70 block mb-1">
-              {product.category}
-            </span>
-            <span className="text-sm font-bold text-white line-clamp-1">
-              {product.name}
-            </span>
-          </div>
+          {product.image ? (
+            <div className="w-full h-full relative flex items-center justify-center">
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                className="object-contain p-2 group-hover:scale-[1.02] transition-transform duration-150 ease-out select-none pointer-events-none"
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-1.5 text-center p-2">
+              {getFallbackIcon(product.category)}
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#65486f]/80">
+                {product.category}
+              </span>
+            </div>
+          )}
 
           {/* Quick View Overlay Button */}
           <button
             type="button"
-            onClick={() => onQuickView(product)}
-            className="absolute inset-0 bg-[#19131b]/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-xs font-semibold text-white"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onQuickView(product);
+            }}
+            className="absolute inset-x-0 bottom-0 py-2 bg-[#19131b]/80 backdrop-blur-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer z-10"
+            aria-label={`Quick view ${product.name}`}
           >
-            <Eye className="size-4 text-[#e59bc9]" />
-            Quick view
+            <Eye className="size-3.5 text-[#e59bc9]" />
+            <span>Quick view</span>
           </button>
-        </div>
+        </Link>
 
         {/* Title */}
-        <h3 className="text-sm font-bold text-[#1d1720] line-clamp-2 leading-snug group-hover:text-[#65486f] transition-colors mb-1.5">
-          {product.name}
+        <h3 className="text-[15px] font-bold text-[#1d1720] line-clamp-2 leading-snug group-hover:text-[#65486f] transition-colors mb-1.5">
+          <Link
+            href={`/marketplace/products/${product.id}`}
+            className="hover:underline focus-visible:outline-2 focus-visible:outline-[#65486f] rounded-xs"
+            title={product.name}
+          >
+            {product.name}
+          </Link>
         </h3>
 
         {/* Rating & Review Count */}
-        <div className="flex items-center gap-1 text-xs text-[#716872] mb-2">
+        <div className="flex items-center gap-1 text-[13px] text-[#716872] mb-1.5">
           <Star className="size-3.5 fill-amber-400 text-amber-400" />
           <span className="font-semibold text-[#1d1720]">{product.rating}</span>
           <span className="text-[#716872]">({product.reviewCount})</span>
         </div>
 
         {/* Specs snippet */}
-        <p className="text-xs text-[#716872] line-clamp-1 mb-3 leading-relaxed">
+        <p className="text-[13px] text-[#716872] line-clamp-1 mb-3 leading-relaxed">
           {product.specs}
         </p>
       </div>
@@ -100,9 +157,9 @@ export function ProductCard({
       {/* Bottom Section: Seller, Location, Price & Cart Action */}
       <div className="pt-3 border-t border-[#eadcde] space-y-2.5">
         {/* Seller Name & Location */}
-        <div className="space-y-0.5 text-xs text-[#716872]">
+        <div className="space-y-0.5 text-[13px] text-[#716872]">
           <div className="flex items-center gap-1 font-semibold text-[#65486f]">
-            <span className="truncate max-w-[150px]">{product.sellerName}</span>
+            <span className="truncate max-w-[160px]">{product.sellerName}</span>
             {product.isVerifiedSeller && (
               <CheckCircle2 className="size-3.5 text-emerald-600 fill-emerald-100 shrink-0" />
             )}
@@ -128,8 +185,12 @@ export function ProductCard({
 
           <button
             type="button"
-            onClick={() => onAddToCart(product)}
-            className="p-2 text-[#fffafa] bg-[#65486f] hover:bg-[#7a5985] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAddToCart(product);
+            }}
+            className="p-2 text-[#fffafa] bg-[#65486f] hover:bg-[#7a5985] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer"
             aria-label={`Add ${product.name} to cart`}
           >
             <ShoppingCart className="size-4" />

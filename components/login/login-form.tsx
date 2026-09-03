@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CircuitCartWordmark } from "@/components/ui/circuitcart-wordmark";
 import { demoLogin, DEMO_CREDENTIALS } from "@/lib/auth-demo";
-import { MascotState } from "./tech-characters";
+import { AuthPhase, FocusedField } from "./tech-characters";
 
 const loginSchema = z.object({
   email: z
@@ -39,15 +39,22 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 interface LoginFormProps {
-  onStateChange: (state: MascotState) => void;
+  onAuthPhaseChange: (phase: AuthPhase) => void;
+  onFocusChange: (field: FocusedField) => void;
+  onPasswordVisibilityChange: (visible: boolean) => void;
+  onPasswordLengthChange: (length: number) => void;
 }
 
-export function LoginForm({ onStateChange }: LoginFormProps) {
+export function LoginForm({
+  onAuthPhaseChange,
+  onFocusChange,
+  onPasswordVisibilityChange,
+  onPasswordLengthChange,
+}: LoginFormProps) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSuccessState, setIsSuccessState] = useState(false);
-  const [activeFocus, setActiveFocus] = useState<"email" | "password" | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [passwordLength, setPasswordLength] = useState(0);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
@@ -57,7 +64,6 @@ export function LoginForm({ onStateChange }: LoginFormProps) {
     handleSubmit,
     setValue,
     clearErrors,
-    getValues,
     control,
     formState: { errors },
   } = useForm<LoginFormData>({
@@ -81,54 +87,26 @@ export function LoginForm({ onStateChange }: LoginFormProps) {
   const isValidEmail = !!watchEmail && z.string().email().safeParse(watchEmail).success;
   const isFilledPassword = (watchPassword?.length ?? 0) > 0;
 
-  // Sync mascot state & immediately restore expression when authError is cleared
+  // Sync callbacks with local state
+  useEffect(() => {
+    onPasswordVisibilityChange(showPassword);
+  }, [showPassword, onPasswordVisibilityChange]);
+
+  useEffect(() => {
+    onPasswordLengthChange(passwordLength);
+  }, [passwordLength, onPasswordLengthChange]);
+
   useEffect(() => {
     if (isSuccessState) {
-      onStateChange("success");
-      return;
+      onAuthPhaseChange("success");
+    } else if (authError) {
+      onAuthPhaseChange("error");
+    } else if (isChecking) {
+      onAuthPhaseChange("checking");
+    } else {
+      onAuthPhaseChange("idle");
     }
-    if (authError) {
-      onStateChange("error");
-      return;
-    }
-    if (isChecking) {
-      onStateChange("checking");
-      return;
-    }
-
-    const passVal = getValues("password");
-    const len = passVal ? passVal.length : passwordLength;
-
-    if (showPassword && len > 0) {
-      onStateChange("password-visible");
-      return;
-    }
-
-    if (activeFocus === "password") {
-      if (len > 0) {
-        onStateChange("password-typing");
-      } else {
-        onStateChange("password-empty");
-      }
-      return;
-    }
-
-    if (activeFocus === "email") {
-      onStateChange("email");
-      return;
-    }
-
-    onStateChange("idle");
-  }, [
-    showPassword,
-    passwordLength,
-    activeFocus,
-    isChecking,
-    authError,
-    isSuccessState,
-    getValues,
-    onStateChange,
-  ]);
+  }, [isSuccessState, authError, isChecking, onAuthPhaseChange]);
 
   const handleFillDemo = () => {
     setValue("email", DEMO_CREDENTIALS.email, { shouldValidate: true });
@@ -164,42 +142,37 @@ export function LoginForm({ onStateChange }: LoginFormProps) {
     setAuthError(null);
     setIsChecking(true);
 
+    // 3 second safety fallback
+    const safetyFallback = setTimeout(() => {
+      setIsChecking(false);
+      setAuthError("Authentication timed out.");
+    }, 3000);
+
     setTimeout(async () => {
       try {
         const res = await demoLogin(data.email, data.password);
+        clearTimeout(safetyFallback);
 
         if (res.success) {
+          setIsChecking(false);
           setIsSuccessState(true);
           setTimeout(() => {
             router.push("/marketplace");
           }, 600);
         } else {
+          setIsChecking(false);
           setAuthError("Incorrect email or password.");
-          setTimeout(() => {
-            setIsChecking(false);
-          }, 1200);
         }
       } catch {
+        clearTimeout(safetyFallback);
+        setIsChecking(false);
         setAuthError("An unexpected error occurred. Please try again.");
-        setTimeout(() => {
-          setIsChecking(false);
-        }, 1200);
       }
     }, 700);
   };
 
   const onInvalidSubmit = () => {
-    onStateChange("field-error");
-    setTimeout(() => {
-      if (activeFocus === "email") {
-        onStateChange("email");
-      } else if (activeFocus === "password") {
-        const passVal = getValues("password");
-        onStateChange(passVal && passVal.length > 0 ? "password-typing" : "password-empty");
-      } else {
-        onStateChange("idle");
-      }
-    }, 800);
+    // Optionally focus the first invalid field or just let native HTML5 validation work
   };
 
   return (
@@ -243,12 +216,12 @@ export function LoginForm({ onStateChange }: LoginFormProps) {
               disabled={isChecking || isSuccessState}
               {...emailRegister}
               onFocus={() => {
-                setActiveFocus("email");
+                onFocusChange("email");
                 if (authError) setAuthError(null);
               }}
               onBlur={(e) => {
                 markTouched("email");
-                setActiveFocus(null);
+                onFocusChange(null);
                 emailRegister.onBlur(e);
               }}
               className={`h-[48px] text-base pl-4 pr-10 bg-white rounded-xl transition-all ${
@@ -297,12 +270,12 @@ export function LoginForm({ onStateChange }: LoginFormProps) {
               disabled={isChecking || isSuccessState}
               {...passwordRegister}
               onFocus={() => {
-                setActiveFocus("password");
+                onFocusChange("password");
                 if (authError) setAuthError(null);
               }}
               onBlur={(e) => {
                 markTouched("password");
-                setActiveFocus(null);
+                onFocusChange(null);
                 passwordRegister.onBlur(e);
               }}
               className={`h-[48px] text-base pl-4 pr-12 bg-white rounded-xl transition-all ${

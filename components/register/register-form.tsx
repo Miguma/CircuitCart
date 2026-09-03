@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CircuitCartWordmark } from "@/components/ui/circuitcart-wordmark";
-import { MascotState } from "@/components/login/tech-characters";
+import { AuthPhase, FocusedField } from "@/components/login/tech-characters";
 
 const registerSchema = z
   .object({
@@ -50,19 +50,24 @@ const registerSchema = z
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 interface RegisterFormProps {
-  onStateChange: (state: MascotState, customMessage?: string) => void;
+  onAuthPhaseChange: (phase: AuthPhase) => void;
+  onFocusChange: (field: FocusedField) => void;
+  onPasswordVisibilityChange: (visible: boolean) => void;
+  onPasswordLengthChange: (length: number) => void;
 }
 
-export function RegisterForm({ onStateChange }: RegisterFormProps) {
+export function RegisterForm({
+  onAuthPhaseChange,
+  onFocusChange,
+  onPasswordVisibilityChange,
+  onPasswordLengthChange,
+}: RegisterFormProps) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSuccessState, setIsSuccessState] = useState(false);
   const [isSubmittingState, setIsSubmittingState] = useState(false);
   const [formHasSubmittedError, setFormHasSubmittedError] = useState(false);
-  const [activeFocus, setActiveFocus] = useState<
-    "fullName" | "email" | "password" | "confirmPassword" | "terms" | null
-  >(null);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
   const [passwordValue, setPasswordValue] = useState("");
@@ -118,71 +123,28 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
     isConfirmMatching &&
     watchTerms === true;
 
-  // Mascot speech message according to priority
+  // Sync callbacks with local state
   const isPassVisible = showPassword || showConfirmPassword;
 
-  const getRegistrationMessage = () => {
-    if (isSuccessState) return "Welcome to CircuitCart!";
-    if (isSubmittingState) return "Creating your account…";
-    if (formHasSubmittedError) return "Let’s check that again.";
-    if (isPassVisible) return "We’re looking away.";
-    if (activeFocus === "password") return "Is that a secret?";
-    if (activeFocus === "confirmPassword") return "One more time.";
-    if (activeFocus === "fullName") return "What should we call you?";
-    if (activeFocus === "email") return "Looking good so far.";
-    if (activeFocus === "terms") return "Almost there!";
-    return "Ready to join CircuitCart?";
-  };
+  useEffect(() => {
+    onPasswordVisibilityChange(isPassVisible);
+  }, [isPassVisible, onPasswordVisibilityChange]);
 
-  const currentRegistrationMessage = getRegistrationMessage();
+  useEffect(() => {
+    onPasswordLengthChange(passwordValue.length > 0 ? passwordValue.length : confirmPasswordValue.length);
+  }, [passwordValue, confirmPasswordValue, onPasswordLengthChange]);
 
-  // Sync mascot state & registration speech message
   useEffect(() => {
     if (isSuccessState) {
-      onStateChange("success", currentRegistrationMessage);
-      return;
+      onAuthPhaseChange("success");
+    } else if (isSubmittingState) {
+      onAuthPhaseChange("checking");
+    } else if (formHasSubmittedError) {
+      onAuthPhaseChange("error");
+    } else {
+      onAuthPhaseChange("idle");
     }
-    if (isSubmittingState) {
-      onStateChange("checking", currentRegistrationMessage);
-      return;
-    }
-    if (formHasSubmittedError) {
-      onStateChange("error", currentRegistrationMessage);
-      return;
-    }
-
-    if (isPassVisible) {
-      onStateChange("password-visible", currentRegistrationMessage);
-      return;
-    }
-
-    if (activeFocus === "password" || activeFocus === "confirmPassword") {
-      const val = activeFocus === "password" ? passwordValue : confirmPasswordValue;
-      if (val && val.length > 0) {
-        onStateChange("password-typing", currentRegistrationMessage);
-      } else {
-        onStateChange("password-empty", currentRegistrationMessage);
-      }
-      return;
-    }
-
-    if (activeFocus === "email" || activeFocus === "fullName" || activeFocus === "terms") {
-      onStateChange("email", currentRegistrationMessage);
-      return;
-    }
-
-    onStateChange("idle", currentRegistrationMessage);
-  }, [
-    isPassVisible,
-    activeFocus,
-    passwordValue,
-    confirmPasswordValue,
-    isSubmittingState,
-    isSuccessState,
-    formHasSubmittedError,
-    currentRegistrationMessage,
-    onStateChange,
-  ]);
+  }, [isSuccessState, isSubmittingState, formHasSubmittedError, onAuthPhaseChange]);
 
   const fullNameRegister = register("fullName", {
     onChange: () => {
@@ -232,12 +194,17 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
   const onSubmit = async () => {
     setFormHasSubmittedError(false);
     setIsSubmittingState(true);
-    onStateChange("checking");
+
+    // 3 second safety fallback
+    const safetyFallback = setTimeout(() => {
+      setIsSubmittingState(false);
+      setFormHasSubmittedError(true);
+    }, 3000);
 
     setTimeout(() => {
+      clearTimeout(safetyFallback);
       setIsSubmittingState(false);
       setIsSuccessState(true);
-      onStateChange("success");
 
       setTimeout(() => {
         router.push("/marketplace");
@@ -247,10 +214,6 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
 
   const onInvalidSubmit = () => {
     setFormHasSubmittedError(true);
-    onStateChange("field-error");
-    setTimeout(() => {
-      setFormHasSubmittedError(false);
-    }, 2500);
   };
 
   return (
@@ -278,10 +241,7 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
         </p>
       </div>
 
-      {/* Hidden ARIA announcement for custom mascot message */}
-      <div aria-live="polite" className="sr-only">
-        {currentRegistrationMessage}
-      </div>
+      {/* Hidden ARIA announcement is handled in tech-characters.tsx */}
 
       {/* Form using exact 20px vertical gap system */}
       <form onSubmit={handleSubmit(onSubmit, onInvalidSubmit)} className="flex flex-col gap-[20px]" noValidate>
@@ -298,10 +258,10 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
               autoComplete="name"
               disabled={isSubmittingState || isSuccessState}
               {...fullNameRegister}
-              onFocus={() => setActiveFocus("fullName")}
+              onFocus={() => onFocusChange("name")}
               onBlur={(e) => {
                 markTouched("fullName");
-                setActiveFocus(null);
+                onFocusChange(null);
                 fullNameRegister.onBlur(e);
               }}
               className={`h-[44px] text-sm pl-3.5 pr-10 bg-white rounded-xl transition-all ${
@@ -337,10 +297,10 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
               autoComplete="email"
               disabled={isSubmittingState || isSuccessState}
               {...emailRegister}
-              onFocus={() => setActiveFocus("email")}
+              onFocus={() => onFocusChange("email")}
               onBlur={(e) => {
                 markTouched("email");
-                setActiveFocus(null);
+                onFocusChange(null);
                 emailRegister.onBlur(e);
               }}
               className={`h-[44px] text-sm pl-3.5 pr-10 bg-white rounded-xl transition-all ${
@@ -376,10 +336,10 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
               autoComplete="new-password"
               disabled={isSubmittingState || isSuccessState}
               {...passwordRegister}
-              onFocus={() => setActiveFocus("password")}
+              onFocus={() => onFocusChange("password")}
               onBlur={(e) => {
                 markTouched("password");
-                setActiveFocus(null);
+                onFocusChange(null);
                 passwordRegister.onBlur(e);
               }}
               className={`h-[44px] text-sm pl-3.5 pr-11 bg-white rounded-xl transition-all ${
@@ -475,10 +435,10 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
               autoComplete="new-password"
               disabled={isSubmittingState || isSuccessState}
               {...confirmPasswordRegister}
-              onFocus={() => setActiveFocus("confirmPassword")}
+              onFocus={() => onFocusChange("confirmPassword")}
               onBlur={(e) => {
                 markTouched("confirmPassword");
-                setActiveFocus(null);
+                onFocusChange(null);
                 confirmPasswordRegister.onBlur(e);
               }}
               className={`h-[44px] text-sm pl-3.5 pr-11 bg-white rounded-xl transition-all ${
@@ -531,8 +491,8 @@ export function RegisterForm({ onStateChange }: RegisterFormProps) {
               id="terms"
               disabled={isSubmittingState || isSuccessState}
               {...termsRegister}
-              onFocus={() => setActiveFocus("terms")}
-              onBlur={() => setActiveFocus(null)}
+              onFocus={() => onFocusChange("terms")}
+              onBlur={() => onFocusChange(null)}
               className="size-[18px] rounded-md border-[#dfd3d7] text-[#201524] focus-visible:ring-2 focus-visible:ring-[#6e546f]/30"
             />
             <Label htmlFor="terms" className="text-xs font-normal text-[#716872] leading-snug cursor-pointer select-none">

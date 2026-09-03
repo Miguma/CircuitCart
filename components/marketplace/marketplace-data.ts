@@ -16,6 +16,9 @@ export interface Product {
   badge?: string;
   gradientFrom: string;
   gradientTo: string;
+  image?: string;
+  description?: string;
+  specifications?: Record<string, string>;
 }
 
 export const CATEGORIES = [
@@ -49,6 +52,15 @@ export const DUMMY_PRODUCTS: Product[] = [
     badge: "Featured Deal",
     gradientFrom: "#432c45",
     gradientTo: "#281729",
+    image: "/images/macbook-air.png",
+    description: "High-performance gaming laptop with ROG Intelligent Cooling, Tri-Fan technology, and high-refresh FHD+ display. Barely used with original box and 280W adapter included.",
+    specifications: {
+      Processor: "Intel Core i7-13650HX (14 Cores, up to 4.9 GHz)",
+      Graphics: "NVIDIA GeForce RTX 4060 8GB GDDR6 (140W Max TGP)",
+      Memory: "16GB DDR5 4800MHz (Upgradeable)",
+      Storage: "512GB PCIe 4.0 NVMe M.2 SSD",
+      Display: "16-inch FHD+ 16:10 (1920 x 1200) 165Hz IPS, 100% sRGB",
+    },
   },
   {
     id: "prod-2",
@@ -66,6 +78,14 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "12GB GDDR6X, DLSS 3, Ray Tracing Gen 3, PCIe 4.0, Dual Ball Bearing Fans",
     gradientFrom: "#684d72",
     gradientTo: "#4a3054",
+    description: "Factory overclocked graphics card built on Ada Lovelace architecture with DLSS 3 frame generation and 12GB GDDR6X memory for smooth 1440p gaming.",
+    specifications: {
+      "CUDA Cores": "5888 Cores",
+      "Boost Clock": "2505 MHz (OC Mode)",
+      "Video Memory": "12GB GDDR6X 192-bit",
+      Interface: "PCI Express 4.0 x16",
+      Outputs: "1x HDMI 2.1a, 3x DisplayPort 1.4a",
+    },
   },
   {
     id: "prod-3",
@@ -83,6 +103,14 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "CNC Aluminum Body, Gateron Jupiter Red Switches, QMK/VIA Support, Bluetooth 5.1",
     gradientFrom: "#a37282",
     gradientTo: "#7d4e5d",
+    description: "Premium full-metal custom mechanical keyboard with wireless Bluetooth 5.1, gasket mount design, sound-absorbing foam, and hot-swappable switches.",
+    specifications: {
+      Layout: "75% ANSI Layout",
+      Body: "Full CNC Machined Aluminum",
+      Connectivity: "Bluetooth 5.1 & Type-C Wired",
+      Battery: "4000mAh Rechargeable Li-polymer",
+      Switches: "Gateron Jupiter Red Linear (Hot-swappable)",
+    },
   },
   {
     id: "prod-4",
@@ -100,6 +128,15 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "Snapdragon 8 Gen 2, 200MP Camera, S-Pen Built-in, 5000mAh Battery, 120Hz AMOLED",
     gradientFrom: "#544061",
     gradientTo: "#34243b",
+    image: "/images/products/Galaxy Z Fold5.png",
+    description: "Flagship smartphone featuring an embedded S Pen, 200MP Nightography sensor, Snapdragon 8 Gen 2 for Galaxy, and an expansive 6.8-inch Dynamic AMOLED 2X display.",
+    specifications: {
+      Display: "6.8\" Edge QHD+ Dynamic AMOLED 2X 120Hz",
+      Processor: "Qualcomm Snapdragon 8 Gen 2 Mobile Platform",
+      Camera: "200MP Wide + 12MP Ultra-Wide + Dual 10MP Telephoto",
+      Storage: "256GB UFS 4.0 with 8GB LPDDR5X RAM",
+      Battery: "5,000mAh with 45W Super Fast Charging",
+    },
   },
   {
     id: "prod-5",
@@ -117,6 +154,14 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "Haptic Feedback, Adaptive Triggers, Built-in Microphone, Cosmic Red Edition",
     gradientFrom: "#694975",
     gradientTo: "#432c45",
+    image: "/images/playstation-5.png",
+    description: "Official Sony PlayStation wireless controller with immersive haptic feedback, dynamic adaptive triggers, and built-in microphone in vibrant Cosmic Red finish.",
+    specifications: {
+      Platform: "PlayStation 5, PC, Mac, iOS, Android",
+      Features: "Haptic feedback, dynamic triggers, motion sensors",
+      Audio: "3.5mm jack & built-in microphone/speaker",
+      Port: "USB Type-C Fast Charging",
+    },
   },
   {
     id: "prod-6",
@@ -134,6 +179,15 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "2560x1440 QHD IPS, 1ms GtG Response, G-Sync Compatible, HDR10",
     gradientFrom: "#3a233e",
     gradientTo: "#201524",
+    image: "/images/products/ipad-9.png",
+    description: "Crisp QHD resolution gaming display with 165Hz refresh rate, 1ms (GtG) response time, HDR10 color fidelity, and NVIDIA G-Sync compatibility.",
+    specifications: {
+      Screen: "27-inch IPS QHD (2560 x 1440)",
+      "Refresh Rate": "165Hz (Overclockable)",
+      "Response Time": "1ms (GtG at Faster)",
+      Sync: "NVIDIA G-SYNC Compatible & AMD FreeSync Premium",
+      Ports: "2x HDMI 2.0, 1x DisplayPort 1.4, Headphone Out",
+    },
   },
   {
     id: "prod-7",
@@ -151,6 +205,14 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "Up to 7,000 MB/s Read Speed, In-House Controller, Thermal Control Solution",
     gradientFrom: "#684e70",
     gradientTo: "#442f4b",
+    description: "Blazing fast PCIe Gen 4.0 solid state drive delivering speeds up to 7,000 MB/s. Ideal for high-end computing, demanding workstation workloads, and PS5 console storage expansion.",
+    specifications: {
+      Capacity: "1TB (1,000GB)",
+      "Seq. Read": "Up to 7,000 MB/s",
+      "Seq. Write": "Up to 5,000 MB/s",
+      "Form Factor": "M.2 (2280) PCIe 4.0 NVMe 1.3c",
+      Endurance: "600 TBW",
+    },
   },
   {
     id: "prod-8",
@@ -168,6 +230,14 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "Active Noise Cancellation, Auto NC Optimizer, 30-hr Battery, Multi-point Connect",
     gradientFrom: "#7d6484",
     gradientTo: "#544061",
+    image: "/images/products/airpods-max.png",
+    description: "Industry-leading noise canceling over-ear headphones with two processors and 8 microphones for unmatched silence and crystal-clear hands-free calling.",
+    specifications: {
+      Driver: "30mm Precision-engineered Carbon Fiber Dome",
+      "Battery Life": "Up to 30 hours (ANC on), 40 hours (ANC off)",
+      Bluetooth: "Version 5.2 with LDAC, AAC, SBC",
+      Weight: "Approx. 250g",
+    },
   },
   {
     id: "prod-9",
@@ -185,13 +255,20 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "HERO 25K Sensor, Under 63g Ultra-Lightweight, Lightspeed Wireless, Zero-Additive PTFE",
     gradientFrom: "#a37282",
     gradientTo: "#684d72",
+    description: "Ultralight esports gaming mouse engineered with Logitech's HERO 25K sensor and pro-grade LIGHTSPEED wireless. Clean glide with large PTFE feet.",
+    specifications: {
+      Weight: "< 63 grams",
+      Sensor: "HERO 25K (100 – 25,600 DPI)",
+      "Battery Life": "Constant motion: 70h",
+      Report: "1,000Hz (1ms)",
+    },
   },
   {
     id: "prod-10",
-    name: "Anker 737 Power Bank 24,000mAh 140W",
+    name: "Blackmagic Pocket Cinema Camera 6K Pro",
     category: "Accessories",
-    price: 4600,
-    originalPrice: 5800,
+    price: 46000,
+    originalPrice: 52000,
     condition: "New",
     rating: 5.0,
     reviewCount: 43,
@@ -199,9 +276,17 @@ export const DUMMY_PRODUCTS: Product[] = [
     isVerifiedSeller: true,
     location: "Mandaue City, Cebu",
     section: "Trusted sellers",
-    specs: "140W Two-Way Fast Charging, Smart Digital Display, PowerIQ 4.0, ActiveShield 2.0",
+    specs: "6144 x 3456 Super 35 Sensor, Built-In ND Filters, Dual Native ISO, Gen 5 Color Science",
     gradientFrom: "#48334c",
     gradientTo: "#281729",
+    image: "/images/products/blackmagic-pocket-camera.png",
+    description: "Advanced handheld 6K digital film camera with high resolution HDR sensor, built-in motorized ND filters, adjustable tilt HDR LCD screen, and large NP-F570 battery support.",
+    specifications: {
+      Sensor: "Super 35 HDR (6144 x 3456)",
+      Mount: "Active EF Lens Mount",
+      "Dynamic Range": "13 Stops with Dual Native ISO up to 25,600",
+      Filters: "Clear, 2-stop, 4-stop, 6-stop IR ND Filters",
+    },
   },
   {
     id: "prod-11",
@@ -219,6 +304,14 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "Simultaneous Wireless 2.4GHz & Bluetooth, 38-hour Battery, Sonar Audio Software",
     gradientFrom: "#694975",
     gradientTo: "#352238",
+    image: "/images/airpods.png",
+    description: "Almighty Audio headset with high-fidelity speaker drivers, parametric EQ via Sonar software, 38-hour battery, and simultaneous 2.4GHz gaming and Bluetooth audio.",
+    specifications: {
+      Drivers: "40mm High Fidelity Neodymium",
+      Connectivity: "2.4GHz Quantum 2.0 Wireless & Bluetooth 5.0",
+      "Battery Life": "38 Hours (USB-C Fast Charging)",
+      Microphone: "ClearCast Gen 2 Fully Retractable Bi-directional",
+    },
   },
   {
     id: "prod-12",
@@ -236,5 +329,14 @@ export const DUMMY_PRODUCTS: Product[] = [
     specs: "Apple M2 8-core CPU 8-core GPU, 8GB Unified Memory, 256GB SSD, MagSafe 3",
     gradientFrom: "#544061",
     gradientTo: "#201524",
+    image: "/images/macbook-air.png",
+    description: "Supercharged by the next-generation M2 chip, the redesigned MacBook Air combines incredible performance and up to 18 hours of battery life into a thin all-aluminum enclosure.",
+    specifications: {
+      Chip: "Apple M2 Chip with 8-core CPU and 8-core GPU",
+      Display: "13.6-inch Liquid Retina Display with True Tone (2560 x 1664)",
+      Memory: "8GB Unified Memory",
+      Storage: "256GB SSD Storage",
+      Battery: "Up to 18 hours Apple TV app movie playback",
+    },
   },
 ];
