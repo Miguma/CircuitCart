@@ -97,13 +97,554 @@ export interface SellerStats {
   lowStockCount: number;
   sellerRating: number;
   reviewCount: number;
-  completedOrdersCount: number;
+}
+
+export interface SellerShopProfile {
+  id: string;
+  shopName: string;
+  slug: string;
+  description: string;
+  logo?: string;
+  banner?: string;
+  location: string;
+  contactPreference: "CircuitCart Chat" | "Phone & SMS" | "Email";
+  businessType: "Individual Tech Seller" | "Registered Hardware Shop" | "Refurbisher";
+  memberSince: string;
+  rating: number;
+  reviewCount: number;
+  completedOrders: number;
   responseRate: number;
   isVerified: boolean;
-  shopName: string;
-  shopHandle: string;
-  location: string;
+  shopStatus: "Active" | "Vacation Mode";
+  fulfillmentPreference: "Both" | "Delivery" | "Meetup";
+  defaultMeetupArea: string;
+  handlingTime: string;
 }
+
+export type VerificationStatus =
+  | "Not Started"
+  | "In Progress"
+  | "Under Review"
+  | "Verified"
+  | "Rejected";
+
+export interface SellerVerificationData {
+  status: VerificationStatus;
+  fullName: string;
+  dateOfBirth: string;
+  sellerType: "Individual" | "Business";
+  cityAddress: string;
+  businessName?: string;
+  idType: string;
+  idFrontImage?: string;
+  idBackImage?: string;
+  selfieImage?: string;
+  email: string;
+  isEmailVerified: boolean;
+  phone: string;
+  isPhoneVerified: boolean;
+  submittedAt?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderRole: "buyer" | "seller";
+  senderName: string;
+  content: string;
+  createdAt: string;
+  dateGroup: string; // e.g. "Today", "Yesterday", "Sep 3"
+  readAt?: string;
+}
+
+export interface Conversation {
+  id: string;
+  buyer: {
+    id: string;
+    name: string;
+    avatar?: string;
+    location: string;
+    memberSince: string;
+    activeStatus: string;
+    rating: number;
+    reviewCount: number;
+    phoneVerified: boolean;
+  };
+  sellerId: string;
+  productId: string;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    originalPrice?: number;
+    condition: Product["condition"];
+    image?: string;
+    status: ListingStatus;
+    category: Product["category"];
+    specs: string;
+    shopName: string;
+  };
+  associatedOrder?: {
+    id: string;
+    orderNumber: string;
+    status: OrderStatus;
+    total: number;
+    fulfillmentMethod: FulfillmentMethod;
+  };
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  messages: ChatMessage[];
+}
+
+export const DEMO_CONVERSATIONS: Conversation[] = [
+  {
+    id: "conv-1",
+    buyer: {
+      id: "buyer-1",
+      name: "John Dexter",
+      location: "Cebu City, Lahug",
+      memberSince: "2024",
+      activeStatus: "Active 5m ago",
+      rating: 4.9,
+      reviewCount: 14,
+      phoneVerified: true,
+    },
+    sellerId: "shop-1",
+    productId: "prod-1",
+    product: {
+      id: "prod-1",
+      name: "Asus ROG Strix G16 Gaming Laptop",
+      price: 42500,
+      originalPrice: 49990,
+      condition: "Like New",
+      image: "/images/macbook-air.png",
+      status: "Active",
+      category: "Laptops",
+      specs: "Intel i7-13650HX, RTX 4060 8GB, 16GB DDR5, 512GB SSD",
+      shopName: "TechVault Cebu",
+    },
+    associatedOrder: {
+      id: "ord-1",
+      orderNumber: "CC-1024",
+      status: "Pending",
+      total: 42500,
+      fulfillmentMethod: "Delivery",
+    },
+    lastMessage: "Sounds great! Just placed order #CC-1024 with Delivery option.",
+    lastMessageAt: "2m ago",
+    unreadCount: 1,
+    messages: [
+      {
+        id: "msg-1",
+        conversationId: "conv-1",
+        senderRole: "buyer",
+        senderName: "John Dexter",
+        content: "Hi! Interested in the Asus ROG Strix G16. Is the original charger and box included?",
+        createdAt: "9:40 PM",
+        dateGroup: "Today",
+      },
+      {
+        id: "msg-2",
+        conversationId: "conv-1",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Hello John! Yes, original 280W ROG power adapter and factory packaging are all included. Thermal paste was also recently repasted with Kryonaut.",
+        createdAt: "9:42 PM",
+        dateGroup: "Today",
+      },
+      {
+        id: "msg-3",
+        conversationId: "conv-1",
+        senderRole: "buyer",
+        senderName: "John Dexter",
+        content: "Awesome! Can we meet at Cebu IT Park or do delivery via Grab/Lalamove?",
+        createdAt: "9:45 PM",
+        dateGroup: "Today",
+      },
+      {
+        id: "msg-4",
+        conversationId: "conv-1",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Both work great! If delivery, I will pack it with extra honeycomb bubble wrap and dispatch right away.",
+        createdAt: "9:48 PM",
+        dateGroup: "Today",
+      },
+      {
+        id: "msg-5",
+        conversationId: "conv-1",
+        senderRole: "buyer",
+        senderName: "John Dexter",
+        content: "Sounds great! Just placed order #CC-1024 with Delivery option.",
+        createdAt: "9:50 PM",
+        dateGroup: "Today",
+      },
+    ],
+  },
+  {
+    id: "conv-2",
+    buyer: {
+      id: "buyer-2",
+      name: "Maria Santos",
+      location: "Mandaue City, Tipolo",
+      memberSince: "2023",
+      activeStatus: "Active 1h ago",
+      rating: 5.0,
+      reviewCount: 28,
+      phoneVerified: true,
+    },
+    sellerId: "shop-1",
+    productId: "prod-4",
+    product: {
+      id: "prod-4",
+      name: "Samsung Galaxy S23 Ultra 256GB",
+      price: 28500,
+      originalPrice: 34990,
+      condition: "Good",
+      image: "/images/macbook-air.png",
+      status: "Reserved",
+      category: "Mobile",
+      specs: "256GB Phantom Black, Snapdragon 8 Gen 2, 200MP Camera",
+      shopName: "TechVault Cebu",
+    },
+    associatedOrder: {
+      id: "ord-2",
+      orderNumber: "CC-1023",
+      status: "Packed",
+      total: 28680,
+      fulfillmentMethod: "Delivery",
+    },
+    lastMessage: "Thank you so much! Looking forward to receiving it.",
+    lastMessageAt: "Yesterday",
+    unreadCount: 0,
+    messages: [
+      {
+        id: "msg-201",
+        conversationId: "conv-2",
+        senderRole: "buyer",
+        senderName: "Maria Santos",
+        content: "Hello! Has the phone screen ever been replaced or repaired?",
+        createdAt: "11:15 AM",
+        dateGroup: "Yesterday",
+      },
+      {
+        id: "msg-202",
+        conversationId: "conv-2",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Hi Maria! No repairs at all, 100% original AMOLED with zero burn-in or scratches. S-Pen works flawlessly.",
+        createdAt: "11:20 AM",
+        dateGroup: "Yesterday",
+      },
+      {
+        id: "msg-203",
+        conversationId: "conv-2",
+        senderRole: "buyer",
+        senderName: "Maria Santos",
+        content: "Great, ordered! Please pack securely with bubble wrap.",
+        createdAt: "12:00 PM",
+        dateGroup: "Yesterday",
+      },
+      {
+        id: "msg-204",
+        conversationId: "conv-2",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Your order #CC-1023 has been packed with heavy-duty padding and fragile markers. Ready for courier dispatch!",
+        createdAt: "12:30 PM",
+        dateGroup: "Yesterday",
+      },
+      {
+        id: "msg-205",
+        conversationId: "conv-2",
+        senderRole: "buyer",
+        senderName: "Maria Santos",
+        content: "Thank you so much! Looking forward to receiving it.",
+        createdAt: "12:45 PM",
+        dateGroup: "Yesterday",
+      },
+    ],
+  },
+  {
+    id: "conv-3",
+    buyer: {
+      id: "buyer-3",
+      name: "Alex Rivera",
+      location: "Lapu-Lapu City, Mactan",
+      memberSince: "2024",
+      activeStatus: "Online",
+      rating: 4.8,
+      reviewCount: 9,
+      phoneVerified: true,
+    },
+    sellerId: "shop-1",
+    productId: "prod-2",
+    product: {
+      id: "prod-2",
+      name: "NVIDIA GeForce RTX 4070 Dual Fan OC 12GB",
+      price: 18900,
+      originalPrice: 22500,
+      condition: "Like New",
+      image: "/images/macbook-air.png",
+      status: "Active",
+      category: "Components",
+      specs: "12GB GDDR6X, DLSS 3, Dual BIOS, 2-Slot Compact",
+      shopName: "TechVault Cebu",
+    },
+    associatedOrder: {
+      id: "ord-3",
+      orderNumber: "CC-1022",
+      status: "Shipped",
+      total: 18900,
+      fulfillmentMethod: "Delivery",
+    },
+    lastMessage: "Sent tracking details for J&T Express! Tracking #JT98342019PH.",
+    lastMessageAt: "Sep 3",
+    unreadCount: 1,
+    messages: [
+      {
+        id: "msg-301",
+        conversationId: "conv-3",
+        senderRole: "buyer",
+        senderName: "Alex Rivera",
+        content: "Hi, what are the benchmark temps under FurMark load on this 4070?",
+        createdAt: "3:10 PM",
+        dateGroup: "Sep 3",
+      },
+      {
+        id: "msg-302",
+        conversationId: "conv-3",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Max temperature reaches around 64°C in 26°C ambient room. Fans are whisper quiet and coil whine is non-existent.",
+        createdAt: "3:22 PM",
+        dateGroup: "Sep 3",
+      },
+      {
+        id: "msg-303",
+        conversationId: "conv-3",
+        senderRole: "buyer",
+        senderName: "Alex Rivera",
+        content: "Super clean. I just purchased it, please ship as soon as possible!",
+        createdAt: "3:30 PM",
+        dateGroup: "Sep 3",
+      },
+      {
+        id: "msg-304",
+        conversationId: "conv-3",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Sent tracking details for J&T Express! Tracking #JT98342019PH. Estimated delivery is tomorrow afternoon.",
+        createdAt: "4:15 PM",
+        dateGroup: "Sep 3",
+      },
+    ],
+  },
+  {
+    id: "conv-4",
+    buyer: {
+      id: "buyer-4",
+      name: "Patricia Lim",
+      location: "Cebu City, Banilad",
+      memberSince: "2023",
+      activeStatus: "Active 3h ago",
+      rating: 5.0,
+      reviewCount: 31,
+      phoneVerified: true,
+    },
+    sellerId: "shop-1",
+    productId: "prod-6",
+    product: {
+      id: "prod-6",
+      name: "Apple MacBook Air 13\" M2 (2022)",
+      price: 38900,
+      originalPrice: 44990,
+      condition: "Like New",
+      image: "/images/macbook-air.png",
+      status: "Active",
+      category: "Laptops",
+      specs: "M2 8-core CPU, 8-core GPU, 8GB Unified RAM, 256GB SSD",
+      shopName: "TechVault Cebu",
+    },
+    associatedOrder: {
+      id: "ord-4",
+      orderNumber: "CC-1021",
+      status: "Ready for Meetup",
+      total: 38900,
+      fulfillmentMethod: "Meetup",
+    },
+    lastMessage: "Confirmed! See you tomorrow at Starbucks Ayala.",
+    lastMessageAt: "Sep 2",
+    unreadCount: 0,
+    messages: [
+      {
+        id: "msg-401",
+        conversationId: "conv-4",
+        senderRole: "buyer",
+        senderName: "Patricia Lim",
+        content: "Hi! What is the current battery health cycle count on the M2 Air?",
+        createdAt: "1:10 PM",
+        dateGroup: "Sep 2",
+      },
+      {
+        id: "msg-402",
+        conversationId: "conv-4",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Battery cycle count is only 42 cycles with 99% maximum capacity. Space Gray body with no dents or scratches.",
+        createdAt: "1:15 PM",
+        dateGroup: "Sep 2",
+      },
+      {
+        id: "msg-403",
+        conversationId: "conv-4",
+        senderRole: "buyer",
+        senderName: "Patricia Lim",
+        content: "Perfect! Can we do meetup testing at Ayala Center Starbucks tomorrow 2 PM?",
+        createdAt: "1:20 PM",
+        dateGroup: "Sep 2",
+      },
+      {
+        id: "msg-404",
+        conversationId: "conv-4",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Confirmed! See you tomorrow at Starbucks Ayala. You can run diagnostics on battery and display before releasing payment.",
+        createdAt: "1:25 PM",
+        dateGroup: "Sep 2",
+      },
+    ],
+  },
+  {
+    id: "conv-5",
+    buyer: {
+      id: "buyer-5",
+      name: "Dave Ramirez",
+      location: "Talisay City, Tabunok",
+      memberSince: "2024",
+      activeStatus: "Active yesterday",
+      rating: 4.7,
+      reviewCount: 5,
+      phoneVerified: true,
+    },
+    sellerId: "shop-1",
+    productId: "prod-3",
+    product: {
+      id: "prod-3",
+      name: "Sony WH-1000XM5 Wireless Headphones",
+      price: 8990,
+      originalPrice: 11500,
+      condition: "Like New",
+      image: "/images/macbook-air.png",
+      status: "Sold",
+      category: "Audio",
+      specs: "Industry-leading ANC, 30-hour battery, Speak-to-Chat",
+      shopName: "TechVault Cebu",
+    },
+    associatedOrder: {
+      id: "ord-5",
+      orderNumber: "CC-1020",
+      status: "Completed",
+      total: 9140,
+      fulfillmentMethod: "Delivery",
+    },
+    lastMessage: "Received! Sound quality is amazing. Left you a 5-star review!",
+    lastMessageAt: "Aug 30",
+    unreadCount: 0,
+    messages: [
+      {
+        id: "msg-501",
+        conversationId: "conv-5",
+        senderRole: "buyer",
+        senderName: "Dave Ramirez",
+        content: "Is the price still negotiable down to ₱8,500?",
+        createdAt: "8:00 AM",
+        dateGroup: "Aug 29",
+      },
+      {
+        id: "msg-502",
+        conversationId: "conv-5",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "I can do ₱8,800 lowest with free delivery included if you order today!",
+        createdAt: "8:10 AM",
+        dateGroup: "Aug 29",
+      },
+      {
+        id: "msg-503",
+        conversationId: "conv-5",
+        senderRole: "buyer",
+        senderName: "Dave Ramirez",
+        content: "Deal! Order #CC-1020 placed.",
+        createdAt: "8:15 AM",
+        dateGroup: "Aug 29",
+      },
+      {
+        id: "msg-504",
+        conversationId: "conv-5",
+        senderRole: "seller",
+        senderName: "TechVault Cebu",
+        content: "Package delivered and order marked completed. Thanks Dave!",
+        createdAt: "2:00 PM",
+        dateGroup: "Aug 30",
+      },
+      {
+        id: "msg-505",
+        conversationId: "conv-5",
+        senderRole: "buyer",
+        senderName: "Dave Ramirez",
+        content: "Received! Sound quality is amazing. Left you a 5-star review!",
+        createdAt: "3:30 PM",
+        dateGroup: "Aug 30",
+      },
+    ],
+  },
+];
+
+export const DEMO_SHOP_PROFILE: SellerShopProfile = {
+  id: "shop-1",
+  shopName: "TechVault Cebu",
+  slug: "techvault-cebu",
+  description: "Trusted pre-owned and brand-new technology from Cebu. Specialized in gaming laptops, GPU upgrades, and custom peripherals with in-person testing at Cebu IT Park.",
+  logo: "",
+  banner: "",
+  location: "Cebu City, Central Visayas",
+  contactPreference: "CircuitCart Chat",
+  businessType: "Individual Tech Seller",
+  memberSince: "2024",
+  rating: 4.9,
+  reviewCount: 148,
+  completedOrders: 36,
+  responseRate: 98,
+  isVerified: true,
+  shopStatus: "Active",
+  fulfillmentPreference: "Both",
+  defaultMeetupArea: "Cebu IT Park, Lahug / Ayala Center Cebu",
+  handlingTime: "1–2 days",
+};
+
+export const DEMO_VERIFICATION_DATA: SellerVerificationData = {
+  status: "Verified",
+  fullName: "Mark Anthony Miguma",
+  dateOfBirth: "1998-05-14",
+  sellerType: "Individual",
+  cityAddress: "Gov. Cuenco Ave, Banilad, Cebu City 6000",
+  businessName: "TechVault Cebu Hardware",
+  idType: "Philippine National ID (PhilID)",
+  idFrontImage: "/images/macbook-air.png",
+  idBackImage: "/images/macbook-air.png",
+  selfieImage: "/images/macbook-air.png",
+  email: "mark.miguma@gmail.com",
+  isEmailVerified: true,
+  phone: "+63 917 555 0192",
+  isPhoneVerified: true,
+  submittedAt: "Aug 15, 2026 · 10:30 AM",
+  reviewedAt: "Aug 16, 2026 · 2:15 PM",
+  reviewNotes: "Identity documents verified with biometric facial match.",
+};
 
 export const DEMO_SELLER_STATS: SellerStats = {
   totalSales: 84250,

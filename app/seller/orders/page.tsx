@@ -298,9 +298,51 @@ function SellerOrdersContent() {
         {/* ========================================================= */}
         {/* 2. CONTROLS: FILTER TABS & SEARCH                         */}
         {/* ========================================================= */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* Status filter tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none no-scrollbar py-1">
+        <div className="space-y-3">
+          {/* Top Row: Search and Fulfillment dropdown */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#b9adb6] pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search orders, buyers, products..."
+                className="w-full h-9 pl-9 pr-3 rounded-xl bg-[#1e1322]/80 border border-white/10 text-xs font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9] focus:ring-1 focus:ring-[#e59bc9] transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              {/* Fulfillment dropdown */}
+              <select
+                value={fulfillmentFilter}
+                onChange={(e) => setFulfillmentFilter(e.target.value)}
+                className="h-9 px-3 rounded-xl bg-[#1e1322]/80 border border-white/10 text-xs font-semibold text-[#fffafa] outline-hidden focus:border-[#e59bc9] transition-colors cursor-pointer"
+              >
+                <option value="All">All Fulfillment Methods</option>
+                <option value="Delivery">Delivery Only</option>
+                <option value="Meetup">Meetup Only</option>
+              </select>
+
+              {(searchQuery || selectedStatus !== "All" || fulfillmentFilter !== "All") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedStatus("All");
+                    setFulfillmentFilter("All");
+                    setSearchQuery("");
+                  }}
+                  className="h-9 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-[#b9adb6] hover:text-[#fffafa] font-semibold border border-white/10 transition-all cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Status filter tabs (flex-wrap ensures all 8 status pills are clearly visible with zero cutoff) */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
             {(
               [
                 "All",
@@ -343,32 +385,6 @@ function SellerOrdersContent() {
                 </button>
               );
             })}
-          </div>
-
-          {/* Search + Fulfillment Filter */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            {/* Fulfillment dropdown */}
-            <select
-              value={fulfillmentFilter}
-              onChange={(e) => setFulfillmentFilter(e.target.value)}
-              className="h-9 px-3 rounded-xl bg-[#1e1322]/80 border border-white/10 text-xs font-semibold text-[#fffafa] outline-hidden focus:border-[#e59bc9] transition-colors cursor-pointer"
-            >
-              <option value="All">All fulfillment</option>
-              <option value="Delivery">Delivery Only</option>
-              <option value="Meetup">Meetup Only</option>
-            </select>
-
-            {/* Search Input */}
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#b9adb6] pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search orders, buyers..."
-                className="w-full h-9 pl-9 pr-3 rounded-xl bg-[#1e1322]/80 border border-white/10 text-xs font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9] focus:ring-1 focus:ring-[#e59bc9] transition-colors"
-              />
-            </div>
           </div>
         </div>
 

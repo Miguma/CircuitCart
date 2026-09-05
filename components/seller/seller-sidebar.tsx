@@ -66,7 +66,7 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
     },
     {
       label: "Verification",
-      href: "/marketplace/sell",
+      href: "/seller/verification",
       icon: ShieldCheck,
       isVerified: DEMO_SELLER_STATS.isVerified,
     },

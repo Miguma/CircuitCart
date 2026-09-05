@@ -139,7 +139,7 @@ export default function SellerProductsPage() {
         {/* ========================================================= */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Status filter tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none no-scrollbar py-1">
+          <div className="flex flex-wrap items-center gap-1.5 py-1">
             {(["All", "Active", "Draft", "Sold Out", "Archived"] as const).map(
               (st) => {
                 const isSelected = selectedStatus === st;
