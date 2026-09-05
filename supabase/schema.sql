@@ -20,32 +20,56 @@ alter table public.profiles enable row level security;
 
 -- 3. RLS Policies
 -- Policy A: Anyone can view public profile details
+drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
 create policy "Public profiles are viewable by everyone"
   on public.profiles
   for select
   using (true);
 
--- Policy B: Users can insert their own profile
-create policy "Users can insert their own profile"
+-- Policy B: Users can insert their own profile with role = 'buyer' only
+drop policy if exists "Users can insert their own profile" on public.profiles;
+drop policy if exists "Users can insert their own profile as buyer" on public.profiles;
+create policy "Users can insert their own profile as buyer"
   on public.profiles
   for insert
-  with check (auth.uid() = id);
+  with check (
+    auth.uid() = id
+    and role = 'buyer'
+  );
 
--- Policy C: Users can update ONLY their own profile, without self-assigning admin role
-create policy "Users can update own profile"
+-- Policy C: Users can update their own editable profile fields, but cannot change role
+drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Users can update own profile except role" on public.profiles;
+create policy "Users can update own profile except role"
   on public.profiles
   for update
   using (auth.uid() = id)
   with check (
     auth.uid() = id
-    and (
-      -- Prevent privilege escalation: user cannot set role to admin unless already admin
-      role = (select role from public.profiles where id = auth.uid())
-      or (select role from public.profiles where id = auth.uid()) = 'admin'
-    )
+    and role = (select p.role from public.profiles p where p.id = auth.uid())
   );
 
--- 4. Function & Trigger for automatic updated_at timestamp
+-- 4. Database Trigger: Hard block on user-driven role modifications
+create or replace function public.protect_profile_role()
+returns trigger as $$
+begin
+  if new.role is distinct from old.role then
+    -- Only allow role changes if executed by trusted backend service_role, postgres, or supabase_admin
+    if current_user not in ('service_role', 'postgres', 'supabase_admin') then
+      raise exception 'Unauthorized: Profile role cannot be changed directly by user. Verification or admin action required.';
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists enforce_profile_role_protection on public.profiles;
+create trigger enforce_profile_role_protection
+  before update on public.profiles
+  for each row
+  execute function public.protect_profile_role();
+
+-- 5. Function & Trigger for automatic updated_at timestamp
 create or replace function public.handle_updated_at()
 returns trigger as $$
 begin
@@ -60,7 +84,7 @@ create trigger set_profiles_updated_at
   for each row
   execute function public.handle_updated_at();
 
--- 5. Function & Trigger for automatic Profile creation on User Signup
+-- 6. Function & Trigger for automatic Profile creation on User Signup
 create or replace function public.handle_new_user()
 returns trigger as $$
 declare

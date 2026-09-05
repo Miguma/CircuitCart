@@ -6,10 +6,14 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://circuitcart-placeholder.supabase.co";
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be defined."
+    );
+  }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -56,22 +60,20 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If user is authenticated and attempts to visit seller routes, verify seller or admin role
+  // If user is authenticated and attempts to visit seller routes,
+  // verify role STRICTLY from public.profiles table (do NOT trust user_metadata)
   if (user && isSellerRoute) {
-    // Check role in user metadata or profiles table
-    let role = user.user_metadata?.role as string | undefined;
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    if (!role) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      role = profile?.role;
-    }
+    const role = profile?.role;
 
-    // If explicitly role is buyer only, redirect to marketplace
-    if (role === "buyer") {
+    // DEFAULT DENY: Allow ONLY 'seller' or 'admin'
+    // If profile does not exist, query fails, role is null, role is buyer, or role is unknown -> redirect to /marketplace
+    if (error || !profile || !role || (role !== "seller" && role !== "admin")) {
       const url = request.nextUrl.clone();
       url.pathname = "/marketplace";
       url.searchParams.set("error", "seller_access_required");
