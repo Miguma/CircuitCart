@@ -14,7 +14,7 @@ export type OrderStatus =
 
 export type FulfillmentMethod = "Delivery" | "Meetup";
 export type PaymentStatus = "Paid" | "Pending" | "Refunded";
-export type ListingStatus = "Active" | "Draft" | "Sold Out" | "Archived";
+export type ListingStatus = "Active" | "Draft" | "Sold Out" | "Archived" | "Reserved";
 
 export interface OrderItem {
   id: string;
@@ -97,6 +97,14 @@ export interface SellerStats {
   lowStockCount: number;
   sellerRating: number;
   reviewCount: number;
+  completedOrdersCount: number;
+  responseRate: number;
+  isVerified: boolean;
+  shopName: string;
+  shopHandle: string;
+  location: string;
+  defaultMeetupArea: string;
+  handlingTime: string;
 }
 
 export interface SellerShopProfile {
@@ -539,7 +547,7 @@ export const DEMO_CONVERSATIONS: Conversation[] = [
       originalPrice: 11500,
       condition: "Like New",
       image: "/images/macbook-air.png",
-      status: "Sold",
+      status: "Sold Out",
       category: "Audio",
       specs: "Industry-leading ANC, 30-hour battery, Speak-to-Chat",
       shopName: "TechVault Cebu",
@@ -628,18 +636,18 @@ export const DEMO_SHOP_PROFILE: SellerShopProfile = {
 
 export const DEMO_VERIFICATION_DATA: SellerVerificationData = {
   status: "Verified",
-  fullName: "Mark Anthony Miguma",
+  fullName: "Juan Dela Cruz",
   dateOfBirth: "1998-05-14",
   sellerType: "Individual",
-  cityAddress: "Gov. Cuenco Ave, Banilad, Cebu City 6000",
+  cityAddress: "Cebu IT Park, Lahug, Cebu City 6000",
   businessName: "TechVault Cebu Hardware",
   idType: "Philippine National ID (PhilID)",
   idFrontImage: "/images/macbook-air.png",
   idBackImage: "/images/macbook-air.png",
   selfieImage: "/images/macbook-air.png",
-  email: "mark.miguma@gmail.com",
+  email: "demo.seller@circuitcart.test",
   isEmailVerified: true,
-  phone: "+63 917 555 0192",
+  phone: "+63 900 000 0000",
   isPhoneVerified: true,
   submittedAt: "Aug 15, 2026 · 10:30 AM",
   reviewedAt: "Aug 16, 2026 · 2:15 PM",
@@ -660,6 +668,8 @@ export const DEMO_SELLER_STATS: SellerStats = {
   shopName: "TechVault Cebu",
   shopHandle: "@techvault",
   location: "Cebu City, Central Visayas",
+  defaultMeetupArea: "IT Park / Ayala Center Cebu",
+  handlingTime: "Ships or meets within 24 hours",
 };
 
 export const DEMO_SELLER_ORDERS: SellerOrder[] = [

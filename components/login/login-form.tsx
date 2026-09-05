@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CircuitCartWordmark } from "@/components/ui/circuitcart-wordmark";
-import { demoLogin, DEMO_CREDENTIALS } from "@/lib/auth-demo";
+import { signInWithEmail } from "@/lib/supabase/auth";
 import { AuthPhase, FocusedField } from "./tech-characters";
 
 const loginSchema = z.object({
@@ -109,9 +109,9 @@ export function LoginForm({
   }, [isSuccessState, authError, isChecking, onAuthPhaseChange]);
 
   const handleFillDemo = () => {
-    setValue("email", DEMO_CREDENTIALS.email, { shouldValidate: true });
-    setValue("password", DEMO_CREDENTIALS.password, { shouldValidate: true });
-    setPasswordLength(DEMO_CREDENTIALS.password.length);
+    setValue("email", "demo@circuitcart.test", { shouldValidate: true });
+    setValue("password", "Demo1234!", { shouldValidate: true });
+    setPasswordLength(9);
     setTouchedFields({ email: true, password: true });
     setAuthError(null);
     clearErrors();
@@ -142,33 +142,26 @@ export function LoginForm({
     setAuthError(null);
     setIsChecking(true);
 
-    // 3 second safety fallback
-    const safetyFallback = setTimeout(() => {
-      setIsChecking(false);
-      setAuthError("Authentication timed out.");
-    }, 3000);
+    try {
+      const res = await signInWithEmail(data.email, data.password);
 
-    setTimeout(async () => {
-      try {
-        const res = await demoLogin(data.email, data.password);
-        clearTimeout(safetyFallback);
-
-        if (res.success) {
-          setIsChecking(false);
-          setIsSuccessState(true);
-          setTimeout(() => {
-            router.push("/marketplace");
-          }, 600);
-        } else {
-          setIsChecking(false);
-          setAuthError("Incorrect email or password.");
-        }
-      } catch {
-        clearTimeout(safetyFallback);
+      if (res.success) {
         setIsChecking(false);
-        setAuthError("An unexpected error occurred. Please try again.");
+        setIsSuccessState(true);
+        setTimeout(() => {
+          const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+          const redirectTo = params?.get("redirectTo") || "/marketplace";
+          router.push(redirectTo);
+          router.refresh();
+        }, 600);
+      } else {
+        setIsChecking(false);
+        setAuthError(res.error || "Incorrect email or password.");
       }
-    }, 700);
+    } catch {
+      setIsChecking(false);
+      setAuthError("An unexpected error occurred. Please try again.");
+    }
   };
 
   const onInvalidSubmit = () => {

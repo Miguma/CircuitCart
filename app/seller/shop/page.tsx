@@ -189,7 +189,7 @@ export default function SellerShopPage() {
                     onChange={(e) =>
                       setProfile((p) => ({
                         ...p,
-                        businessType: e.target.value as any,
+                        businessType: e.target.value as SellerShopProfile["businessType"],
                       }))
                     }
                     className="w-full h-10 px-3 rounded-xl bg-[#342339] border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9] transition-colors"
@@ -237,7 +237,7 @@ export default function SellerShopPage() {
                     onChange={(e) =>
                       setProfile((p) => ({
                         ...p,
-                        shopStatus: e.target.value as any,
+                        shopStatus: e.target.value as SellerShopProfile["shopStatus"],
                       }))
                     }
                     className="w-full h-10 px-3 rounded-xl bg-[#342339] border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9] transition-colors"
@@ -256,7 +256,7 @@ export default function SellerShopPage() {
                     onChange={(e) =>
                       setProfile((p) => ({
                         ...p,
-                        fulfillmentPreference: e.target.value as any,
+                        fulfillmentPreference: e.target.value as SellerShopProfile["fulfillmentPreference"],
                       }))
                     }
                     className="w-full h-10 px-3 rounded-xl bg-[#342339] border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9] transition-colors"

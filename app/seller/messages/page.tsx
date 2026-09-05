@@ -179,10 +179,9 @@ export default function SellerMessagesPage() {
           </span>
         );
       case "Sold Out":
-      case "Sold" as any:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-950/70 text-amber-300 border border-amber-500/30">
-            Sold
+            Sold Out
           </span>
         );
       case "Archived":

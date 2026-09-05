@@ -18,6 +18,7 @@ import {
 import { useMarketplace } from "./marketplace-provider";
 import { CategoryFilter } from "./marketplace-data";
 import { toast } from "sonner";
+import { signOut } from "@/lib/supabase/auth";
 
 interface MarketplaceHeaderProps {
   searchQuery?: string;
@@ -81,10 +82,12 @@ export function MarketplaceHeader({
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowUserMenu(false);
-    toast.info("Logged out of demo session.");
+    await signOut();
+    toast.info("Logged out successfully.");
     router.push("/login");
+    router.refresh();
   };
 
   return (

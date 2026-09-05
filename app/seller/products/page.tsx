@@ -60,10 +60,11 @@ export default function SellerProductsPage() {
   }, [products, searchQuery, selectedStatus]);
 
   // Actions
-  const handleDuplicate = (prod: SellerProductItem) => {
+  const handleDuplicate = React.useCallback((prod: SellerProductItem) => {
+    const timestamp = Date.now();
     const newProd: SellerProductItem = {
       ...prod,
-      id: `prod-${Date.now()}`,
+      id: `prod-${timestamp}`,
       name: `${prod.name} (Copy)`,
       status: "Draft",
       views: 0,
@@ -73,9 +74,9 @@ export default function SellerProductsPage() {
     setProducts((prev) => [newProd, ...prev]);
     setActiveMenuId(null);
     toast.success(`Duplicated "${prod.name}" as a draft.`);
-  };
+  }, []);
 
-  const handleArchive = (id: string) => {
+  const handleArchive = React.useCallback((id: string) => {
     setProducts((prev) =>
       prev.map((p) =>
         p.id === id
@@ -89,13 +90,13 @@ export default function SellerProductsPage() {
     );
     setActiveMenuId(null);
     toast.info("Listing status updated.");
-  };
+  }, []);
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = React.useCallback((id: string, name: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
     setActiveMenuId(null);
     toast.success(`Removed "${name}" from your listings.`);
-  };
+  }, []);
 
   const getStatusBadge = (status: ListingStatus) => {
     switch (status) {

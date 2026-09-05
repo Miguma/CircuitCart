@@ -33,22 +33,13 @@ function SellerOrdersContent() {
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [fulfillmentFilter, setFulfillmentFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeOrder, setActiveOrder] = useState<SellerOrder | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(() => searchParams.get("orderId"));
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(() => Boolean(searchParams.get("orderId")));
 
-  // Auto-open drawer if orderId query param is present
-  useEffect(() => {
-    const orderIdParam = searchParams.get("orderId");
-    if (orderIdParam) {
-      const found = orders.find(
-        (o) => o.id === orderIdParam || o.orderNumber === orderIdParam
-      );
-      if (found) {
-        setActiveOrder(found);
-        setIsDrawerOpen(true);
-      }
-    }
-  }, [searchParams, orders]);
+  const activeOrder = useMemo(() => {
+    if (!activeOrderId) return null;
+    return orders.find((o) => o.id === activeOrderId || o.orderNumber === activeOrderId) || null;
+  }, [orders, activeOrderId]);
 
   // Tab count calculations
   const statusCounts = useMemo(() => {
@@ -123,28 +114,7 @@ function SellerOrdersContent() {
       })
     );
 
-    // Keep active order in sync with drawer
-    setActiveOrder((prev) =>
-      prev && prev.id === orderId
-        ? {
-            ...prev,
-            status: newStatus,
-            confirmedAt: newStatus === "Confirmed" ? todayStr : prev.confirmedAt,
-            packedAt: newStatus === "Packed" ? todayStr : prev.packedAt,
-            shippedAt:
-              newStatus === "Shipped" || newStatus === "Ready for Meetup"
-                ? todayStr
-                : prev.shippedAt,
-            completedAt: newStatus === "Completed" ? todayStr : prev.completedAt,
-            deliveryDetails:
-              trackingNo && prev.deliveryDetails
-                ? { ...prev.deliveryDetails, trackingNumber: trackingNo }
-                : prev.deliveryDetails,
-          }
-        : prev
-    );
-
-    toast.success(`Order ${activeOrder?.orderNumber || ""} status updated to "${newStatus}"`);
+    toast.success(`Order status updated to "${newStatus}"`);
   };
 
   const handleCancelOrder = (orderId: string, reason: string) => {
@@ -166,18 +136,6 @@ function SellerOrdersContent() {
             }
           : o
       )
-    );
-
-    setActiveOrder((prev) =>
-      prev && prev.id === orderId
-        ? {
-            ...prev,
-            status: "Cancelled",
-            cancelledAt: todayStr,
-            cancelReason: reason,
-            paymentStatus: "Refunded",
-          }
-        : prev
     );
 
     toast.error(`Order cancelled: "${reason}"`);
@@ -443,7 +401,7 @@ function SellerOrdersContent() {
                         <tr
                           key={ord.id}
                           onClick={() => {
-                            setActiveOrder(ord);
+                            setActiveOrderId(ord.id);
                             setIsDrawerOpen(true);
                           }}
                           className="hover:bg-white/[0.03] transition-colors group cursor-pointer"
@@ -486,7 +444,7 @@ function SellerOrdersContent() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setActiveOrder(ord);
+                                setActiveOrderId(ord.id);
                                 setIsDrawerOpen(true);
                               }}
                               className="inline-flex items-center gap-1 text-xs font-bold text-[#e59bc9] hover:text-white px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-[#65486f] transition-all cursor-pointer"
@@ -508,7 +466,7 @@ function SellerOrdersContent() {
                   <div
                     key={ord.id}
                     onClick={() => {
-                      setActiveOrder(ord);
+                      setActiveOrderId(ord.id);
                       setIsDrawerOpen(true);
                     }}
                     className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
@@ -565,7 +523,10 @@ function SellerOrdersContent() {
       <SellerOrderDetailDrawer
         order={activeOrder}
         isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
+        onClose={() => {
+          setIsDrawerOpen(false);
+          setActiveOrderId(null);
+        }}
         onUpdateStatus={handleUpdateStatus}
         onCancelOrder={handleCancelOrder}
       />

@@ -22,6 +22,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CircuitCartWordmark } from "@/components/ui/circuitcart-wordmark";
 import { AuthPhase, FocusedField } from "@/components/login/tech-characters";
+import { signUpWithEmail } from "@/lib/supabase/auth";
+import { toast } from "sonner";
 
 const registerSchema = z
   .object({
@@ -68,6 +70,7 @@ export function RegisterForm({
   const [isSuccessState, setIsSuccessState] = useState(false);
   const [isSubmittingState, setIsSubmittingState] = useState(false);
   const [formHasSubmittedError, setFormHasSubmittedError] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
   const [passwordValue, setPasswordValue] = useState("");
@@ -139,16 +142,17 @@ export function RegisterForm({
       onAuthPhaseChange("success");
     } else if (isSubmittingState) {
       onAuthPhaseChange("checking");
-    } else if (formHasSubmittedError) {
+    } else if (formHasSubmittedError || authError) {
       onAuthPhaseChange("error");
     } else {
       onAuthPhaseChange("idle");
     }
-  }, [isSuccessState, isSubmittingState, formHasSubmittedError, onAuthPhaseChange]);
+  }, [isSuccessState, isSubmittingState, formHasSubmittedError, authError, onAuthPhaseChange]);
 
   const fullNameRegister = register("fullName", {
     onChange: () => {
       setFormHasSubmittedError(false);
+      setAuthError(null);
       clearErrors("fullName");
     },
   });
@@ -156,6 +160,7 @@ export function RegisterForm({
   const emailRegister = register("email", {
     onChange: (e) => {
       setFormHasSubmittedError(false);
+      setAuthError(null);
       if (e.target.value && z.string().email().safeParse(e.target.value).success) {
         clearErrors("email");
       }
@@ -165,6 +170,7 @@ export function RegisterForm({
   const passwordRegister = register("password", {
     onChange: (e) => {
       setFormHasSubmittedError(false);
+      setAuthError(null);
       const val = e.target.value;
       setPasswordValue(val);
       if (val.length >= 8 && /[a-zA-Z]/.test(val) && /[0-9]/.test(val)) {
@@ -176,6 +182,7 @@ export function RegisterForm({
   const confirmPasswordRegister = register("confirmPassword", {
     onChange: (e) => {
       setFormHasSubmittedError(false);
+      setAuthError(null);
       const val = e.target.value;
       setConfirmPasswordValue(val);
       if (val === getValues("password")) {
@@ -187,29 +194,43 @@ export function RegisterForm({
   const termsRegister = register("terms", {
     onChange: (e) => {
       setFormHasSubmittedError(false);
+      setAuthError(null);
       if (e.target.checked) clearErrors("terms");
     },
   });
 
-  const onSubmit = async () => {
+  const onSubmit = async (data: RegisterFormData) => {
     setFormHasSubmittedError(false);
+    setAuthError(null);
     setIsSubmittingState(true);
 
-    // 3 second safety fallback
-    const safetyFallback = setTimeout(() => {
-      setIsSubmittingState(false);
-      setFormHasSubmittedError(true);
-    }, 3000);
+    try {
+      const res = await signUpWithEmail(data.email, data.password, data.fullName);
 
-    setTimeout(() => {
-      clearTimeout(safetyFallback);
-      setIsSubmittingState(false);
-      setIsSuccessState(true);
+      if (res.success) {
+        setIsSubmittingState(false);
+        setIsSuccessState(true);
 
-      setTimeout(() => {
-        router.push("/marketplace");
-      }, 600);
-    }, 1000);
+        if (res.data?.sessionExists) {
+          setTimeout(() => {
+            router.push("/marketplace");
+            router.refresh();
+          }, 600);
+        } else {
+          toast.success("Account created! Please check your email to confirm your account.");
+          setTimeout(() => {
+            router.push("/login?registered=true");
+            router.refresh();
+          }, 1200);
+        }
+      } else {
+        setIsSubmittingState(false);
+        setAuthError(res.error || "Failed to create account. Please try again.");
+      }
+    } catch {
+      setIsSubmittingState(false);
+      setAuthError("An unexpected error occurred. Please try again.");
+    }
   };
 
   const onInvalidSubmit = () => {
@@ -241,7 +262,16 @@ export function RegisterForm({
         </p>
       </div>
 
-      {/* Hidden ARIA announcement is handled in tech-characters.tsx */}
+      {/* Auth Error Banner */}
+      {authError && (
+        <div
+          role="alert"
+          className="mb-4 p-3 rounded-xl bg-[#cf6679]/10 border border-[#cf6679]/30 flex items-start gap-2.5 text-xs text-[#b3261e] font-medium animate-in fade-in zoom-in-95 duration-140"
+        >
+          <CircleAlert className="size-4 shrink-0 mt-0.5 text-[#b3261e]" />
+          <span>{authError}</span>
+        </div>
+      )}
 
       {/* Form using exact 20px vertical gap system */}
       <form onSubmit={handleSubmit(onSubmit, onInvalidSubmit)} className="flex flex-col gap-[20px]" noValidate>
