@@ -235,6 +235,16 @@ export function MarketplaceHeader({
 
                   {/* Menu Items */}
                   <Link
+                    href="/seller"
+                    role="menuitem"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#fffafa] hover:bg-[#342339] hover:text-[#e59bc9] transition-colors"
+                  >
+                    <Package className="size-3.5 text-[#e59bc9]" />
+                    <span>Seller Dashboard</span>
+                  </Link>
+
+                  <Link
                     href="/marketplace/profile"
                     role="menuitem"
                     onClick={() => setShowUserMenu(false)}
