@@ -9,7 +9,6 @@ import {
   ShoppingCart,
   Bell,
   PlusCircle,
-  SlidersHorizontal,
   ChevronDown,
   User,
   Package,
@@ -17,7 +16,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useMarketplace } from "./marketplace-provider";
-import { CATEGORIES, CategoryFilter } from "./marketplace-data";
+import { CategoryFilter } from "./marketplace-data";
 import { toast } from "sonner";
 
 interface MarketplaceHeaderProps {
@@ -30,44 +29,28 @@ interface MarketplaceHeaderProps {
 export function MarketplaceHeader({
   searchQuery: propSearchQuery,
   onSearchChange: propOnSearchChange,
-  selectedCategory: propSelectedCategory,
-  onSelectCategory: propOnSelectCategory,
 }: MarketplaceHeaderProps = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const {
     searchQuery: ctxSearchQuery,
     setSearchQuery: ctxSetSearchQuery,
-    selectedCategory: ctxSelectedCategory,
-    setSelectedCategory: ctxSetSelectedCategory,
     favorites,
     totalCartCount,
     unreadNotificationsCount,
     demoProfile,
   } = useMarketplace();
 
-  // Use props if provided, otherwise fallback to context
   const searchQuery = propSearchQuery ?? ctxSearchQuery;
   const onSearchChange = propOnSearchChange ?? ctxSetSearchQuery;
-  const selectedCategory = propSelectedCategory ?? ctxSelectedCategory;
-  const onSelectCategory = propOnSelectCategory ?? ctxSetSelectedCategory;
 
-  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-
-  const categoryMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const userButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Close menus on click outside
+  // Close menu on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        categoryMenuRef.current &&
-        !categoryMenuRef.current.contains(event.target as Node)
-      ) {
-        setShowCategoryMenu(false);
-      }
       if (
         userMenuRef.current &&
         !userMenuRef.current.contains(event.target as Node)
@@ -79,31 +62,20 @@ export function MarketplaceHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Keyboard accessibility for dropdowns (Escape to close)
+  // Keyboard accessibility (Escape to close)
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        if (showCategoryMenu) setShowCategoryMenu(false);
-        if (showUserMenu) {
-          setShowUserMenu(false);
-          userButtonRef.current?.focus();
-        }
+      if (event.key === "Escape" && showUserMenu) {
+        setShowUserMenu(false);
+        userButtonRef.current?.focus();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [showCategoryMenu, showUserMenu]);
+  }, [showUserMenu]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pathname !== "/marketplace") {
-      router.push("/marketplace");
-    }
-  };
-
-  const handleCategoryPick = (cat: (typeof CATEGORIES)[number]) => {
-    onSelectCategory(cat);
-    setShowCategoryMenu(false);
     if (pathname !== "/marketplace") {
       router.push("/marketplace");
     }
@@ -118,12 +90,12 @@ export function MarketplaceHeader({
   return (
     <header className="sticky top-0 z-40 w-full glass-marketplace-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ROW 1: Logo, Search (desktop), Actions */}
-        <div className="flex items-center justify-between h-16 gap-3 sm:gap-6">
+        {/* ROW 1: Logo, Search, Actions */}
+        <div className="flex items-center justify-between h-16 gap-4 sm:gap-8">
           {/* Logo / Brand Mark */}
           <Link
             href="/marketplace"
-            className="inline-flex items-center gap-2 select-none focus-visible:outline-2 focus-visible:outline-[#e59bc9] rounded-xs shrink-0"
+            className="inline-flex items-center gap-2 select-none focus-visible:outline-2 focus-visible:outline-[#e59bc9] rounded-xs shrink-0 group"
           >
             <svg
               width="20"
@@ -158,62 +130,19 @@ export function MarketplaceHeader({
             </span>
           </Link>
 
-          {/* DESKTOP SEARCH & CATEGORY SELECTOR */}
+          {/* DESKTOP SEARCH BAR (Clean, lightweight, single-purpose without redundant dropdown) */}
           <form
             onSubmit={handleSearchSubmit}
-            className="hidden md:flex items-center flex-1 max-w-2xl relative gap-2"
+            className="hidden md:flex items-center flex-1 max-w-2xl relative"
           >
-            {/* Category Dropdown Trigger */}
-            <div className="relative" ref={categoryMenuRef}>
-              <button
-                type="button"
-                aria-haspopup="listbox"
-                aria-expanded={showCategoryMenu}
-                onClick={() => setShowCategoryMenu((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 h-10 px-3 text-xs font-semibold text-[#fffafa] bg-[#342339] border border-white/10 hover:bg-[#45304b] rounded-xl transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer"
-              >
-                <SlidersHorizontal className="size-3.5 text-[#e59bc9]" />
-                <span className="truncate max-w-[90px]">{selectedCategory}</span>
-                <ChevronDown className="size-3.5 text-[#b9adb6]" />
-              </button>
-
-              {/* Category Dropdown Menu */}
-              {showCategoryMenu && (
-                <div
-                  role="listbox"
-                  className="absolute top-12 left-0 w-44 glass-dropdown rounded-xl py-1.5 z-50 animate-in fade-in zoom-in-95"
-                >
-                  {CATEGORIES.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      role="option"
-                      aria-selected={selectedCategory === cat}
-                      onClick={() => handleCategoryPick(cat)}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors cursor-pointer ${
-                        selectedCategory === cat
-                          ? "bg-[#65486f] text-[#fffafa] font-semibold"
-                          : "text-[#b9adb6] hover:bg-[#342339] hover:text-[#fffafa]"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#b9adb6]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Search products, brands, or categories"
-                className="w-full h-10 pl-10 pr-4 bg-[#342339] border border-white/10 text-[#fffafa] placeholder:text-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-sm transition-all"
-              />
-            </div>
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#b9adb6] pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search products, brands, or categories"
+              className="w-full h-10 pl-10 pr-4 bg-[#342339] border border-white/10 text-[#fffafa] placeholder:text-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-sm transition-all"
+            />
           </form>
 
           {/* ACTIONS & USER MENU */}
@@ -230,7 +159,7 @@ export function MarketplaceHeader({
             {/* Favorites Button */}
             <Link
               href="/marketplace/favorites"
-              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              className="relative hidden p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] md:inline-flex"
               aria-label={`Favorites with ${favorites.length} items`}
             >
               <Heart className="size-5" />
@@ -244,7 +173,7 @@ export function MarketplaceHeader({
             {/* Cart Button */}
             <Link
               href="/marketplace/cart"
-              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              className="relative hidden p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] md:inline-flex"
               aria-label={`Cart with ${totalCartCount} items`}
             >
               <ShoppingCart className="size-5" />
@@ -360,7 +289,7 @@ export function MarketplaceHeader({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search products, brands, categories..."
+              placeholder="Search products, brands, or categories"
               className="w-full h-10 pl-10 pr-4 bg-[#342339] border border-white/10 text-[#fffafa] placeholder:text-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-xs transition-all"
             />
           </form>

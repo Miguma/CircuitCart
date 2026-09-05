@@ -8,6 +8,7 @@ import {
 import { MarketplaceHeader } from "@/components/marketplace/marketplace-header";
 import { QuickViewDialog } from "@/components/marketplace/quick-view-dialog";
 import { MarketplaceFooter } from "@/components/marketplace/marketplace-footer";
+import { MarketplaceMobileNav } from "@/components/marketplace/marketplace-mobile-nav";
 import { Toaster, toast } from "sonner";
 
 function MarketplaceLayoutContent({
@@ -25,9 +26,22 @@ function MarketplaceLayoutContent({
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#8f7375] via-[#3a283e] to-[#19131b] text-[#fffafa] flex flex-col font-sans">
+      <a
+        href="#marketplace-content"
+        className="fixed left-4 top-3 z-[70] -translate-y-20 rounded-xl bg-[#f8f3f3] px-4 py-2 text-sm font-bold text-[#1d1720] shadow-xl transition-transform focus:translate-y-0 motion-reduce:transition-none"
+      >
+        Skip to marketplace content
+      </a>
       <MarketplaceHeader />
-      <div className="flex-1 w-full animate-in fade-in duration-150 motion-reduce:animate-none">{children}</div>
+      <div
+        id="marketplace-content"
+        tabIndex={-1}
+        className="flex-1 w-full pb-24 animate-in fade-in duration-150 focus:outline-none motion-reduce:animate-none md:pb-0"
+      >
+        {children}
+      </div>
       <MarketplaceFooter />
+      <MarketplaceMobileNav />
 
       <QuickViewDialog
         product={quickViewProduct}

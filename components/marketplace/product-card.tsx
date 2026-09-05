@@ -90,48 +90,46 @@ export function ProductCard({
         </div>
 
         {/* Product Visual Container with Real Image */}
-        <Link
-          href={`/marketplace/products/${product.id}`}
-          className="block relative rounded-xl mb-3.5 overflow-hidden bg-[#ebe2e5] border border-[#ded0d5] aspect-[4/3] flex items-center justify-center p-4 focus-visible:outline-2 focus-visible:outline-[#65486f]"
-          aria-label={`View details for ${product.name}`}
-        >
-          {product.image ? (
-            <div className="w-full h-full relative flex items-center justify-center">
-              <Image
-                src={product.image}
-                alt={product.name}
-                fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                className="object-contain p-2 group-hover:scale-[1.02] transition-transform duration-150 ease-out select-none pointer-events-none"
-              />
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-1.5 text-center p-2">
-              {getFallbackIcon(product.category)}
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#65486f]/80">
-                {product.category}
-              </span>
-            </div>
-          )}
+        <div className="relative mb-3.5 aspect-[4/3] overflow-hidden rounded-xl border border-[#ded0d5] bg-[#ebe2e5]">
+          <Link
+            href={`/marketplace/products/${product.id}`}
+            className="relative flex size-full items-center justify-center p-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#65486f]"
+            aria-label={`View details for ${product.name}`}
+          >
+            {product.image ? (
+              <div className="relative flex size-full items-center justify-center">
+                <Image
+                  src={product.image}
+                  alt={product.name}
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="pointer-events-none select-none object-contain p-2 transition-transform duration-150 ease-out group-hover:scale-[1.02]"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-1.5 p-2 text-center">
+                {getFallbackIcon(product.category)}
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#65486f]/80">
+                  {product.category}
+                </span>
+              </div>
+            )}
+          </Link>
 
-          {/* Quick View Overlay Button */}
+          {/* Quick View Button */}
           <button
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onQuickView(product);
-            }}
-            className="absolute inset-x-0 bottom-0 py-2 bg-[#19131b]/80 backdrop-blur-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer z-10"
+            onClick={() => onQuickView(product)}
+            className="absolute inset-x-2 bottom-2 z-10 flex items-center justify-center gap-1.5 rounded-lg bg-[#19131b]/88 py-2 text-xs font-semibold text-white shadow-md backdrop-blur-sm transition-all duration-150 hover:bg-[#19131b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#65486f] sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 cursor-pointer"
             aria-label={`Quick view ${product.name}`}
           >
             <Eye className="size-3.5 text-[#e59bc9]" />
             <span>Quick view</span>
           </button>
-        </Link>
+        </div>
 
         {/* Title */}
-        <h3 className="text-[15px] font-bold text-[#1d1720] line-clamp-2 leading-snug group-hover:text-[#65486f] transition-colors mb-1.5">
+        <h3 className="text-sm sm:text-[15px] font-bold text-[#1d1720] line-clamp-2 leading-snug group-hover:text-[#65486f] transition-colors mb-1.5">
           <Link
             href={`/marketplace/products/${product.id}`}
             className="hover:underline focus-visible:outline-2 focus-visible:outline-[#65486f] rounded-xs"
@@ -142,14 +140,14 @@ export function ProductCard({
         </h3>
 
         {/* Rating & Review Count */}
-        <div className="flex items-center gap-1 text-[13px] text-[#716872] mb-1.5">
+        <div className="flex items-center gap-1 text-xs text-[#716872] mb-1.5">
           <Star className="size-3.5 fill-amber-400 text-amber-400" />
           <span className="font-semibold text-[#1d1720]">{product.rating}</span>
           <span className="text-[#716872]">({product.reviewCount})</span>
         </div>
 
         {/* Specs snippet */}
-        <p className="text-[13px] text-[#716872] line-clamp-1 mb-3 leading-relaxed">
+        <p className="text-xs text-[#716872] line-clamp-1 mb-3 leading-relaxed">
           {product.specs}
         </p>
       </div>
@@ -157,7 +155,7 @@ export function ProductCard({
       {/* Bottom Section: Seller, Location, Price & Cart Action */}
       <div className="pt-3 border-t border-[#eadcde] space-y-2.5">
         {/* Seller Name & Location */}
-        <div className="space-y-0.5 text-[13px] text-[#716872]">
+        <div className="space-y-0.5 text-xs text-[#716872]">
           <div className="flex items-center gap-1 font-semibold text-[#65486f]">
             <span className="truncate max-w-[160px]">{product.sellerName}</span>
             {product.isVerifiedSeller && (
