@@ -244,16 +244,11 @@ export default function MarketplacePage() {
               {/* SECTION 1: Recommended for you */}
               {recommendedProducts.length > 0 && (
                 <section aria-labelledby="heading-recommended" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="size-4.5 text-[#e59bc9]" />
-                      <h2 id="heading-recommended" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
-                        Recommended for you
-                      </h2>
-                    </div>
-                    <span className="text-xs font-semibold text-[#b9adb6]">
-                      {recommendedProducts.length} items
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="size-4.5 text-[#e59bc9]" />
+                    <h2 id="heading-recommended" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                      Recommended for you
+                    </h2>
                   </div>
 
                   <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
@@ -274,16 +269,11 @@ export default function MarketplacePage() {
               {/* SECTION 2: Pre-owned finds */}
               {preOwnedProducts.length > 0 && (
                 <section aria-labelledby="heading-preowned" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShoppingBag className="size-4.5 text-[#b78bd7]" />
-                      <h2 id="heading-preowned" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
-                        Pre-owned finds
-                      </h2>
-                    </div>
-                    <span className="text-xs font-semibold text-[#b9adb6]">
-                      {preOwnedProducts.length} items
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="size-4.5 text-[#b78bd7]" />
+                    <h2 id="heading-preowned" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                      Pre-owned finds
+                    </h2>
                   </div>
 
                   <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
@@ -304,16 +294,11 @@ export default function MarketplacePage() {
               {/* SECTION 3: Popular in gaming */}
               {gamingProducts.length > 0 && (
                 <section aria-labelledby="heading-gaming" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Flame className="size-4.5 text-[#e59bc9]" />
-                      <h2 id="heading-gaming" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
-                        Popular in gaming
-                      </h2>
-                    </div>
-                    <span className="text-xs font-semibold text-[#b9adb6]">
-                      {gamingProducts.length} items
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <Flame className="size-4.5 text-[#e59bc9]" />
+                    <h2 id="heading-gaming" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                      Popular in gaming
+                    </h2>
                   </div>
 
                   <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
@@ -334,16 +319,11 @@ export default function MarketplacePage() {
               {/* SECTION 4: Trusted sellers */}
               {trustedProducts.length > 0 && (
                 <section aria-labelledby="heading-trusted" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="size-4.5 text-emerald-400" />
-                      <h2 id="heading-trusted" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
-                        Trusted sellers
-                      </h2>
-                    </div>
-                    <span className="text-xs font-semibold text-[#b9adb6]">
-                      {trustedProducts.length} items
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="size-4.5 text-emerald-400" />
+                    <h2 id="heading-trusted" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                      Trusted sellers
+                    </h2>
                   </div>
 
                   <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
