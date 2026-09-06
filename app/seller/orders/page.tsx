@@ -203,6 +203,13 @@ function SellerOrdersContent() {
             Packed
           </span>
         );
+      case "Ready for Dispatch":
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-950/60 border border-sky-500/30 text-sky-300">
+            <Truck className="size-3" />
+            Ready for Dispatch
+          </span>
+        );
       case "Shipped":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-950/60 border border-sky-500/30 text-sky-300">

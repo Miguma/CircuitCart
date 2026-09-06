@@ -67,6 +67,8 @@ interface MarketplaceContextType {
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+  refreshCart: () => Promise<void>;
+  resetLocalCart: () => void;
   totalCartCount: number;
   cartSubtotal: number;
 
@@ -339,6 +341,20 @@ export function MarketplaceProvider({
     }
   }, [cartItems]);
 
+  const refreshCart = useCallback(async () => {
+    try {
+      const items = await getCartItems();
+      setCartItems(items || []);
+    } catch (err) {
+      console.warn("Could not refresh cart from Supabase:", err);
+      setCartItems([]);
+    }
+  }, []);
+
+  const resetLocalCart = useCallback(() => {
+    setCartItems([]);
+  }, []);
+
   const totalCartCount = useMemo(() => {
     return cartItems.reduce((acc, item) => acc + item.quantity, 0);
   }, [cartItems]);
@@ -386,6 +402,8 @@ export function MarketplaceProvider({
       removeFromCart,
       updateQuantity,
       clearCart,
+      refreshCart,
+      resetLocalCart,
       totalCartCount,
       cartSubtotal,
       notifications,
@@ -407,6 +425,8 @@ export function MarketplaceProvider({
       removeFromCart,
       updateQuantity,
       clearCart,
+      refreshCart,
+      resetLocalCart,
       totalCartCount,
       cartSubtotal,
       notifications,

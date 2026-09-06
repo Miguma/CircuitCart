@@ -8,6 +8,8 @@ export interface Product {
   rating: number;
   reviewCount: number;
   sellerName: string;
+  sellerId?: string;
+  shopId?: string;
   isVerifiedSeller: boolean;
   location: string;
   isFeatured?: boolean;

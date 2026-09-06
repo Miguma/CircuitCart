@@ -35,6 +35,8 @@ export default function CartPage() {
     updateQuantity,
     removeFromCart,
     clearCart,
+    refreshCart,
+    resetLocalCart,
     totalCartCount,
     cartSubtotal,
   } = useMarketplace();
@@ -54,9 +56,55 @@ export default function CartPage() {
       maximumFractionDigits: 0,
     }).format(price);
 
-  const shippingCost =
-    deliveryMethod === "meetup" || cartSubtotal > 10000 || cartSubtotal === 0 ? 0 : 150;
-  const grandTotal = cartSubtotal + shippingCost;
+  // Group cart items by shop/seller for accurate multi-order & shipping fee calculation
+  const sellerGroups = React.useMemo(() => {
+    const map = new Map<string, { sellerName: string; items: typeof cartItems }>();
+
+    for (const item of cartItems) {
+      const key =
+        item.product.shopId ||
+        item.product.sellerId ||
+        item.product.sellerName ||
+        "verified-seller";
+      const name = item.product.sellerName || "Verified Seller";
+      const existing = map.get(key);
+      if (existing) {
+        existing.items.push(item);
+      } else {
+        map.set(key, { sellerName: name, items: [item] });
+      }
+    }
+
+    return Array.from(map.entries()).map(([key, data]) => {
+      const subtotal = data.items.reduce(
+        (sum, it) => sum + it.product.price * it.quantity,
+        0
+      );
+      const shippingFee =
+        deliveryMethod === "meetup" || subtotal >= 10000 || subtotal === 0
+          ? 0
+          : 150;
+      const total = subtotal + shippingFee;
+
+      return {
+        sellerKey: key,
+        sellerName: data.sellerName,
+        items: data.items,
+        subtotal,
+        shippingFee,
+        total,
+      };
+    });
+  }, [cartItems, deliveryMethod]);
+
+  const sellerCount = sellerGroups.length;
+
+  const overallShippingTotal = React.useMemo(
+    () => sellerGroups.reduce((acc, g) => acc + g.shippingFee, 0),
+    [sellerGroups]
+  );
+
+  const overallGrandTotal = cartSubtotal + overallShippingTotal;
 
   const getFallbackIcon = (category: string) => {
     switch (category) {
@@ -74,16 +122,6 @@ export default function CartPage() {
         return <Layers className="size-8 text-[#65486f]" />;
     }
   };
-
-  // Group cart items by seller for review
-  const groupedBySeller = cartItems.reduce<Record<string, typeof cartItems>>((acc, item) => {
-    const sellerKey = item.product.sellerName || "Verified Seller";
-    if (!acc[sellerKey]) acc[sellerKey] = [];
-    acc[sellerKey].push(item);
-    return acc;
-  }, {});
-
-  const sellerCount = Object.keys(groupedBySeller).length;
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +152,10 @@ export default function CartPage() {
         buyerNote,
       });
 
+      // Synchronize client cart state without sending an unnecessary second DELETE request
+      resetLocalCart();
+      await refreshCart();
+
       toast.success(
         orderIds.length > 1
           ? `Successfully placed ${orderIds.length} orders across different shops!`
@@ -122,7 +164,6 @@ export default function CartPage() {
 
       setIsCheckoutOpen(false);
       router.push("/marketplace/orders");
-      router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Checkout failed. Please try again.";
       toast.error(msg);
@@ -309,26 +350,40 @@ export default function CartPage() {
                 <div className="flex items-center justify-between text-[#d6cbd5]">
                   <span>Estimated Visayas Delivery</span>
                   <span className="font-semibold text-white">
-                    {shippingCost === 0 ? "FREE" : formatPrice(shippingCost)}
+                    {overallShippingTotal === 0 ? "FREE" : formatPrice(overallShippingTotal)}
                   </span>
                 </div>
 
-                {shippingCost === 0 && (
+                {overallShippingTotal === 0 && cartSubtotal >= 10000 && (
                   <div className="text-[11px] text-emerald-400 font-medium">
                     ✓ Free shipping unlocked (orders over ₱10,000)
                   </div>
                 )}
 
                 {sellerCount > 1 && (
-                  <div className="p-2.5 bg-[#342339]/60 border border-white/10 rounded-xl text-[11px] text-[#e59bc9]">
-                    Note: Your cart contains items from <strong>{sellerCount} separate stores</strong>. Separate orders will be created automatically.
+                  <div className="p-3 bg-[#342339]/70 border border-[#e59bc9]/20 rounded-xl space-y-1.5 text-[11px]">
+                    <div className="font-bold text-[#e59bc9]">
+                      Multi-Store Order ({sellerCount} separate stores)
+                    </div>
+                    <div className="space-y-1 text-[#d6cbd5] divide-y divide-white/5">
+                      {sellerGroups.map((g) => (
+                        <div key={g.sellerKey} className="flex items-center justify-between pt-1 first:pt-0">
+                          <span className="truncate max-w-[140px] text-white/90 font-medium">
+                            {g.sellerName}
+                          </span>
+                          <span className="font-mono text-white/80 shrink-0">
+                            {formatPrice(g.subtotal)} {g.shippingFee > 0 ? `(+${formatPrice(g.shippingFee)})` : "(Free Ship)"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 <div className="pt-3 border-t border-white/10 flex items-center justify-between text-sm">
                   <span className="font-bold text-white">Estimated Total</span>
                   <span className="font-extrabold text-base text-[#e59bc9]">
-                    {formatPrice(grandTotal)}
+                    {formatPrice(overallGrandTotal)}
                   </span>
                 </div>
               </div>
@@ -505,7 +560,7 @@ export default function CartPage() {
                 <div className="flex items-center justify-between text-xs text-[#d6cbd5]">
                   <span>Total Amount Due:</span>
                   <span className="text-base font-extrabold text-[#e59bc9]">
-                    {formatPrice(grandTotal)}
+                    {formatPrice(overallGrandTotal)}
                   </span>
                 </div>
 
@@ -520,7 +575,7 @@ export default function CartPage() {
                       <span>Processing Order...</span>
                     </>
                   ) : (
-                    <span>Place Order ({formatPrice(grandTotal)})</span>
+                    <span>Place Order ({formatPrice(overallGrandTotal)})</span>
                   )}
                 </button>
               </div>

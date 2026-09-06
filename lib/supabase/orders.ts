@@ -37,7 +37,7 @@ export function mapDbStatusToSellerStatus(status: DbOrderStatus, deliveryMethod:
     case "preparing":
       return "Packed";
     case "ready":
-      return deliveryMethod === "meetup" ? "Ready for Meetup" : "Packed";
+      return deliveryMethod === "meetup" ? "Ready for Meetup" : "Ready for Dispatch";
     case "shipped":
       return "Shipped";
     case "completed":
@@ -60,6 +60,7 @@ export function mapSellerStatusToDbStatus(status: OrderStatus): DbOrderStatus {
       return "confirmed";
     case "Packed":
       return "preparing";
+    case "Ready for Dispatch":
     case "Ready for Meetup":
       return "ready";
     case "Shipped":

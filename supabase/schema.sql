@@ -549,7 +549,7 @@ create policy "Buyers and Sellers can view their own order items"
     )
   );
 
--- 10. Transactional Checkout Function
+-- 10. Transactional Checkout Function (Requires Active Shop, Prevents Self-Purchase, Transactional Locking)
 create or replace function public.checkout_cart(
   p_delivery_method text,
   p_shipping_name text default null,
@@ -596,7 +596,7 @@ begin
     end if;
   end if;
 
-  -- 3. Check and lock cart items
+  -- 3. Check cart existence
   select count(*) into v_cart_count
   from public.cart_items
   where user_id = v_buyer_id;
@@ -615,7 +615,7 @@ begin
   )
   for update of p;
 
-  -- 5. Validate each product in cart against locked rows
+  -- 5. Validate each product in cart against locked rows and enforce ACTIVE SHOP REQUIREMENT
   for v_item in (
     select
       c.id as cart_item_id,
@@ -627,22 +627,35 @@ begin
       p.status as product_status,
       p.seller_id as product_seller_id,
       p.shop_id as product_shop_id,
+      s.id as shop_exists_id,
+      s.owner_id as shop_owner_id,
       s.status as shop_status
     from public.cart_items c
     join public.products p on p.id = c.product_id
     left join public.shops s on s.id = p.shop_id
     where c.user_id = v_buyer_id
   ) loop
+    -- Non-self purchase check
     if v_item.product_seller_id = v_buyer_id then
       raise exception 'You cannot purchase your own listing ("%").', v_item.product_title;
     end if;
 
-    if v_item.product_status <> 'active' then
-      raise exception 'Product "%" is no longer available.', v_item.product_title;
+    -- Strict shop validation: must exist, have valid owner, and be 'active'
+    if v_item.product_shop_id is null or v_item.shop_exists_id is null then
+      raise exception 'Product "%" cannot be purchased because it does not belong to a valid shop.', v_item.product_title;
     end if;
 
-    if v_item.shop_status is not null and v_item.shop_status <> 'active' then
-      raise exception 'The seller store for "%" is currently not accepting orders.', v_item.product_title;
+    if v_item.shop_owner_id <> v_item.product_seller_id then
+      raise exception 'Product "%" shop owner mismatch.', v_item.product_title;
+    end if;
+
+    if v_item.shop_status <> 'active' then
+      raise exception 'Product "%" cannot be purchased because its shop is currently %.', v_item.product_title, coalesce(v_item.shop_status, 'inactive');
+    end if;
+
+    -- Product status and inventory checks
+    if v_item.product_status <> 'active' then
+      raise exception 'Product "%" is no longer available.', v_item.product_title;
     end if;
 
     if v_item.current_stock <= 0 then
@@ -665,6 +678,10 @@ begin
     where c.user_id = v_buyer_id
     group by p.seller_id, p.shop_id
   ) loop
+    if v_group.shop_id is null then
+      raise exception 'Cannot create order: missing shop identifier.';
+    end if;
+
     v_group_subtotal := v_group.subtotal;
 
     -- Calculate shipping fee per shop (Free shipping if meetup or subtotal >= 10,000)
@@ -717,7 +734,7 @@ begin
       join public.products p on p.id = c.product_id
       where c.user_id = v_buyer_id
         and p.seller_id = v_group.seller_id
-        and (p.shop_id = v_group.shop_id or (p.shop_id is null and v_group.shop_id is null))
+        and p.shop_id = v_group.shop_id
     ) loop
       -- Fetch primary image
       select storage_path into v_primary_image
@@ -834,7 +851,7 @@ begin
 end;
 $$;
 
--- 12. Controlled Seller Order Status Transitions
+-- 12. Strict Seller Order Status Transitions
 create or replace function public.update_seller_order_status(
   p_order_id uuid,
   p_new_status text
@@ -875,37 +892,54 @@ begin
     return true;
   end if;
 
-  -- Cancellation delegate
+  -- Disallow transitions from terminal states
+  if v_order.status = 'completed' then
+    raise exception 'Completed orders cannot change status.';
+  end if;
+
+  if v_order.status = 'cancelled' then
+    raise exception 'Cancelled orders cannot change status.';
+  end if;
+
+  -- Cancellation delegate (cancel_order handles pending/confirmed -> cancelled + stock rollback)
   if p_new_status = 'cancelled' then
     return public.cancel_order(p_order_id);
   end if;
 
-  -- Enforce transition rules
+  -- Enforce strict linear transitions
   if p_new_status = 'confirmed' then
     if v_order.status <> 'pending' then
       raise exception 'Only pending orders can be confirmed (current: %).', v_order.status;
     end if;
   elsif p_new_status = 'preparing' then
-    if v_order.status not in ('pending', 'confirmed') then
-      raise exception 'Cannot prepare an order in % state.', v_order.status;
+    if v_order.status <> 'confirmed' then
+      raise exception 'Only confirmed orders can move to preparing (current: %).', v_order.status;
     end if;
   elsif p_new_status = 'ready' then
-    if v_order.status not in ('confirmed', 'preparing') then
-      raise exception 'Cannot mark ready from % state.', v_order.status;
+    if v_order.status <> 'preparing' then
+      raise exception 'Only preparing orders can be marked ready (current: %).', v_order.status;
     end if;
   elsif p_new_status = 'shipped' then
     if v_order.delivery_method <> 'delivery' then
       raise exception 'Only delivery orders can be marked shipped.';
     end if;
-    if v_order.status not in ('confirmed', 'preparing', 'ready') then
-      raise exception 'Cannot ship order from % state.', v_order.status;
+    if v_order.status <> 'ready' then
+      raise exception 'Delivery orders must be marked ready before shipping (current: %).', v_order.status;
     end if;
   elsif p_new_status = 'completed' then
-    if v_order.status not in ('ready', 'shipped') then
-      raise exception 'Cannot complete order from % state.', v_order.status;
+    if v_order.delivery_method = 'delivery' then
+      if v_order.status <> 'shipped' then
+        raise exception 'Delivery orders must be shipped before being marked completed (current: %).', v_order.status;
+      end if;
+    elsif v_order.delivery_method = 'meetup' then
+      if v_order.status <> 'ready' then
+        raise exception 'Meetup orders must be marked ready before being marked completed (current: %).', v_order.status;
+      end if;
+    else
+      raise exception 'Invalid delivery method "%" for order completion.', v_order.delivery_method;
     end if;
   else
-    raise exception 'Illegal transition to %.', p_new_status;
+    raise exception 'Illegal status transition from % to %.', v_order.status, p_new_status;
   end if;
 
   update public.orders
@@ -917,3 +951,16 @@ begin
   return true;
 end;
 $$;
+
+-- 13. Explicit RPC Function Execute Permissions
+revoke execute on function public.checkout_cart(text, text, text, text, text) from public;
+revoke execute on function public.checkout_cart(text, text, text, text, text) from anon;
+grant execute on function public.checkout_cart(text, text, text, text, text) to authenticated;
+
+revoke execute on function public.cancel_order(uuid, text) from public;
+revoke execute on function public.cancel_order(uuid, text) from anon;
+grant execute on function public.cancel_order(uuid, text) to authenticated;
+
+revoke execute on function public.update_seller_order_status(uuid, text) from public;
+revoke execute on function public.update_seller_order_status(uuid, text) from anon;
+grant execute on function public.update_seller_order_status(uuid, text) to authenticated;

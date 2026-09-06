@@ -61,6 +61,8 @@ export function mapDbProductToMarketplaceProduct(dbProduct: ProductWithRelations
     rating: 5.0,
     reviewCount: 0,
     sellerName,
+    sellerId: dbProduct.seller_id,
+    shopId: dbProduct.shop_id || undefined,
     isVerifiedSeller: isVerified,
     location,
     section: "Recommended for you",

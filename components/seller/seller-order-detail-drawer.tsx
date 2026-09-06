@@ -71,6 +71,13 @@ export function SellerOrderDetailDrawer({
             Packed
           </span>
         );
+      case "Ready for Dispatch":
+        return (
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-sky-950/70 border border-sky-500/30 text-sky-300">
+            <Truck className="size-3" />
+            Ready for Dispatch
+          </span>
+        );
       case "Shipped":
         return (
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-sky-950/70 border border-sky-500/30 text-sky-300">
@@ -118,6 +125,7 @@ export function SellerOrderDetailDrawer({
     { key: "Pending", label: "Order Placed", time: order.placedAt },
     { key: "Confirmed", label: "Confirmed", time: order.confirmedAt },
     { key: "Packed", label: "Packed", time: order.packedAt },
+    { key: "Ready for Dispatch", label: "Ready for Dispatch", time: order.shippedAt },
     { key: "Shipped", label: "Shipped", time: order.shippedAt },
     { key: "Completed", label: "Completed", time: order.completedAt },
   ];
@@ -137,7 +145,9 @@ export function SellerOrderDetailDrawer({
     "Pending",
     "Confirmed",
     "Packed",
-    order.fulfillmentMethod === "Meetup" ? "Ready for Meetup" : "Shipped",
+    "Ready for Dispatch",
+    "Ready for Meetup",
+    "Shipped",
     "Delivered",
     "Completed",
   ];
@@ -217,13 +227,20 @@ export function SellerOrderDetailDrawer({
             )}
 
             {order.status === "Confirmed" && (
-              <div className="pt-1">
+              <div className="flex items-center gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => onUpdateStatus(order.id, "Packed")}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold shadow-xs transition-colors text-center cursor-pointer"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold shadow-xs transition-colors text-center cursor-pointer"
                 >
-                  Mark as Packed & Ready
+                  Start Packing (Mark as Preparing)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCancelModal(true)}
+                  className="py-2.5 px-4 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 text-xs font-bold text-rose-300 transition-colors cursor-pointer"
+                >
+                  Cancel
                 </button>
               </div>
             )}
@@ -232,11 +249,11 @@ export function SellerOrderDetailDrawer({
               <div className="pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowTrackingModal(true)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-sky-900/80 hover:bg-sky-800 text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={() => onUpdateStatus(order.id, "Ready for Dispatch")}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Truck className="size-4" />
-                  <span>Dispatch & Mark as Shipped</span>
+                  <span>Mark Packed & Ready for Dispatch</span>
                 </button>
               </div>
             )}
@@ -250,6 +267,19 @@ export function SellerOrderDetailDrawer({
                 >
                   <MapPin className="size-4" />
                   <span>Mark Ready for Meetup</span>
+                </button>
+              </div>
+            )}
+
+            {order.status === "Ready for Dispatch" && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowTrackingModal(true)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-sky-900/80 hover:bg-sky-800 text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Truck className="size-4" />
+                  <span>Dispatch & Mark as Shipped</span>
                 </button>
               </div>
             )}
