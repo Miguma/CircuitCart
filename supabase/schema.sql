@@ -1,4 +1,4 @@
-﻿-- =======================================================
+-- =======================================================
 -- CIRCUITCART COMPLETE DATABASE SCHEMA
 -- PROFILES, SHOPS, PRODUCTS, PRODUCT IMAGES & STORAGE
 -- =======================================================
@@ -141,12 +141,17 @@ drop policy if exists "Shop owners can update their own shop" on public.shops;
 create policy "Shop owners can update their own shop"
   on public.shops
   for update
-  using (auth.uid() = owner_id)
+  using (
+    auth.uid() = owner_id
+    and status != 'suspended'
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
+  )
   with check (
     auth.uid() = owner_id
     and is_verified = (select s.is_verified from public.shops s where s.id = shops.id)
     and owner_id = (select s.owner_id from public.shops s where s.id = shops.id)
-    and (case when status = 'suspended' then (select s.status from public.shops s where s.id = shops.id) else status end) = status
+    and status in ('active', 'vacation')
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
   );
 
 drop trigger if exists set_shops_updated_at on public.shops;
@@ -200,17 +205,24 @@ drop policy if exists "Sellers can update their own products" on public.products
 create policy "Sellers can update their own products"
   on public.products
   for update
-  using (seller_id = auth.uid())
+  using (
+    seller_id = auth.uid()
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
+  )
   with check (
     seller_id = auth.uid()
     and (shop_id is null or shop_id in (select id from public.shops where owner_id = auth.uid()))
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
   );
 
 drop policy if exists "Sellers can delete their own products" on public.products;
 create policy "Sellers can delete their own products"
   on public.products
   for delete
-  using (seller_id = auth.uid());
+  using (
+    seller_id = auth.uid()
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
+  );
 
 drop trigger if exists set_products_updated_at on public.products;
 create trigger set_products_updated_at
@@ -253,6 +265,7 @@ create policy "Sellers can insert images for their own products"
       where p.id = product_images.product_id
       and p.seller_id = auth.uid()
     )
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
   );
 
 drop policy if exists "Sellers can update images for their own products" on public.product_images;
@@ -265,6 +278,15 @@ create policy "Sellers can update images for their own products"
       where p.id = product_images.product_id
       and p.seller_id = auth.uid()
     )
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
+  )
+  with check (
+    exists (
+      select 1 from public.products p
+      where p.id = product_images.product_id
+      and p.seller_id = auth.uid()
+    )
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
   );
 
 drop policy if exists "Sellers can delete images for their own products" on public.product_images;
@@ -277,12 +299,22 @@ create policy "Sellers can delete images for their own products"
       where p.id = product_images.product_id
       and p.seller_id = auth.uid()
     )
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
   );
 
--- 5. Storage Bucket Setup (Public product-images bucket)
-insert into storage.buckets (id, name, public)
-values ('product-images', 'product-images', true)
-on conflict (id) do update set public = true;
+-- 5. Storage Bucket Setup (Public product-images bucket with 5MB & image mime limit)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'product-images',
+  'product-images',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update set
+  public = true,
+  file_size_limit = 5242880,
+  allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
 
 -- Storage Policies
 drop policy if exists "Public read product images" on storage.objects;
@@ -299,6 +331,12 @@ create policy "Sellers can upload own product images"
     bucket_id = 'product-images'
     and auth.role() = 'authenticated'
     and (storage.foldername(name))[1] = auth.uid()::text
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
+    and exists (
+      select 1 from public.products p
+      where p.id::text = (storage.foldername(name))[2]
+      and p.seller_id = auth.uid()
+    )
   );
 
 drop policy if exists "Sellers can update own product images" on storage.objects;
@@ -309,6 +347,23 @@ create policy "Sellers can update own product images"
     bucket_id = 'product-images'
     and auth.role() = 'authenticated'
     and (storage.foldername(name))[1] = auth.uid()::text
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
+    and exists (
+      select 1 from public.products p
+      where p.id::text = (storage.foldername(name))[2]
+      and p.seller_id = auth.uid()
+    )
+  )
+  with check (
+    bucket_id = 'product-images'
+    and auth.role() = 'authenticated'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
+    and exists (
+      select 1 from public.products p
+      where p.id::text = (storage.foldername(name))[2]
+      and p.seller_id = auth.uid()
+    )
   );
 
 drop policy if exists "Sellers can delete own product images" on storage.objects;
@@ -319,4 +374,10 @@ create policy "Sellers can delete own product images"
     bucket_id = 'product-images'
     and auth.role() = 'authenticated'
     and (storage.foldername(name))[1] = auth.uid()::text
+    and (select role from public.profiles where id = auth.uid()) in ('seller', 'admin')
+    and exists (
+      select 1 from public.products p
+      where p.id::text = (storage.foldername(name))[2]
+      and p.seller_id = auth.uid()
+    )
   );

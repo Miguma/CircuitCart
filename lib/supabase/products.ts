@@ -1,4 +1,4 @@
-﻿import { createClient } from "./client";
+import { createClient } from "./client";
 import { getCurrentUser } from "./auth";
 import { ensureSellerShop } from "./shops";
 import { uploadProductImage, deleteProductImage } from "./storage";
@@ -204,11 +204,14 @@ export async function createProduct(
 
   // 2. Upload images (up to 5)
   const imageRows: { product_id: string; storage_path: string; sort_order: number }[] = [];
+  const uploadedPaths: string[] = [];
+  let uploadFailureError: Error | null = null;
 
   for (let i = 0; i < Math.min(imageFiles.length, 5); i++) {
     const file = imageFiles[i];
     try {
       const { storagePath } = await uploadProductImage(user.id, productId, file);
+      uploadedPaths.push(storagePath);
       imageRows.push({
         product_id: productId,
         storage_path: storagePath,
@@ -216,7 +219,23 @@ export async function createProduct(
       });
     } catch (uploadErr) {
       console.error(`Failed to upload image index ${i}:`, uploadErr);
+      uploadFailureError =
+        uploadErr instanceof Error
+          ? uploadErr
+          : new Error(`Failed to upload image "${file.name}"`);
+      break;
     }
+  }
+
+  // If any selected image failed to upload, roll back uploaded files and product row
+  if (uploadFailureError) {
+    for (const path of uploadedPaths) {
+      await deleteProductImage(path).catch(() => {});
+    }
+    await supabase.from("products").delete().eq("id", productId);
+    throw new Error(
+      `Image upload failed: ${uploadFailureError.message}. The product was not created.`
+    );
   }
 
   // 3. Insert product_images rows
@@ -226,7 +245,13 @@ export async function createProduct(
       .insert(imageRows);
 
     if (imgError) {
-      console.warn("Failed to insert product image records:", imgError.message);
+      for (const path of uploadedPaths) {
+        await deleteProductImage(path).catch(() => {});
+      }
+      await supabase.from("products").delete().eq("id", productId);
+      throw new Error(
+        `Failed to save product images: ${imgError.message}. The product was not created.`
+      );
     }
   }
 

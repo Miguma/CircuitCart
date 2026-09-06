@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
-import { Sparkles, ShoppingBag, Flame, ShieldCheck, RefreshCw } from "lucide-react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { Sparkles, ShoppingBag, Flame, ShieldCheck, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import { FeaturedSection } from "@/components/marketplace/featured-section";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { CatalogToolbar, FilterPanel } from "@/components/marketplace/catalog-toolbar";
 import {
-  DUMMY_PRODUCTS,
   CATEGORIES,
   Product,
 } from "@/components/marketplace/marketplace-data";
@@ -33,7 +32,9 @@ export default function MarketplacePage() {
     setQuickViewProduct,
   } = useMarketplace();
 
-  const [productsList, setProductsList] = useState<Product[]>(DUMMY_PRODUCTS);
+  const [productsList, setProductsList] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [condition, setCondition] =
     useState<ProductConditionFilter>("All");
   const [priceRange, setPriceRange] = useState<PriceRangeFilter>("all");
@@ -43,18 +44,46 @@ export default function MarketplacePage() {
   const [sort, setSort] = useState<ProductSort>("recommended");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  useEffect(() => {
-    async function loadProducts() {
-      try {
-        const dbProducts = await getMarketplaceProducts();
-        if (dbProducts && dbProducts.length > 0) {
-          setProductsList(dbProducts);
-        }
-      } catch (err) {
-        console.warn("Could not fetch Supabase marketplace listings, using demo catalog:", err);
-      }
+  const fetchProducts = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const dbProducts = await getMarketplaceProducts();
+      setProductsList(dbProducts || []);
+    } catch (err: unknown) {
+      console.error("Could not fetch Supabase marketplace listings:", err);
+      const msg = "Failed to load marketplace products. Please try again.";
+      setLoadError(msg);
+      setProductsList([]);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
     }
-    loadProducts();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getMarketplaceProducts()
+      .then((dbProducts) => {
+        if (active) {
+          setProductsList(dbProducts || []);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          console.error("Could not fetch Supabase marketplace listings:", err);
+          const msg = "Failed to load marketplace products. Please try again.";
+          setLoadError(msg);
+          setProductsList([]);
+          setIsLoading(false);
+          toast.error(msg);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Add to cart handler with toast
@@ -91,7 +120,7 @@ export default function MarketplacePage() {
   }, [productsList, catalogFilters]);
 
   // Featured deal product
-  const featuredProduct = productsList.find((p) => p.isFeatured) || productsList[0];
+  const featuredProduct = productsList.find((p) => p.isFeatured) || (productsList.length > 0 ? productsList[0] : null);
 
   // Section grouping
   const recommendedProducts = useMemo(
@@ -163,9 +192,9 @@ export default function MarketplacePage() {
       </nav>
 
       {/* ========================================================= */}
-      {/* 2. PROMOTIONAL FEATURED BANNER (Shown when no filter active)*/}
+      {/* 2. PROMOTIONAL FEATURED BANNER (Shown when no filter active and product exists)*/}
       {/* ========================================================= */}
-      {!hasSearchFilterActive && (
+      {!hasSearchFilterActive && featuredProduct && !isLoading && !loadError && (
         <FeaturedSection
           product={featuredProduct}
           onAddToCart={handleAddToCart}
@@ -200,8 +229,51 @@ export default function MarketplacePage() {
       <div className="flex flex-col lg:flex-row items-start gap-6 relative">
         {/* Left / Main Product Grid (Reflows seamlessly when filter opens) */}
         <div className="flex-1 w-full min-w-0 transition-all duration-300">
-          {filteredProducts.length === 0 ? (
-            /* Empty State */
+          {isLoading ? (
+            /* Loading State */
+            <div className="space-y-6 py-6">
+              <div className="flex items-center justify-center gap-3 py-16 text-center">
+                <Loader2 className="size-7 text-[#e59bc9] animate-spin" />
+                <span className="text-sm font-semibold text-[#d6cbd5]">
+                  Loading marketplace listings...
+                </span>
+              </div>
+            </div>
+          ) : loadError ? (
+            /* Error State */
+            <div className="bg-[#211a24] border border-rose-500/30 rounded-3xl p-12 text-center space-y-4 my-8 shadow-xl">
+              <div className="size-12 rounded-full bg-rose-950/50 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400">
+                <AlertCircle className="size-6" />
+              </div>
+              <h3 className="text-xl font-bold text-[#fffafa]">
+                Failed to load products
+              </h3>
+              <p className="text-xs sm:text-sm text-[#b9adb6] max-w-md mx-auto leading-relaxed">
+                {loadError}
+              </p>
+              <button
+                type="button"
+                onClick={fetchProducts}
+                className="inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold bg-[#65486f] text-white hover:bg-[#7a5985] rounded-xl transition-colors cursor-pointer shadow-xs"
+              >
+                Retry
+              </button>
+            </div>
+          ) : productsList.length === 0 ? (
+            /* Empty Marketplace State (DB has 0 products) */
+            <div className="bg-[#211a24] border border-white/10 rounded-3xl p-12 text-center space-y-4 my-8 shadow-xl">
+              <div className="size-12 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
+                <ShoppingBag className="size-6" />
+              </div>
+              <h3 className="text-xl font-bold text-[#fffafa]">
+                No products available
+              </h3>
+              <p className="text-xs sm:text-sm text-[#b9adb6] max-w-md mx-auto leading-relaxed">
+                There are currently no active listings on the marketplace. Be the first to list a verified tech product!
+              </p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            /* Empty Filtered Search State */
             <div className="bg-[#211a24] border border-white/10 rounded-3xl p-12 text-center space-y-4 my-8 shadow-xl">
               <div className="size-12 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
                 <RefreshCw className="size-6" />
