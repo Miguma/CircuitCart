@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Search,
   PlusCircle,
@@ -13,9 +14,7 @@ import {
   Copy,
   Archive,
   Trash2,
-  CheckCircle2,
-  AlertCircle,
-  SlidersHorizontal,
+  Loader2,
 } from "lucide-react";
 import { SellerLayout } from "@/components/seller/seller-layout";
 import {
@@ -23,13 +22,64 @@ import {
   type ListingStatus,
   type SellerProductItem,
 } from "@/lib/seller/seller-data";
+import { getCurrentUser } from "@/lib/supabase/auth";
+import {
+  getSellerProducts,
+  deleteProduct,
+  updateProductStatus,
+  duplicateProduct,
+} from "@/lib/supabase/products";
 import { toast } from "sonner";
 
 export default function SellerProductsPage() {
   const [products, setProducts] = useState<SellerProductItem[]>(DEMO_SELLER_PRODUCTS);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      const user = await getCurrentUser();
+      if (user) {
+        const dbItems = await getSellerProducts(user.id);
+        if (dbItems.length > 0) {
+          setProducts(dbItems);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load Supabase seller products:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getCurrentUser()
+      .then((user) => {
+        if (user && active) {
+          return getSellerProducts(user.id);
+        }
+        return [];
+      })
+      .then((dbItems) => {
+        if (active) {
+          if (dbItems && dbItems.length > 0) {
+            setProducts(dbItems);
+          }
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load Supabase seller products:", err);
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Status counts
   const statusCounts = useMemo(() => {
@@ -60,43 +110,82 @@ export default function SellerProductsPage() {
   }, [products, searchQuery, selectedStatus]);
 
   // Actions
-  const handleDuplicate = React.useCallback((prod: SellerProductItem) => {
-    const timestamp = Date.now();
-    const newProd: SellerProductItem = {
-      ...prod,
-      id: `prod-${timestamp}`,
-      name: `${prod.name} (Copy)`,
-      status: "Draft",
-      views: 0,
-      soldCount: 0,
-      updatedAt: "Just now",
-    };
-    setProducts((prev) => [newProd, ...prev]);
-    setActiveMenuId(null);
-    toast.success(`Duplicated "${prod.name}" as a draft.`);
-  }, []);
+  const handleDuplicate = React.useCallback(
+    async (prod: SellerProductItem) => {
+      try {
+        await duplicateProduct(prod.id);
+        await fetchProducts();
+        setActiveMenuId(null);
+        toast.success(`Duplicated "${prod.name}" as a draft.`);
+      } catch {
+        // Fallback local duplicate if offline/demo
+        const timestamp = Date.now();
+        const newProd: SellerProductItem = {
+          ...prod,
+          id: `prod-${timestamp}`,
+          name: `${prod.name} (Copy)`,
+          status: "Draft",
+          views: 0,
+          soldCount: 0,
+          updatedAt: "Just now",
+        };
+        setProducts((prev) => [newProd, ...prev]);
+        setActiveMenuId(null);
+        toast.success(`Duplicated "${prod.name}" as a draft.`);
+      }
+    },
+    [fetchProducts]
+  );
 
-  const handleArchive = React.useCallback((id: string) => {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? {
-              ...p,
-              status: p.status === "Archived" ? "Active" : "Archived",
-              updatedAt: "Just now",
-            }
-          : p
-      )
-    );
-    setActiveMenuId(null);
-    toast.info("Listing status updated.");
-  }, []);
+  const handleArchive = React.useCallback(
+    async (id: string, currentStatus: ListingStatus) => {
+      const newStatus = currentStatus === "Archived" ? "Active" : "Archived";
+      const dbStatus = newStatus === "Active" ? "active" : "archived";
 
-  const handleDelete = React.useCallback((id: string, name: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-    setActiveMenuId(null);
-    toast.success(`Removed "${name}" from your listings.`);
-  }, []);
+      try {
+        await updateProductStatus(id, dbStatus);
+        await fetchProducts();
+        setActiveMenuId(null);
+        toast.info(`Listing status updated to ${newStatus}.`);
+      } catch {
+        // Fallback local status change
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  status: newStatus,
+                  updatedAt: "Just now",
+                }
+              : p
+          )
+        );
+        setActiveMenuId(null);
+        toast.info(`Listing status updated to ${newStatus}.`);
+      }
+    },
+    [fetchProducts]
+  );
+
+  const handleDelete = React.useCallback(
+    async (id: string, name: string) => {
+      const confirmed = window.confirm(`Are you sure you want to permanently delete "${name}"?`);
+      if (!confirmed) return;
+
+      try {
+        await deleteProduct(id);
+        await fetchProducts();
+        setActiveMenuId(null);
+        toast.success(`Removed "${name}" from your listings.`);
+      } catch {
+        // Fallback local delete
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        setActiveMenuId(null);
+        toast.success(`Removed "${name}" from your listings.`);
+      }
+    },
+    [fetchProducts]
+  );
 
   const getStatusBadge = (status: ListingStatus) => {
     switch (status) {
@@ -247,8 +336,18 @@ export default function SellerProductsPage() {
                         {/* Product Column */}
                         <td className="py-4 px-5">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="size-10 rounded-xl bg-[#342339] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold shrink-0">
-                              <Package className="size-5" />
+                            <div className="size-10 rounded-xl bg-[#342339] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold shrink-0 overflow-hidden relative">
+                              {prod.image ? (
+                                <Image
+                                  src={prod.image}
+                                  alt={prod.name}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              ) : (
+                                <Package className="size-5" />
+                              )}
                             </div>
                             <div className="min-w-0 max-w-xs">
                               <p className="font-bold text-[#fffafa] truncate text-xs sm:text-sm">
@@ -351,7 +450,7 @@ export default function SellerProductsPage() {
 
                                   <button
                                     type="button"
-                                    onClick={() => handleArchive(prod.id)}
+                                    onClick={() => handleArchive(prod.id, prod.status)}
                                     className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#d6cbd5] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
                                   >
                                     <Archive className="size-3" />
@@ -387,8 +486,18 @@ export default function SellerProductsPage() {
                   <div key={prod.id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="size-10 rounded-xl bg-[#342339] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold shrink-0">
-                          <Package className="size-5" />
+                        <div className="size-10 rounded-xl bg-[#342339] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold shrink-0 overflow-hidden relative">
+                          {prod.image ? (
+                            <Image
+                              src={prod.image}
+                              alt={prod.name}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <Package className="size-5" />
+                          )}
                         </div>
                         <div className="min-w-0">
                           <h4 className="text-xs font-bold text-[#fffafa] truncate">

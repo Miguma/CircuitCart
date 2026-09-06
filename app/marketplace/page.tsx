@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Sparkles, ShoppingBag, Flame, ShieldCheck, RefreshCw } from "lucide-react";
 import { FeaturedSection } from "@/components/marketplace/featured-section";
 import { ProductCard } from "@/components/marketplace/product-card";
@@ -18,6 +18,7 @@ import {
   type ProductConditionFilter,
   type ProductSort,
 } from "@/lib/marketplace/catalog";
+import { getMarketplaceProducts } from "@/lib/supabase/products";
 import { toast } from "sonner";
 
 export default function MarketplacePage() {
@@ -32,6 +33,7 @@ export default function MarketplacePage() {
     setQuickViewProduct,
   } = useMarketplace();
 
+  const [productsList, setProductsList] = useState<Product[]>(DUMMY_PRODUCTS);
   const [condition, setCondition] =
     useState<ProductConditionFilter>("All");
   const [priceRange, setPriceRange] = useState<PriceRangeFilter>("all");
@@ -40,6 +42,20 @@ export default function MarketplacePage() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sort, setSort] = useState<ProductSort>("recommended");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const dbProducts = await getMarketplaceProducts();
+        if (dbProducts && dbProducts.length > 0) {
+          setProductsList(dbProducts);
+        }
+      } catch (err) {
+        console.warn("Could not fetch Supabase marketplace listings, using demo catalog:", err);
+      }
+    }
+    loadProducts();
+  }, []);
 
   // Add to cart handler with toast
   const handleAddToCart = (product: Product) => {
@@ -71,11 +87,11 @@ export default function MarketplacePage() {
   );
 
   const filteredProducts = useMemo(() => {
-    return filterAndSortProducts(DUMMY_PRODUCTS, catalogFilters);
-  }, [catalogFilters]);
+    return filterAndSortProducts(productsList, catalogFilters);
+  }, [productsList, catalogFilters]);
 
   // Featured deal product
-  const featuredProduct = DUMMY_PRODUCTS.find((p) => p.isFeatured) || DUMMY_PRODUCTS[0];
+  const featuredProduct = productsList.find((p) => p.isFeatured) || productsList[0];
 
   // Section grouping
   const recommendedProducts = useMemo(

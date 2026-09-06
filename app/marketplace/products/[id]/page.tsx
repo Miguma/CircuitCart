@@ -1,6 +1,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import { DUMMY_PRODUCTS } from "@/components/marketplace/marketplace-data";
+import { DUMMY_PRODUCTS, Product } from "@/components/marketplace/marketplace-data";
+import { getProductById, getMarketplaceProducts } from "@/lib/supabase/products";
 import ProductDetailClient from "./product-detail-client";
 
 interface ProductPageProps {
@@ -17,16 +18,40 @@ export async function generateStaticParams() {
 
 export default async function ProductDetailPage({ params }: ProductPageProps) {
   const { id } = await params;
-  const product = DUMMY_PRODUCTS.find((p) => p.id === id);
+
+  let product: Product | null = null;
+  let relatedProducts: Product[] = [];
+
+  // 1. Attempt to fetch real Supabase product
+  try {
+    const dbResult = await getProductById(id);
+    if (dbResult) {
+      product = dbResult.product;
+
+      // Fetch related products from Supabase
+      const allActive = await getMarketplaceProducts();
+      relatedProducts = allActive
+        .filter((p) => p.category === product?.category && p.id !== product?.id)
+        .slice(0, 4);
+    }
+  } catch (err) {
+    console.warn("Could not load product from Supabase:", err);
+  }
+
+  // 2. Fallback to demo products if not found in database
+  if (!product) {
+    const fallback = DUMMY_PRODUCTS.find((p) => p.id === id);
+    if (fallback) {
+      product = fallback;
+      relatedProducts = DUMMY_PRODUCTS.filter(
+        (p) => p.category === fallback.category && p.id !== fallback.id
+      ).slice(0, 4);
+    }
+  }
 
   if (!product) {
     notFound();
   }
-
-  // Related products from the same category
-  const relatedProducts = DUMMY_PRODUCTS.filter(
-    (p) => p.category === product.category && p.id !== product.id
-  ).slice(0, 4);
 
   return (
     <ProductDetailClient
