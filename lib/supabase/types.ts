@@ -1,4 +1,4 @@
-﻿export type DbUserRole = "buyer" | "seller" | "admin";
+export type DbUserRole = "buyer" | "seller" | "admin";
 export type DbShopStatus = "active" | "vacation" | "suspended";
 export type DbProductStatus = "draft" | "active" | "sold_out" | "archived";
 export type DbProductCondition = "New" | "Like New" | "Good" | "Fair";
@@ -80,3 +80,28 @@ export interface CreateProductInput {
 export interface UpdateProductInput extends Partial<CreateProductInput> {
   id: string;
 }
+
+export interface DbCartItem {
+  id: string;
+  user_id: string;
+  product_id: string;
+  quantity: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CartItemWithProduct extends DbCartItem {
+  products?: ProductWithRelations | null;
+}
+
+export interface DbFavorite {
+  id: string;
+  user_id: string;
+  product_id: string;
+  created_at: string;
+}
+
+export interface FavoriteWithProduct extends DbFavorite {
+  products?: ProductWithRelations | null;
+}
+

@@ -1,22 +1,47 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Heart, ArrowLeft, ShoppingBag } from "lucide-react";
+import { Heart, ArrowLeft, ShoppingBag, Loader2 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
 import { ProductCard } from "@/components/marketplace/product-card";
-import { DUMMY_PRODUCTS } from "@/components/marketplace/marketplace-data";
+import { Product } from "@/components/marketplace/marketplace-data";
+import { getFavoriteProducts } from "@/lib/supabase/favorites";
 import { toast } from "sonner";
 
 export default function FavoritesPage() {
   const { favorites, toggleFavorite, addToCart, setQuickViewProduct } =
     useMarketplace();
 
-  const savedProducts = useMemo(() => {
-    return DUMMY_PRODUCTS.filter((prod) => favorites.includes(prod.id));
-  }, [favorites]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const handleAddToCart = (product: (typeof DUMMY_PRODUCTS)[0]) => {
+  useEffect(() => {
+    let active = true;
+    getFavoriteProducts()
+      .then((data) => {
+        if (active) {
+          setProducts(data || []);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load favorite products:", err);
+        if (active) {
+          setProducts([]);
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Filter products by current favorites state (handles instant optimistic unfavorite)
+  const savedProducts = products.filter((p) => favorites.includes(p.id));
+
+  const handleAddToCart = (product: Product) => {
     addToCart(product);
     toast.success(`Added "${product.name}" to your cart!`);
   };
@@ -59,8 +84,15 @@ export default function FavoritesPage() {
         )}
       </div>
 
-      {/* Empty State vs Products Display */}
-      {savedProducts.length === 0 ? (
+      {/* Loading vs Empty State vs Products Display */}
+      {isLoading ? (
+        <div className="w-full bg-[#241c27] border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center justify-center gap-3">
+          <Loader2 className="size-7 text-[#e59bc9] animate-spin" />
+          <span className="text-sm font-semibold text-[#d6cbd5]">
+            Loading your saved products...
+          </span>
+        </div>
+      ) : savedProducts.length === 0 ? (
         <div className="w-full bg-[#241c27] border border-white/10 rounded-3xl p-8 sm:p-10 text-center space-y-3 shadow-xl my-4 min-h-[230px] sm:min-h-[280px] flex flex-col items-center justify-center">
           <div className="size-12 sm:size-14 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-pink-300">
             <Heart className="size-6 sm:size-7 stroke-[1.5]" />

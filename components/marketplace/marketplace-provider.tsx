@@ -6,8 +6,22 @@ import React, {
   useState,
   useMemo,
   useCallback,
+  useEffect,
 } from "react";
-import { Product, DUMMY_PRODUCTS, CategoryFilter } from "./marketplace-data";
+import { Product, CategoryFilter } from "./marketplace-data";
+import { createClient } from "@/lib/supabase/client";
+import {
+  getCartItems,
+  addCartItem,
+  updateCartItemQuantity,
+  removeCartItem,
+  clearCart as clearSupabaseCart,
+} from "@/lib/supabase/cart";
+import {
+  getFavorites,
+  toggleFavorite as toggleSupabaseFavorite,
+} from "@/lib/supabase/favorites";
+import { toast } from "sonner";
 
 export interface CartItem {
   product: Product;
@@ -121,14 +135,11 @@ export function MarketplaceProvider({
     useState<CategoryFilter>("All");
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
-  // Favorites (initialize with a couple of products for demo richness)
-  const [favorites, setFavorites] = useState<string[]>(["prod-1", "prod-3"]);
+  // Favorites (Supabase persistent)
+  const [favorites, setFavorites] = useState<string[]>([]);
 
-  // Cart (initialize with 2 items)
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    { product: DUMMY_PRODUCTS[0], quantity: 1 },
-    { product: DUMMY_PRODUCTS[2], quantity: 1 },
-  ]);
+  // Cart (Supabase persistent)
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   // Notifications
   const [notifications, setNotifications] =
@@ -137,14 +148,85 @@ export function MarketplaceProvider({
   // Demo Profile
   const [demoProfile, setDemoProfile] = useState<DemoProfile>(INITIAL_PROFILE);
 
-  // Favorites handlers
-  const toggleFavorite = useCallback((productId: string) => {
-    setFavorites((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
-    );
+  // Load user data on mount and auth state change
+  useEffect(() => {
+    let isMounted = true;
+    const supabase = createClient();
+
+    async function loadUserData() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          if (isMounted) {
+            setCartItems([]);
+            setFavorites([]);
+          }
+          return;
+        }
+
+        const [items, favs] = await Promise.all([
+          getCartItems(),
+          getFavorites(),
+        ]);
+
+        if (isMounted) {
+          setCartItems(items || []);
+          setFavorites(favs || []);
+        }
+      } catch (err) {
+        console.warn("Could not load user cart/favorites from Supabase:", err);
+      }
+    }
+
+    loadUserData();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadUserData();
+      } else {
+        if (isMounted) {
+          setCartItems([]);
+          setFavorites([]);
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  // Favorites handlers
+  const toggleFavorite = useCallback(
+    async (productId: string) => {
+      const prevFavorites = favorites;
+      const isCurrentlyFavorited = prevFavorites.includes(productId);
+
+      // Optimistic update
+      setFavorites((prev) =>
+        isCurrentlyFavorited
+          ? prev.filter((id) => id !== productId)
+          : [...prev, productId]
+      );
+
+      try {
+        await toggleSupabaseFavorite(productId);
+      } catch (err: unknown) {
+        // Rollback
+        setFavorites(prevFavorites);
+        const msg =
+          err instanceof Error ? err.message : "Failed to update favorites.";
+        toast.error(msg);
+      }
+    },
+    [favorites]
+  );
 
   const isFavorite = useCallback(
     (productId: string) => favorites.includes(productId),
@@ -152,42 +234,110 @@ export function MarketplaceProvider({
   );
 
   // Cart handlers
-  const addToCart = useCallback((product: Product, quantity = 1) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { product, quantity }];
-    });
-  }, []);
+  const addToCart = useCallback(
+    async (product: Product, quantity = 1) => {
+      const prevCart = cartItems;
 
-  const removeFromCart = useCallback((productId: string) => {
-    setCartItems((prev) =>
-      prev.filter((item) => item.product.id !== productId)
-    );
-  }, []);
+      // Optimistic update
+      setCartItems((prev) => {
+        const stockLimit = Math.max(1, product.stock ?? 1);
+        const existing = prev.find((item) => item.product.id === product.id);
+        if (existing) {
+          const nextQty = Math.min(existing.quantity + quantity, stockLimit);
+          return prev.map((item) =>
+            item.product.id === product.id
+              ? { ...item, quantity: nextQty }
+              : item
+          );
+        }
+        return [
+          ...prev,
+          { product, quantity: Math.min(quantity, stockLimit) },
+        ];
+      });
+
+      try {
+        await addCartItem(product.id, quantity);
+      } catch (err: unknown) {
+        // Rollback
+        setCartItems(prevCart);
+        const msg =
+          err instanceof Error ? err.message : "Failed to add item to cart.";
+        toast.error(msg);
+      }
+    },
+    [cartItems]
+  );
+
+  const removeFromCart = useCallback(
+    async (productId: string) => {
+      const prevCart = cartItems;
+
+      // Optimistic update
+      setCartItems((prev) =>
+        prev.filter((item) => item.product.id !== productId)
+      );
+
+      try {
+        await removeCartItem(productId);
+      } catch (err: unknown) {
+        // Rollback
+        setCartItems(prevCart);
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Failed to remove item from cart.";
+        toast.error(msg);
+      }
+    },
+    [cartItems]
+  );
 
   const updateQuantity = useCallback(
-    (productId: string, quantity: number) => {
+    async (productId: string, quantity: number) => {
       if (quantity <= 0) {
-        removeFromCart(productId);
+        await removeFromCart(productId);
         return;
       }
+
+      const prevCart = cartItems;
+
+      // Optimistic update
       setCartItems((prev) =>
         prev.map((item) =>
           item.product.id === productId ? { ...item, quantity } : item
         )
       );
+
+      try {
+        await updateCartItemQuantity(productId, quantity);
+      } catch (err: unknown) {
+        // Rollback
+        setCartItems(prevCart);
+        const msg =
+          err instanceof Error ? err.message : "Failed to update quantity.";
+        toast.error(msg);
+      }
     },
-    [removeFromCart]
+    [cartItems, removeFromCart]
   );
 
-  const clearCart = useCallback(() => setCartItems([]), []);
+  const clearCart = useCallback(async () => {
+    const prevCart = cartItems;
+
+    // Optimistic update
+    setCartItems([]);
+
+    try {
+      await clearSupabaseCart();
+    } catch (err: unknown) {
+      // Rollback
+      setCartItems(prevCart);
+      const msg =
+        err instanceof Error ? err.message : "Failed to clear cart.";
+      toast.error(msg);
+    }
+  }, [cartItems]);
 
   const totalCartCount = useMemo(() => {
     return cartItems.reduce((acc, item) => acc + item.quantity, 0);

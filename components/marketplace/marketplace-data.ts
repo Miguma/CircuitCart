@@ -13,6 +13,7 @@ export interface Product {
   isFeatured?: boolean;
   section: "Recommended for you" | "Pre-owned finds" | "Popular in gaming" | "Trusted sellers";
   specs: string;
+  stock?: number;
   badge?: string;
   gradientFrom: string;
   gradientTo: string;

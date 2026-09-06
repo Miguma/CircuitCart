@@ -1,4 +1,4 @@
-﻿import type { Product } from "@/components/marketplace/marketplace-data";
+import type { Product } from "@/components/marketplace/marketplace-data";
 import type { SellerProductItem, ListingStatus } from "@/lib/seller/seller-data";
 import type { ProductWithRelations, DbProduct, DbProductStatus } from "@/lib/supabase/types";
 import { getProductImageUrl } from "@/lib/supabase/storage";
@@ -65,6 +65,7 @@ export function mapDbProductToMarketplaceProduct(dbProduct: ProductWithRelations
     location,
     section: "Recommended for you",
     specs: dbProduct.specs || "",
+    stock: dbProduct.stock,
     badge: dbProduct.stock <= 2 && dbProduct.stock > 0 ? "Low Stock" : undefined,
     gradientFrom: "#432c45",
     gradientTo: "#281729",
