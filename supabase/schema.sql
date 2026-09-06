@@ -1005,6 +1005,7 @@ create index if not exists idx_conversations_last_message_at on public.conversat
 
 alter table public.conversations enable row level security;
 
+-- Conversations RLS Policies (SELECT only; creation/mutation via secure RPCs)
 drop policy if exists "Participants can view their conversations" on public.conversations;
 create policy "Participants can view their conversations"
   on public.conversations
@@ -1012,16 +1013,7 @@ create policy "Participants can view their conversations"
   using (buyer_id = auth.uid() or seller_id = auth.uid());
 
 drop policy if exists "Participants can insert their conversations" on public.conversations;
-create policy "Participants can insert their conversations"
-  on public.conversations
-  for insert
-  with check (buyer_id = auth.uid() or seller_id = auth.uid());
-
 drop policy if exists "Participants can update their conversations" on public.conversations;
-create policy "Participants can update their conversations"
-  on public.conversations
-  for update
-  using (buyer_id = auth.uid() or seller_id = auth.uid());
 
 -- Messages table
 create table if not exists public.messages (
@@ -1046,6 +1038,7 @@ create index if not exists idx_messages_unread
 
 alter table public.messages enable row level security;
 
+-- Messages RLS Policies (SELECT and INSERT only; updates strictly via RPC)
 drop policy if exists "Conversation participants can view messages" on public.messages;
 create policy "Conversation participants can view messages"
   on public.messages
@@ -1072,20 +1065,6 @@ create policy "Conversation participants can insert their own messages"
   );
 
 drop policy if exists "Recipients can mark messages as read" on public.messages;
-create policy "Recipients can mark messages as read"
-  on public.messages
-  for update
-  using (
-    exists (
-      select 1 from public.conversations c
-      where c.id = messages.conversation_id
-        and (c.buyer_id = auth.uid() or c.seller_id = auth.uid())
-    )
-  )
-  with check (
-    sender_id <> auth.uid()
-    and read_at is not null
-  );
 
 -- Trigger for message insertion updating conversation timestamps
 create or replace function public.handle_message_inserted()
@@ -1122,6 +1101,7 @@ as $$
 declare
   v_buyer_id uuid;
   v_product record;
+  v_shop record;
   v_conv_id uuid;
 begin
   v_buyer_id := auth.uid();
@@ -1129,6 +1109,7 @@ begin
     raise exception 'Authentication required.';
   end if;
 
+  -- 1. Fetch product
   select id, seller_id, shop_id, status, title
   into v_product
   from public.products
@@ -1138,10 +1119,42 @@ begin
     raise exception 'Product not found.';
   end if;
 
+  -- 2. Validate product status is active
+  if v_product.status <> 'active' then
+    raise exception 'This product listing is not currently active for messaging.';
+  end if;
+
+  -- 3. Validate seller is not messaging self
   if v_product.seller_id = v_buyer_id then
     raise exception 'You cannot start a conversation on your own listing.';
   end if;
 
+  -- 4. Require non-null shop_id
+  if v_product.shop_id is null then
+    raise exception 'Product does not belong to a valid shop.';
+  end if;
+
+  -- 5. Fetch and validate matching shop
+  select id, owner_id, status, name
+  into v_shop
+  from public.shops
+  where id = v_product.shop_id;
+
+  if not found then
+    raise exception 'Product shop not found.';
+  end if;
+
+  -- 6. Validate shop ownership matches product seller
+  if v_shop.owner_id <> v_product.seller_id then
+    raise exception 'Shop owner mismatch for this product.';
+  end if;
+
+  -- 7. Validate shop is active (reject vacation / suspended)
+  if v_shop.status <> 'active' then
+    raise exception 'This shop is currently inactive or not accepting inquiries.';
+  end if;
+
+  -- 8. Look for existing product conversation
   select id into v_conv_id
   from public.conversations
   where buyer_id = v_buyer_id
@@ -1153,6 +1166,7 @@ begin
     return v_conv_id;
   end if;
 
+  -- 9. Create new conversation with conflict safety
   insert into public.conversations (
     buyer_id,
     seller_id,
@@ -1257,6 +1271,14 @@ begin
 
   if not found then
     raise exception 'Shop not found.';
+  end if;
+
+  if v_shop.owner_id is null then
+    raise exception 'Shop has no registered owner.';
+  end if;
+
+  if v_shop.status <> 'active' then
+    raise exception 'This shop is currently inactive or not accepting inquiries.';
   end if;
 
   if v_shop.owner_id = v_buyer_id then
