@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ShoppingCart,
   Trash2,
@@ -11,18 +12,24 @@ import {
   ArrowLeft,
   ShieldCheck,
   Truck,
-  Info,
+  MapPin,
   Laptop,
   Smartphone,
   Headphones,
   Gamepad2,
   Cpu,
   Layers,
+  Loader2,
+  X,
+  Store,
 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
+import { checkoutCart } from "@/lib/supabase/orders";
+import { DbDeliveryMethod } from "@/lib/supabase/types";
 import { toast } from "sonner";
 
 export default function CartPage() {
+  const router = useRouter();
   const {
     cartItems,
     updateQuantity,
@@ -32,6 +39,14 @@ export default function CartPage() {
     cartSubtotal,
   } = useMarketplace();
 
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<DbDeliveryMethod>("delivery");
+  const [shippingName, setShippingName] = useState("");
+  const [shippingPhone, setShippingPhone] = useState("");
+  const [shippingAddress, setShippingAddress] = useState("");
+  const [buyerNote, setBuyerNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("en-PH", {
       style: "currency",
@@ -39,7 +54,8 @@ export default function CartPage() {
       maximumFractionDigits: 0,
     }).format(price);
 
-  const shippingCost = cartSubtotal > 10000 || cartSubtotal === 0 ? 0 : 150;
+  const shippingCost =
+    deliveryMethod === "meetup" || cartSubtotal > 10000 || cartSubtotal === 0 ? 0 : 150;
   const grandTotal = cartSubtotal + shippingCost;
 
   const getFallbackIcon = (category: string) => {
@@ -56,6 +72,61 @@ export default function CartPage() {
         return <Cpu className="size-8 text-[#65486f]" />;
       default:
         return <Layers className="size-8 text-[#65486f]" />;
+    }
+  };
+
+  // Group cart items by seller for review
+  const groupedBySeller = cartItems.reduce<Record<string, typeof cartItems>>((acc, item) => {
+    const sellerKey = item.product.sellerName || "Verified Seller";
+    if (!acc[sellerKey]) acc[sellerKey] = [];
+    acc[sellerKey].push(item);
+    return acc;
+  }, {});
+
+  const sellerCount = Object.keys(groupedBySeller).length;
+
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cartItems.length === 0) return;
+
+    if (deliveryMethod === "delivery") {
+      if (!shippingName.trim()) {
+        toast.error("Please enter your recipient name.");
+        return;
+      }
+      if (!shippingPhone.trim()) {
+        toast.error("Please enter your contact phone number.");
+        return;
+      }
+      if (!shippingAddress.trim()) {
+        toast.error("Please enter your complete delivery address.");
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+    try {
+      const orderIds = await checkoutCart({
+        deliveryMethod,
+        shippingName,
+        shippingPhone,
+        shippingAddress,
+        buyerNote,
+      });
+
+      toast.success(
+        orderIds.length > 1
+          ? `Successfully placed ${orderIds.length} orders across different shops!`
+          : "Order placed successfully!"
+      );
+
+      setIsCheckoutOpen(false);
+      router.push("/marketplace/orders");
+      router.refresh();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Checkout failed. Please try again.";
+      toast.error(msg);
+      setIsSubmitting(false);
     }
   };
 
@@ -197,7 +268,8 @@ export default function CartPage() {
                       type="button"
                       aria-label={`Increase quantity of ${item.product.name}`}
                       onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      className="size-7 rounded-lg bg-[#241c27] hover:bg-[#45304b] text-white flex items-center justify-center transition-colors cursor-pointer"
+                      disabled={item.product.stock !== undefined && item.quantity >= item.product.stock}
+                      className="size-7 rounded-lg bg-[#241c27] hover:bg-[#45304b] text-white flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <Plus className="size-3.5" />
                     </button>
@@ -247,6 +319,12 @@ export default function CartPage() {
                   </div>
                 )}
 
+                {sellerCount > 1 && (
+                  <div className="p-2.5 bg-[#342339]/60 border border-white/10 rounded-xl text-[11px] text-[#e59bc9]">
+                    Note: Your cart contains items from <strong>{sellerCount} separate stores</strong>. Separate orders will be created automatically.
+                  </div>
+                )}
+
                 <div className="pt-3 border-t border-white/10 flex items-center justify-between text-sm">
                   <span className="font-bold text-white">Estimated Total</span>
                   <span className="font-extrabold text-base text-[#e59bc9]">
@@ -255,39 +333,202 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* Notice & Demo Checkout Button */}
+              {/* Checkout Button */}
               <div className="pt-2 space-y-3">
                 <button
                   type="button"
-                  disabled
-                  className="w-full py-3 bg-[#65486f]/50 border border-white/10 text-[#fffafa]/60 text-xs font-semibold rounded-xl cursor-not-allowed text-center shadow-xs"
+                  onClick={() => setIsCheckoutOpen(true)}
+                  className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-semibold rounded-xl transition-colors text-center shadow-xs cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
                 >
                   Proceed to Checkout
                 </button>
-
-                <div className="flex items-start gap-2 p-3 bg-[#342339]/60 border border-white/10 rounded-xl text-[11px] text-[#d6cbd5] leading-relaxed">
-                  <Info className="size-4 text-[#e59bc9] shrink-0 mt-0.5" />
-                  <span>
-                    Checkout will become available after backend integration.
-                  </span>
-                </div>
               </div>
 
-              {/* Guarantees / Expectations */}
+              {/* Guarantees */}
               <div className="pt-4 border-t border-white/10 space-y-2 text-[11px] text-[#d6cbd5]">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="size-3.5 text-emerald-400 shrink-0" />
-                  <span>Buyer protection will be enabled with the secure transaction system.</span>
+                  <span>Verified seller warranty & buyer protection enabled.</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Truck className="size-3.5 text-pink-300 shrink-0" />
-                  <span>Delivery and meetup options will be configured during checkout development.</span>
+                  <span>Fast delivery across Cebu and Central Visayas.</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Checkout Modal / Drawer */}
+      {isCheckoutOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-[#1e1322] border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-white">
+                  Checkout Order
+                </h2>
+                <p className="text-xs text-[#b9adb6] mt-0.5">
+                  Confirm your fulfillment and delivery details.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCheckoutOpen(false)}
+                className="p-1.5 rounded-full text-[#b9adb6] hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleCheckoutSubmit} className="p-5 sm:p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Delivery Method Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-white uppercase tracking-wider block">
+                  Fulfillment Method
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMethod("delivery")}
+                    className={`p-3.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                      deliveryMethod === "delivery"
+                        ? "bg-[#342339] border-[#e59bc9] text-white"
+                        : "bg-[#241c27] border-white/10 text-[#b9adb6] hover:border-white/20"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Truck className="size-4 text-[#e59bc9]" />
+                      <span className="text-xs font-bold text-white">Delivery</span>
+                    </div>
+                    <span className="text-[10px] text-[#b9adb6]">
+                      Direct to address via courier
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMethod("meetup")}
+                    className={`p-3.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                      deliveryMethod === "meetup"
+                        ? "bg-[#342339] border-[#e59bc9] text-white"
+                        : "bg-[#241c27] border-white/10 text-[#b9adb6] hover:border-white/20"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className="size-4 text-[#e59bc9]" />
+                      <span className="text-xs font-bold text-white">Local Meetup</span>
+                    </div>
+                    <span className="text-[10px] text-[#b9adb6]">
+                      Meet seller in Cebu City / IT Park
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Delivery Info Inputs (if Delivery) */}
+              {deliveryMethod === "delivery" ? (
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <label className="text-xs font-semibold text-[#d6cbd5] block mb-1">
+                      Recipient Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={shippingName}
+                      onChange={(e) => setShippingName(e.target.value)}
+                      placeholder="e.g. Juan Dela Cruz"
+                      className="w-full px-3.5 py-2.5 bg-[#241c27] border border-white/10 rounded-xl text-xs text-white placeholder:text-[#716872] focus:outline-none focus:border-[#e59bc9]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#d6cbd5] block mb-1">
+                      Contact Phone *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={shippingPhone}
+                      onChange={(e) => setShippingPhone(e.target.value)}
+                      placeholder="+63 900 000 0000"
+                      className="w-full px-3.5 py-2.5 bg-[#241c27] border border-white/10 rounded-xl text-xs text-white placeholder:text-[#716872] focus:outline-none focus:border-[#e59bc9]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#d6cbd5] block mb-1">
+                      Delivery Address *
+                    </label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={shippingAddress}
+                      onChange={(e) => setShippingAddress(e.target.value)}
+                      placeholder="Street address, Barangay, City, Province"
+                      className="w-full px-3.5 py-2.5 bg-[#241c27] border border-white/10 rounded-xl text-xs text-white placeholder:text-[#716872] focus:outline-none focus:border-[#e59bc9] resize-none"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-[#342339]/60 border border-white/10 rounded-xl text-xs text-[#d6cbd5] space-y-1">
+                  <div className="font-semibold text-white flex items-center gap-1.5">
+                    <Store className="size-3.5 text-[#e59bc9]" />
+                    <span>Meetup Policy</span>
+                  </div>
+                  <p className="text-[11px] text-[#b9adb6]">
+                    You and the seller will coordinate meetup timing and exact location upon order confirmation.
+                  </p>
+                </div>
+              )}
+
+              {/* Optional Buyer Notes */}
+              <div>
+                <label className="text-xs font-semibold text-[#d6cbd5] block mb-1">
+                  Buyer Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={buyerNote}
+                  onChange={(e) => setBuyerNote(e.target.value)}
+                  placeholder="Special instructions or meetup preference"
+                  className="w-full px-3.5 py-2.5 bg-[#241c27] border border-white/10 rounded-xl text-xs text-white placeholder:text-[#716872] focus:outline-none focus:border-[#e59bc9]"
+                />
+              </div>
+
+              {/* Total & Action */}
+              <div className="pt-3 border-t border-white/10 space-y-3">
+                <div className="flex items-center justify-between text-xs text-[#d6cbd5]">
+                  <span>Total Amount Due:</span>
+                  <span className="text-base font-extrabold text-[#e59bc9]">
+                    {formatPrice(grandTotal)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>Processing Order...</span>
+                    </>
+                  ) : (
+                    <span>Place Order ({formatPrice(grandTotal)})</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

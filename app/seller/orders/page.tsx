@@ -20,21 +20,47 @@ import {
 import { SellerLayout } from "@/components/seller/seller-layout";
 import { SellerOrderDetailDrawer } from "@/components/seller/seller-order-detail-drawer";
 import {
-  DEMO_SELLER_ORDERS,
   type OrderStatus,
   type SellerOrder,
   type FulfillmentMethod,
 } from "@/lib/seller/seller-data";
+import {
+  getSellerOrders,
+  updateSellerOrderStatus,
+  cancelBuyerOrder,
+  mapSellerStatusToDbStatus,
+} from "@/lib/supabase/orders";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 function SellerOrdersContent() {
   const searchParams = useSearchParams();
-  const [orders, setOrders] = useState<SellerOrder[]>(DEMO_SELLER_ORDERS);
+  const [orders, setOrders] = useState<SellerOrder[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [fulfillmentFilter, setFulfillmentFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeOrderId, setActiveOrderId] = useState<string | null>(() => searchParams.get("orderId"));
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(() => Boolean(searchParams.get("orderId")));
+
+  useEffect(() => {
+    let active = true;
+    getSellerOrders()
+      .then((data) => {
+        if (active) {
+          setOrders(data);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to load seller orders:", err);
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const activeOrder = useMemo(() => {
     if (!activeOrderId) return null;
@@ -76,69 +102,84 @@ function SellerOrdersContent() {
   }, [orders, searchQuery, selectedStatus, fulfillmentFilter]);
 
   // Order status transitions
-  const handleUpdateStatus = (
+  const handleUpdateStatus = async (
     orderId: string,
     newStatus: OrderStatus,
     trackingNo?: string
   ) => {
-    const now = new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const todayStr = `Today · ${now}`;
+    const dbStatus = mapSellerStatusToDbStatus(newStatus);
+    try {
+      await updateSellerOrderStatus(orderId, dbStatus);
 
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id !== orderId) return o;
+      const now = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const todayStr = `Today · ${now}`;
 
-        const updated: SellerOrder = {
-          ...o,
-          status: newStatus,
-          confirmedAt: newStatus === "Confirmed" ? todayStr : o.confirmedAt,
-          packedAt: newStatus === "Packed" ? todayStr : o.packedAt,
-          shippedAt:
-            newStatus === "Shipped" || newStatus === "Ready for Meetup"
-              ? todayStr
-              : o.shippedAt,
-          completedAt: newStatus === "Completed" ? todayStr : o.completedAt,
-        };
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o.id !== orderId) return o;
 
-        if (trackingNo && updated.deliveryDetails) {
-          updated.deliveryDetails = {
-            ...updated.deliveryDetails,
-            trackingNumber: trackingNo,
+          const updated: SellerOrder = {
+            ...o,
+            status: newStatus,
+            confirmedAt: newStatus === "Confirmed" ? todayStr : o.confirmedAt,
+            packedAt: newStatus === "Packed" ? todayStr : o.packedAt,
+            shippedAt:
+              newStatus === "Shipped" || newStatus === "Ready for Meetup"
+                ? todayStr
+                : o.shippedAt,
+            completedAt: newStatus === "Completed" ? todayStr : o.completedAt,
           };
-        }
 
-        return updated;
-      })
-    );
+          if (trackingNo && updated.deliveryDetails) {
+            updated.deliveryDetails = {
+              ...updated.deliveryDetails,
+              trackingNumber: trackingNo,
+            };
+          }
 
-    toast.success(`Order status updated to "${newStatus}"`);
+          return updated;
+        })
+      );
+
+      toast.success(`Order status updated to "${newStatus}"`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update status.";
+      toast.error(msg);
+    }
   };
 
-  const handleCancelOrder = (orderId: string, reason: string) => {
-    const now = new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const todayStr = `Today · ${now}`;
+  const handleCancelOrder = async (orderId: string, reason: string) => {
+    try {
+      await cancelBuyerOrder(orderId, reason);
 
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              status: "Cancelled",
-              cancelledAt: todayStr,
-              cancelReason: reason,
-              paymentStatus: "Refunded",
-            }
-          : o
-      )
-    );
+      const now = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const todayStr = `Today · ${now}`;
 
-    toast.error(`Order cancelled: "${reason}"`);
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                status: "Cancelled",
+                cancelledAt: todayStr,
+                cancelReason: reason,
+                paymentStatus: "Refunded",
+              }
+            : o
+        )
+      );
+
+      toast.info(`Order cancelled: "${reason}"`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to cancel order.";
+      toast.error(msg);
+    }
   };
 
   const getStatusBadge = (status: OrderStatus) => {
@@ -350,7 +391,14 @@ function SellerOrdersContent() {
         {/* 3. ORDER TABLE (Desktop) & STACKED CARDS (Mobile)         */}
         {/* ========================================================= */}
         <div className="bg-[#1e1322]/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-xl shadow-black/20 overflow-hidden">
-          {filteredOrders.length === 0 ? (
+          {isLoading ? (
+            <div className="p-16 text-center flex flex-col items-center justify-center gap-3">
+              <Loader2 className="size-7 text-[#e59bc9] animate-spin" />
+              <span className="text-sm font-semibold text-[#d6cbd5]">
+                Loading orders...
+              </span>
+            </div>
+          ) : filteredOrders.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <div className="size-12 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
                 <ShoppingBag className="size-6" />

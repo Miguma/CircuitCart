@@ -105,3 +105,52 @@ export interface FavoriteWithProduct extends DbFavorite {
   products?: ProductWithRelations | null;
 }
 
+export type DbOrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "shipped"
+  | "completed"
+  | "cancelled";
+
+export type DbDeliveryMethod = "delivery" | "meetup";
+
+export interface DbOrder {
+  id: string;
+  buyer_id: string;
+  shop_id: string;
+  seller_id: string;
+  status: DbOrderStatus;
+  subtotal: number;
+  shipping_fee: number;
+  total: number;
+  delivery_method: DbDeliveryMethod;
+  shipping_name: string | null;
+  shipping_phone: string | null;
+  shipping_address: string | null;
+  buyer_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbOrderItem {
+  id: string;
+  order_id: string;
+  product_id: string | null;
+  product_title: string;
+  product_image_path: string | null;
+  unit_price: number;
+  quantity: number;
+  line_total: number;
+  created_at: string;
+}
+
+export interface OrderWithItems extends DbOrder {
+  order_items: DbOrderItem[];
+  shops?: DbShop | null;
+  buyer?: DbProfile | null;
+  seller?: DbProfile | null;
+}
+
+
