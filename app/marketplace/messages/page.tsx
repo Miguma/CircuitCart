@@ -19,11 +19,10 @@ import {
   CheckCircle2,
   Tag,
   Eye,
+  Store,
   Loader2,
 } from "lucide-react";
-import { SellerLayout } from "@/components/seller/seller-layout";
-import { QuickViewDialog } from "@/components/marketplace/quick-view-dialog";
-import { type Product } from "@/components/marketplace/marketplace-data";
+import { useMarketplace } from "@/components/marketplace/marketplace-provider";
 import {
   ConversationWithDetails,
   MessageWithSender,
@@ -44,9 +43,11 @@ import { formatOrderReference } from "@/lib/supabase/orders";
 import { mapDbProductToMarketplaceProduct } from "@/lib/marketplace/product-adapter";
 import { toast } from "sonner";
 
-function SellerMessagesContent() {
+function MarketplaceMessagesContent() {
   const searchParams = useSearchParams();
   const initialConvId = searchParams.get("conversationId");
+
+  const { setQuickViewProduct } = useMarketplace();
 
   const [conversations, setConversations] = useState<ConversationWithDetails[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(initialConvId);
@@ -58,12 +59,11 @@ function SellerMessagesContent() {
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showMobileContext, setShowMobileContext] = useState(false);
-  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 1. Load seller conversations
+  // 1. Load buyer conversations
   useEffect(() => {
     let active = true;
 
@@ -83,7 +83,7 @@ function SellerMessagesContent() {
         }
       })
       .catch((err) => {
-        console.warn("Failed to load seller conversations:", err);
+        console.warn("Failed to load buyer conversations:", err);
         if (active) setIsLoadingList(false);
       });
 
@@ -124,7 +124,6 @@ function SellerMessagesContent() {
     // Realtime channel subscription
     const unsubscribe = subscribeToConversation(selectedChatId, (newMsg) => {
       setMessages((prev) => {
-        // Prevent duplicate if optimistic insert already present
         if (prev.some((m) => m.id === newMsg.id)) {
           return prev;
         }
@@ -143,7 +142,7 @@ function SellerMessagesContent() {
         })
       );
 
-      // Auto mark read if conversation is open
+      // Auto mark read if conversation is active
       markConversationRead(selectedChatId);
     });
 
@@ -153,7 +152,7 @@ function SellerMessagesContent() {
     };
   }, [selectedChatId]);
 
-  // Scroll to bottom of message list on messages change
+  // Scroll to bottom on messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -167,13 +166,13 @@ function SellerMessagesContent() {
     );
   };
 
-  // Quick reply chips
+  // Buyer quick reply chips
   const quickReplies = [
-    { label: "Still available", text: "Yes, this item is still available and ready for purchase!" },
-    { label: "Yes, negotiable", text: "Yes, the price is slightly negotiable for fast pickup/checkout." },
-    { label: "Meetup available", text: "I'm available for in-person meetup and testing in Cebu City / IT Park." },
-    { label: "Delivery available", text: "We can arrange fast delivery with safe bubble wrap packaging." },
-    { label: "Can ship today", text: "I can pack and dispatch this order today with fragile handling." },
+    { label: "Is this available?", text: "Hi! Is this item still available?" },
+    { label: "Meetup location", text: "Can we arrange a meetup in Cebu City / IT Park?" },
+    { label: "Shipping options", text: "Do you offer delivery/shipping for this item?" },
+    { label: "Best price?", text: "What is your best price for fast cash/GCash checkout?" },
+    { label: "Condition check", text: "Does this come with original box, accessories, and receipt?" },
   ];
 
   // Send a message
@@ -185,7 +184,7 @@ function SellerMessagesContent() {
     const optimisticMsg: MessageWithSender = {
       id: tempId,
       conversation_id: selectedChatId,
-      sender_id: activeConversation?.seller_id || "",
+      sender_id: activeConversation?.buyer_id || "",
       body: text,
       created_at: new Date().toISOString(),
       read_at: null,
@@ -199,7 +198,7 @@ function SellerMessagesContent() {
     try {
       const realMsg = await sendMessage(selectedChatId, text);
 
-      // Replace optimistic ID with database ID
+      // Replace optimistic entry
       setMessages((prev) =>
         prev.map((m) => (m.id === tempId ? { ...realMsg } : m))
       );
@@ -239,13 +238,15 @@ function SellerMessagesContent() {
   const filteredConversations = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return conversations.filter((c) => {
-      const buyerName = c.buyer?.full_name || c.buyer?.username || "Verified Buyer";
+      const shopName = c.shops?.name || "";
+      const sellerName = c.seller?.full_name || c.seller?.username || "Seller";
       const prodName = c.products?.title || "";
       const lastMsg = c.messages?.[c.messages.length - 1]?.body || "";
 
       const matchesSearch =
         !q ||
-        buyerName.toLowerCase().includes(q) ||
+        shopName.toLowerCase().includes(q) ||
+        sellerName.toLowerCase().includes(q) ||
         prodName.toLowerCase().includes(q) ||
         lastMsg.toLowerCase().includes(q);
 
@@ -334,10 +335,11 @@ function SellerMessagesContent() {
     }
   };
 
-  const activeBuyerName =
-    activeConversation?.buyer?.full_name ||
-    activeConversation?.buyer?.username ||
-    "Verified Buyer";
+  const activeSellerName =
+    activeConversation?.shops?.name ||
+    activeConversation?.seller?.full_name ||
+    activeConversation?.seller?.username ||
+    "Verified Seller";
 
   const activeProductImage =
     activeConversation?.products?.product_images?.[0]?.storage_path
@@ -345,22 +347,38 @@ function SellerMessagesContent() {
       : null;
 
   return (
-    <SellerLayout
-      title="Messages"
-      subtitle="Direct buyer inquiries, meetup coordinates, and order support."
-      showAddProduct={true}
-    >
-      {/* PRIMARY WORKSPACE */}
-      <div className="h-[calc(100vh-12.5rem)] min-h-[580px] max-h-[800px] bg-[#1a0f1d]/90 backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden shadow-2xl flex relative">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Top Header Bar */}
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <MessageSquare className="size-6 text-[#e59bc9]" />
+            <span>Messages</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-[#d6cbd5] mt-0.5">
+            Direct communication with verified hardware sellers and shop owners.
+          </p>
+        </div>
+        <Link
+          href="/marketplace"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-semibold text-[#d6cbd5] hover:text-white transition-colors"
+        >
+          <ArrowLeft className="size-3.5" />
+          <span>Back to Marketplace</span>
+        </Link>
+      </div>
+
+      {/* PRIMARY MESSAGING WORKSPACE */}
+      <div className="h-[calc(100vh-14rem)] min-h-[580px] max-h-[820px] bg-[#1a0f1d]/90 backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden shadow-2xl flex relative">
         {/* ========================================================= */}
-        {/* COLUMN 1: CONVERSATION LIST (~280px)                      */}
+        {/* COLUMN 1: CONVERSATION LIST (~290px)                      */}
         {/* ========================================================= */}
         <div
-          className={`w-full md:w-[280px] shrink-0 border-r border-white/[0.06] flex flex-col bg-[#170c1a]/95 ${
+          className={`w-full md:w-[290px] shrink-0 border-r border-white/[0.06] flex flex-col bg-[#170c1a]/95 ${
             selectedChatId ? "hidden md:flex" : "flex"
           }`}
         >
-          {/* Top Header & Compact Controls */}
+          {/* Top Header & Search */}
           <div className="p-3.5 border-b border-white/[0.06] space-y-2.5 shrink-0">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-[#d6cbd5] flex items-center gap-1.5">
@@ -372,14 +390,14 @@ function SellerMessagesContent() {
               </span>
             </div>
 
-            {/* Compact Search Input */}
+            {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-[#8f7d8c] pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
+                placeholder="Search sellers or items..."
                 className="w-full h-8 pl-7.5 pr-7 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9] transition-colors"
               />
               {searchQuery && (
@@ -434,17 +452,22 @@ function SellerMessagesContent() {
               </div>
             ) : filteredConversations.length === 0 ? (
               <div className="p-6 text-center space-y-1.5">
-                <p className="text-xs font-semibold text-[#b9adb6]">No conversations</p>
+                <p className="text-xs font-semibold text-[#b9adb6]">No conversations found</p>
                 <p className="text-[11px] text-[#8f7d8c]">
-                  {searchQuery ? "Try a different search." : "Buyer messages will appear here."}
+                  {searchQuery
+                    ? "Try a different search query."
+                    : "Click 'Message Seller' on any product page to begin chatting."}
                 </p>
               </div>
             ) : (
               filteredConversations.map((conv) => {
                 const isSelected = selectedChatId === conv.id;
                 const hasUnread = (conv.unread_count || 0) > 0;
-                const buyerName =
-                  conv.buyer?.full_name || conv.buyer?.username || "Verified Buyer";
+                const sellerName =
+                  conv.shops?.name ||
+                  conv.seller?.full_name ||
+                  conv.seller?.username ||
+                  "Verified Seller";
                 const lastMsg =
                   conv.messages?.[conv.messages.length - 1]?.body || "No messages yet";
                 const timeStr = conv.last_message_at
@@ -462,15 +485,19 @@ function SellerMessagesContent() {
                         : "hover:bg-white/[0.02] border-l-2 border-transparent"
                     }`}
                   >
-                    {/* Buyer Avatar */}
+                    {/* Seller Avatar */}
                     <div className="relative shrink-0 mt-0.5">
                       <div className="size-8 rounded-full bg-[#3d2743] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold text-[11px]">
-                        {buyerName
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .substring(0, 2)
-                          .toUpperCase()}
+                        {conv.shops?.name ? (
+                          <Store className="size-4" />
+                        ) : (
+                          sellerName
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .substring(0, 2)
+                            .toUpperCase()
+                        )}
                       </div>
                       {hasUnread && (
                         <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-[#e59bc9] ring-2 ring-[#1e1322]" />
@@ -487,7 +514,7 @@ function SellerMessagesContent() {
                               : "font-medium text-[#d6cbd5]"
                           }`}
                         >
-                          {buyerName}
+                          {sellerName}
                         </h4>
                         <span className="text-[10px] text-[#8f7d8c] shrink-0">
                           {timeStr}
@@ -540,26 +567,38 @@ function SellerMessagesContent() {
                   <ArrowLeft className="size-4" />
                 </button>
 
-                {/* Buyer Avatar */}
+                {/* Seller Avatar */}
                 <div className="size-9 rounded-full bg-[#3d2743] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold text-xs shrink-0">
-                  {activeBuyerName
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .substring(0, 2)
-                    .toUpperCase()}
+                  {activeConversation.shops?.name ? (
+                    <Store className="size-4" />
+                  ) : (
+                    activeSellerName
+                      .split(" ")
+                      .map((n: string) => n[0])
+                      .join("")
+                      .substring(0, 2)
+                      .toUpperCase()
+                  )}
                 </div>
 
-                {/* Buyer & Context Subline */}
+                {/* Seller & Context Subline */}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs sm:text-sm font-bold text-[#fffafa] truncate">
-                      {activeBuyerName}
+                      {activeSellerName}
                     </h3>
+                    {activeConversation.shops && (
+                      <Link
+                        href={`/shop/${activeConversation.shops.slug}`}
+                        className="text-[11px] text-[#e59bc9] hover:underline flex items-center gap-1 font-medium"
+                      >
+                        <span>Visit Shop</span>
+                      </Link>
+                    )}
                   </div>
                   {activeConversation.products && (
                     <p className="text-[11px] text-[#8f7d8c] truncate">
-                      Regarding:{" "}
+                      Inquiring about:{" "}
                       <span className="text-[#e59bc9] font-medium">
                         {activeConversation.products.title}
                       </span>
@@ -572,7 +611,7 @@ function SellerMessagesContent() {
               <div className="flex items-center gap-2 shrink-0">
                 {activeConversation.orders && (
                   <Link
-                    href="/seller/orders"
+                    href="/marketplace/orders"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-semibold text-[#e59bc9] transition-colors"
                   >
                     <ShoppingBag className="size-3" />
@@ -585,7 +624,7 @@ function SellerMessagesContent() {
                   type="button"
                   onClick={() => setShowMobileContext(!showMobileContext)}
                   className="xl:hidden p-1.5 rounded-lg bg-white/[0.04] hover:bg-white/10 text-[#d6cbd5] hover:text-white border border-white/[0.08] transition-colors cursor-pointer"
-                  title="View Listing Details"
+                  title="View Item Details"
                 >
                   <Info className="size-4 text-[#e59bc9]" />
                 </button>
@@ -603,14 +642,14 @@ function SellerMessagesContent() {
                   <div className="size-10 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center text-[#e59bc9]">
                     <MessageSquare className="size-5" />
                   </div>
-                  <h4 className="text-xs font-bold text-white">No messages yet</h4>
+                  <h4 className="text-xs font-bold text-white">Start the conversation</h4>
                   <p className="text-[11px] text-[#8f7d8c] max-w-xs">
-                    Start the conversation or choose a quick reply below.
+                    Send an inquiry about availability, specs, meetup spot, or shipping.
                   </p>
                 </div>
               ) : (
                 messages.map((msg, idx) => {
-                  const isSeller = msg.sender_id === activeConversation.seller_id;
+                  const isBuyer = msg.sender_id === activeConversation.buyer_id;
                   const dateGroup = formatMessageDateGroup(msg.created_at);
                   const showDateSeparator =
                     idx === 0 ||
@@ -628,12 +667,12 @@ function SellerMessagesContent() {
 
                       <div
                         className={`flex flex-col ${
-                          isSeller ? "items-end" : "items-start"
+                          isBuyer ? "items-end" : "items-start"
                         }`}
                       >
                         <div
                           className={`max-w-[72%] p-3 sm:px-4 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
-                            isSeller
+                            isBuyer
                               ? "bg-[#54385c] text-white rounded-tr-xs shadow-xs"
                               : "bg-[#231526] text-[#fffafa] border border-white/[0.06] rounded-tl-xs shadow-xs"
                           }`}
@@ -642,7 +681,7 @@ function SellerMessagesContent() {
                         </div>
                         <span className="text-[10px] text-[#8f7d8c] mt-1 px-1 flex items-center gap-1">
                           <span>{formatMessageTime(msg.created_at)}</span>
-                          {isSeller && (
+                          {isBuyer && (
                             <CheckCheck
                               className={`size-3 ${
                                 msg.read_at ? "text-emerald-400" : "text-[#e59bc9]"
@@ -703,7 +742,7 @@ function SellerMessagesContent() {
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={`Type a message to ${activeBuyerName}...`}
+                  placeholder={`Message ${activeSellerName}...`}
                   rows={1}
                   className="w-full min-h-[38px] max-h-[90px] py-2 px-3 rounded-lg bg-[#281829]/70 border border-white/[0.08] text-xs sm:text-sm font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9] focus:ring-1 focus:ring-[#e59bc9] transition-colors resize-none"
                 />
@@ -735,25 +774,25 @@ function SellerMessagesContent() {
             </div>
             <h3 className="text-sm font-bold text-[#fffafa]">Messages</h3>
             <p className="text-xs text-[#8f7d8c] max-w-xs">
-              Select a conversation to start chatting with a buyer.
+              Select a conversation from the list to view chat history with a seller.
             </p>
           </div>
         )}
 
         {/* ========================================================= */}
-        {/* COLUMN 3: PRODUCT CONTEXT PANEL (~270px · Quieter)       */}
+        {/* COLUMN 3: PRODUCT & SELLER CONTEXT PANEL (~270px)        */}
         {/* ========================================================= */}
         {activeConversation && (
           <div className="w-[270px] shrink-0 border-l border-white/[0.06] hidden xl:flex flex-col bg-[#170c1a]/90 p-4 overflow-y-auto space-y-4">
-            {/* ABOUT THIS LISTING */}
+            {/* ABOUT THIS ITEM */}
             {activeConversation.products && (
               <div className="space-y-2.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#8f7d8c] flex items-center gap-1.5">
                   <Tag className="size-3 text-[#e59bc9]" />
-                  <span>About This Listing</span>
+                  <span>Product Listing</span>
                 </span>
 
-                {/* Compact Product Thumbnail & Info */}
+                {/* Thumbnail & Info */}
                 <div className="relative aspect-[16/10] rounded-lg bg-gradient-to-br from-[#3d2743] to-[#201323] border border-white/[0.06] flex items-center justify-center overflow-hidden p-2">
                   {activeProductImage ? (
                     <Image
@@ -818,7 +857,7 @@ function SellerMessagesContent() {
               <div className="pt-3 border-t border-white/[0.06] space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#8f7d8c]">
-                    Order Overview
+                    Order Reference
                   </span>
                   {getOrderStatusBadge(activeConversation.orders.status)}
                 </div>
@@ -836,36 +875,47 @@ function SellerMessagesContent() {
                 </div>
 
                 <Link
-                  href="/seller/orders"
+                  href="/marketplace/orders"
                   className="w-full py-1.5 rounded-lg bg-[#54385c] hover:bg-[#684771] text-xs font-semibold text-white transition-colors flex items-center justify-center gap-1.5"
                 >
                   <ShoppingBag className="size-3" />
-                  <span>View Order Details</span>
+                  <span>View My Orders</span>
                 </Link>
               </div>
             )}
 
-            {/* BUYER PROFILE SECTION */}
+            {/* SELLER / SHOP PROFILE SECTION */}
             <div className="pt-3 border-t border-white/[0.06] space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#8f7d8c]">
-                Buyer Details
+                Seller Information
               </span>
               <div className="space-y-1 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[#8f7d8c]">Name:</span>
-                  <span className="text-white font-semibold">{activeBuyerName}</span>
+                  <span className="text-[#8f7d8c]">Seller:</span>
+                  <span className="text-white font-semibold">{activeSellerName}</span>
                 </div>
-                {activeConversation.buyer?.location && (
+                {activeConversation.shops && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8f7d8c]">Shop:</span>
+                    <Link
+                      href={`/shop/${activeConversation.shops.slug}`}
+                      className="text-[#e59bc9] hover:underline truncate max-w-[130px] font-medium"
+                    >
+                      {activeConversation.shops.name}
+                    </Link>
+                  </div>
+                )}
+                {activeConversation.seller?.location && (
                   <div className="flex items-center justify-between">
                     <span className="text-[#8f7d8c]">Location:</span>
                     <span className="text-[#d6cbd5] truncate max-w-[130px]">
-                      {activeConversation.buyer.location}
+                      {activeConversation.seller.location}
                     </span>
                   </div>
                 )}
                 <div className="flex items-center gap-1 text-[10px] text-emerald-400 pt-0.5">
                   <CheckCircle2 className="size-3" />
-                  <span>Verified Buyer Profile</span>
+                  <span>Verified Hardware Merchant</span>
                 </div>
               </div>
             </div>
@@ -881,7 +931,7 @@ function SellerMessagesContent() {
               <div className="flex items-center justify-between pb-2 border-b border-white/10">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#d6cbd5] flex items-center gap-1.5">
                   <Tag className="size-3.5 text-[#e59bc9]" />
-                  <span>Listing Context</span>
+                  <span>Item Context</span>
                 </span>
                 <button
                   type="button"
@@ -941,10 +991,10 @@ function SellerMessagesContent() {
                       : "Meetup"}
                   </p>
                   <Link
-                    href="/seller/orders"
+                    href="/marketplace/orders"
                     className="block w-full py-1.5 text-center rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors"
                   >
-                    Go to Order Details
+                    Go to My Orders
                   </Link>
                 </div>
               )}
@@ -952,30 +1002,20 @@ function SellerMessagesContent() {
           </div>
         )}
       </div>
-
-      {/* Quick View Dialog for Product preview */}
-      <QuickViewDialog
-        product={quickViewProduct}
-        isOpen={!!quickViewProduct}
-        onClose={() => setQuickViewProduct(null)}
-        isWishlisted={false}
-        onToggleWishlist={() => {}}
-        onAddToCart={() => toast.success("Added to cart")}
-      />
-    </SellerLayout>
+    </div>
   );
 }
 
-export default function SellerMessagesPage() {
+export default function MarketplaceMessagesPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-sm font-semibold text-[#b9adb6]">
+        <div className="min-h-[500px] flex items-center justify-center text-sm font-semibold text-[#b9adb6]">
           Loading messages...
         </div>
       }
     >
-      <SellerMessagesContent />
+      <MarketplaceMessagesContent />
     </Suspense>
   );
 }

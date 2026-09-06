@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Store,
   ShieldCheck,
@@ -17,6 +18,7 @@ import {
   Share2,
   Search,
   SlidersHorizontal,
+  Loader2,
 } from "lucide-react";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { QuickViewDialog } from "@/components/marketplace/quick-view-dialog";
@@ -25,6 +27,7 @@ import {
   CATEGORIES,
 } from "@/components/marketplace/marketplace-data";
 import { type SellerShopProfile } from "@/lib/seller/seller-data";
+import { getOrCreateShopConversation } from "@/lib/supabase/messages";
 import { toast } from "sonner";
 
 interface PublicShopClientViewProps {
@@ -36,10 +39,26 @@ export function PublicShopClientView({
   profile,
   products,
 }: PublicShopClientViewProps) {
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [isMessaging, setIsMessaging] = useState(false);
+
+  const handleMessageShop = async () => {
+    if (isMessaging) return;
+    setIsMessaging(true);
+
+    try {
+      const convId = await getOrCreateShopConversation(profile.id);
+      router.push(`/marketplace/messages?conversationId=${convId}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to open conversation with shop.";
+      toast.error(msg);
+      setIsMessaging(false);
+    }
+  };
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) =>
@@ -124,13 +143,19 @@ export function PublicShopClientView({
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3 self-start sm:self-auto">
-              <Link
-                href="/seller/messages"
-                className="px-5 py-2.5 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              <button
+                type="button"
+                onClick={handleMessageShop}
+                disabled={isMessaging}
+                className="px-5 py-2.5 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <MessageSquare className="size-3.5" />
+                {isMessaging ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <MessageSquare className="size-3.5" />
+                )}
                 <span>Message Seller</span>
-              </Link>
+              </button>
             </div>
           </div>
 

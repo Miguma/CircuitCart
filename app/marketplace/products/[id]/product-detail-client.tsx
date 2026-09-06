@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Heart,
@@ -21,10 +22,13 @@ import {
   Cpu,
   Layers,
   Sparkles,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { Product } from "@/components/marketplace/marketplace-data";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
 import { ProductCard } from "@/components/marketplace/product-card";
+import { getOrCreateProductConversation } from "@/lib/supabase/messages";
 import { toast } from "sonner";
 
 interface ProductDetailClientProps {
@@ -36,10 +40,12 @@ export default function ProductDetailClient({
   product,
   relatedProducts,
 }: ProductDetailClientProps) {
+  const router = useRouter();
   const { isFavorite, toggleFavorite, addToCart, setQuickViewProduct } =
     useMarketplace();
 
   const [quantity, setQuantity] = useState(1);
+  const [isStartingChat, setIsStartingChat] = useState(false);
   const wishlisted = isFavorite(product.id);
 
   const formatPrice = (price: number) =>
@@ -60,6 +66,20 @@ export default function ProductDetailClient({
       toast.success(`Saved "${product.name}" to favorites.`);
     } else {
       toast.info(`Removed "${product.name}" from favorites.`);
+    }
+  };
+
+  const handleMessageSeller = async () => {
+    if (isStartingChat) return;
+    setIsStartingChat(true);
+
+    try {
+      const convId = await getOrCreateProductConversation(product.id);
+      router.push(`/marketplace/messages?conversationId=${convId}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to open conversation with seller.";
+      toast.error(msg);
+      setIsStartingChat(false);
     }
   };
 
@@ -321,6 +341,22 @@ export default function ProductDetailClient({
                 >
                   <ShoppingCart className="size-4.5" />
                   <span>Add {quantity > 1 ? `(${quantity}) ` : ""}to Cart</span>
+                </button>
+
+                {/* Message Seller Button */}
+                <button
+                  type="button"
+                  onClick={handleMessageSeller}
+                  disabled={isStartingChat}
+                  className="h-12 px-5 bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/10 text-xs sm:text-sm font-bold rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  title="Message Seller"
+                >
+                  {isStartingChat ? (
+                    <Loader2 className="size-4 animate-spin text-[#e59bc9]" />
+                  ) : (
+                    <MessageSquare className="size-4 text-[#e59bc9]" />
+                  )}
+                  <span>Message Seller</span>
                 </button>
               </div>
             </div>

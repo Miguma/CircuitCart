@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   Package,
   ArrowLeft,
@@ -12,12 +13,14 @@ import {
   Store,
   Loader2,
   ShieldCheck,
+  MessageSquare,
 } from "lucide-react";
 import {
   getBuyerOrders,
   cancelBuyerOrder,
   formatOrderReference,
 } from "@/lib/supabase/orders";
+import { getOrCreateOrderConversation } from "@/lib/supabase/messages";
 import { OrderWithItems } from "@/lib/supabase/types";
 import { getProductImageUrl } from "@/lib/supabase/storage";
 import { toast } from "sonner";
@@ -25,10 +28,12 @@ import { toast } from "sonner";
 type OrderFilter = "All" | "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled";
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeFilter, setActiveFilter] = useState<OrderFilter>("All");
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [messagingOrderId, setMessagingOrderId] = useState<string | null>(null);
 
   const filters: OrderFilter[] = [
     "All",
@@ -75,6 +80,20 @@ export default function OrdersPage() {
       toast.error(msg);
     } finally {
       setCancellingOrderId(null);
+    }
+  };
+
+  const handleMessageSeller = async (orderId: string) => {
+    if (messagingOrderId) return;
+    setMessagingOrderId(orderId);
+
+    try {
+      const convId = await getOrCreateOrderConversation(orderId);
+      router.push(`/marketplace/messages?conversationId=${convId}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to open conversation.";
+      toast.error(msg);
+      setMessagingOrderId(null);
     }
   };
 
@@ -361,20 +380,37 @@ export default function OrdersPage() {
                       </span>
                     </div>
 
-                    {order.status === "pending" && (
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        disabled={cancellingOrderId === order.id}
-                        onClick={() => handleCancelOrder(order.id)}
-                        className="px-3 py-1.5 text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                        disabled={messagingOrderId === order.id}
+                        onClick={() => handleMessageSeller(order.id)}
+                        className="px-3 py-1.5 text-xs font-semibold bg-white/[0.05] hover:bg-white/10 text-[#d6cbd5] hover:text-white border border-white/10 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                        title="Chat with seller about this order"
                       >
-                        {cancellingOrderId === order.id ? (
-                          <Loader2 className="size-3.5 animate-spin" />
+                        {messagingOrderId === order.id ? (
+                          <Loader2 className="size-3.5 animate-spin text-[#e59bc9]" />
                         ) : (
-                          "Cancel Order"
+                          <MessageSquare className="size-3.5 text-[#e59bc9]" />
                         )}
+                        <span>Message Seller</span>
                       </button>
-                    )}
+
+                      {order.status === "pending" && (
+                        <button
+                          type="button"
+                          disabled={cancellingOrderId === order.id}
+                          onClick={() => handleCancelOrder(order.id)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {cancellingOrderId === order.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            "Cancel Order"
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

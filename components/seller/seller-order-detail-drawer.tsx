@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   X,
   Package,
@@ -20,11 +21,13 @@ import {
   CreditCard,
   Send,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import {
   type SellerOrder,
   type OrderStatus,
 } from "@/lib/seller/seller-data";
+import { getOrCreateOrderConversation } from "@/lib/supabase/messages";
 import { toast } from "sonner";
 
 interface SellerOrderDetailDrawerProps {
@@ -42,11 +45,26 @@ export function SellerOrderDetailDrawer({
   onUpdateStatus,
   onCancelOrder,
 }: SellerOrderDetailDrawerProps) {
+  const router = useRouter();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("Out of stock");
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [courierName, setCourierName] = useState("J&T Express");
+  const [isMessaging, setIsMessaging] = useState(false);
+
+  const handleMessageBuyer = async () => {
+    if (!order || isMessaging) return;
+    setIsMessaging(true);
+    try {
+      const convId = await getOrCreateOrderConversation(order.id);
+      router.push(`/seller/messages?conversationId=${convId}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to open conversation.";
+      toast.error(msg);
+      setIsMessaging(false);
+    }
+  };
 
   if (!isOpen || !order) return null;
 
@@ -436,13 +454,19 @@ export function SellerOrderDetailDrawer({
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#b9adb6]">
                 Buyer Profile
               </h3>
-              <Link
-                href="/seller/messages"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#e59bc9] hover:text-white transition-colors"
+              <button
+                type="button"
+                onClick={handleMessageBuyer}
+                disabled={isMessaging}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#e59bc9] hover:text-white transition-colors cursor-pointer disabled:opacity-50"
               >
-                <MessageSquare className="size-3.5" />
+                {isMessaging ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <MessageSquare className="size-3.5" />
+                )}
                 <span>Message Buyer</span>
-              </Link>
+              </button>
             </div>
 
             <div className="flex items-center gap-3 pt-1">

@@ -14,6 +14,7 @@ import {
   Package,
   Settings,
   LogOut,
+  MessageSquare,
 } from "lucide-react";
 import { useMarketplace } from "./marketplace-provider";
 import { CategoryFilter } from "./marketplace-data";
@@ -187,6 +188,15 @@ export function MarketplaceHeader({
               )}
             </Link>
 
+            {/* Messages Button */}
+            <Link
+              href="/marketplace/messages"
+              className="relative hidden sm:inline-flex p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              aria-label="Messages"
+            >
+              <MessageSquare className="size-5" />
+            </Link>
+
             {/* Notifications Button */}
             <Link
               href="/marketplace/notifications"
@@ -255,6 +265,16 @@ export function MarketplaceHeader({
                   >
                     <User className="size-3.5 text-[#e59bc9]" />
                     <span>View profile</span>
+                  </Link>
+
+                  <Link
+                    href="/marketplace/messages"
+                    role="menuitem"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#fffafa] hover:bg-[#342339] hover:text-[#e59bc9] transition-colors"
+                  >
+                    <MessageSquare className="size-3.5 text-[#e59bc9]" />
+                    <span>Messages</span>
                   </Link>
 
                   <Link

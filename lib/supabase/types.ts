@@ -153,4 +153,39 @@ export interface OrderWithItems extends DbOrder {
   seller?: DbProfile | null;
 }
 
+export interface DbConversation {
+  id: string;
+  buyer_id: string;
+  seller_id: string;
+  shop_id: string | null;
+  product_id: string | null;
+  order_id: string | null;
+  last_message_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface MessageWithSender extends DbMessage {
+  sender?: DbProfile | null;
+}
+
+export interface ConversationWithDetails extends DbConversation {
+  buyer?: DbProfile | null;
+  seller?: DbProfile | null;
+  shops?: DbShop | null;
+  products?: (DbProduct & { product_images?: DbProductImage[] }) | null;
+  orders?: DbOrder | null;
+  messages?: DbMessage[];
+  unread_count?: number;
+}
+
 
