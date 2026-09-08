@@ -190,6 +190,12 @@ export interface ConversationWithDetails extends DbConversation {
 
 export type DbSellerVerificationStatus = "pending" | "approved" | "rejected";
 export type DbSellerType = "individual" | "business";
+export type DbAutomatedReviewStatus =
+  | "queued"
+  | "processing"
+  | "passed"
+  | "manual_review"
+  | "failed";
 
 export interface DbSellerVerificationRequest {
   id: string;
@@ -210,6 +216,14 @@ export interface DbSellerVerificationRequest {
   reviewed_at: string | null;
   reviewed_by: string | null;
   rejection_reason: string | null;
+  automated_review_status?: DbAutomatedReviewStatus | null;
+  automated_score?: number | null;
+  automated_flags?: string[] | null;
+  extracted_full_name?: string | null;
+  extracted_date_of_birth?: string | null;
+  extracted_id_type?: string | null;
+  automated_review_summary?: string | null;
+  automated_reviewed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -235,3 +235,29 @@ export async function reviewSellerVerification(
     };
   }
 }
+
+/**
+ * Trigger backend automated verification review for a submitted request
+ */
+export async function triggerAutomatedVerification(
+  requestId: string
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke("process-seller-verification", {
+      body: { requestId },
+    });
+
+    if (error) {
+      console.warn("Automated verification invocation failed:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Failed to invoke automated verification.";
+    console.warn("Automated verification error:", err);
+    return { success: false, error: errorMsg };
+  }
+}
+

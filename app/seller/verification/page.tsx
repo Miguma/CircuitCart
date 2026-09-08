@@ -26,6 +26,7 @@ import {
   uploadVerificationDocument,
   submitSellerVerification,
   validateVerificationFile,
+  triggerAutomatedVerification,
 } from "@/lib/supabase/verification";
 import type { DbSellerVerificationRequest, DbSellerType } from "@/lib/supabase/types";
 import { toast } from "sonner";
@@ -259,6 +260,15 @@ export default function SellerVerificationPage() {
       toast.success("Seller verification submitted successfully!");
       setVerification(submitRes.data);
       setIsResubmitting(false);
+
+      // Trigger server-side automated verification review
+      setUploadProgressText("Running automated document verification...");
+      try {
+        await triggerAutomatedVerification(submitRes.data.id);
+      } catch (autoErr) {
+        console.warn("Automated review trigger note:", autoErr);
+      }
+
       await loadData();
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Failed to submit verification.";
@@ -404,16 +414,53 @@ export default function SellerVerificationPage() {
           )}
 
           {displayStatus === "Under Review" && (
-            <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/20 text-xs text-amber-300 space-y-1 leading-relaxed">
-              <p className="font-bold flex items-center gap-1.5">
-                <Clock className="size-4 text-amber-400" />
-                <span>
-                  Submitted{" "}
-                  {verification?.submitted_at
-                    ? `on ${new Date(verification.submitted_at).toLocaleDateString()}`
-                    : ""}
-                </span>
-              </p>
+            <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/20 text-xs text-amber-300 space-y-2 leading-relaxed">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <Clock className="size-4 text-amber-400" />
+                  <span>
+                    Submitted{" "}
+                    {verification?.submitted_at
+                      ? `on ${new Date(verification.submitted_at).toLocaleDateString()}`
+                      : ""}
+                  </span>
+                </p>
+
+                {verification?.automated_review_status && (
+                  <span className="text-[11px] font-semibold text-amber-200/90 flex items-center gap-1 self-start sm:self-auto">
+                    {verification.automated_review_status === "queued" && (
+                      <>
+                        <Clock className="size-3 text-amber-400" />
+                        <span>Automated checks queued</span>
+                      </>
+                    )}
+                    {verification.automated_review_status === "processing" && (
+                      <>
+                        <Loader2 className="size-3 animate-spin text-[#e59bc9]" />
+                        <span>Checking your verification documents...</span>
+                      </>
+                    )}
+                    {verification.automated_review_status === "passed" && (
+                      <>
+                        <CheckCircle2 className="size-3 text-emerald-400" />
+                        <span>Verification approved</span>
+                      </>
+                    )}
+                    {verification.automated_review_status === "manual_review" && (
+                      <>
+                        <ShieldCheck className="size-3 text-amber-300" />
+                        <span>Your application requires manual review.</span>
+                      </>
+                    )}
+                    {verification.automated_review_status === "failed" && (
+                      <>
+                        <AlertTriangle className="size-3 text-amber-300" />
+                        <span>We couldn&apos;t complete automated checks. Your application will be reviewed manually.</span>
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
               <p className="text-amber-300/80">
                 Our verification compliance team is reviewing your Philippine ID and selfie document. Review usually takes 1–3 business days. You will gain seller access as soon as approved.
               </p>

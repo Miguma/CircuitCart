@@ -373,6 +373,91 @@ export default function AdminVerificationsPage() {
                     </div>
                   </div>
 
+                  {/* Automated Verification Review Telemetry */}
+                  <div className="p-4 rounded-xl bg-black/25 border border-white/5 space-y-2.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-[#b9adb6] uppercase tracking-wider">
+                          Automated Review:
+                        </span>
+                        <span
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                            req.automated_review_status === "passed"
+                              ? "bg-emerald-950/90 text-emerald-300 border border-emerald-500/40"
+                              : req.automated_review_status === "manual_review"
+                              ? "bg-amber-950/90 text-amber-300 border border-amber-500/40"
+                              : req.automated_review_status === "failed"
+                              ? "bg-rose-950/90 text-rose-300 border border-rose-500/40"
+                              : "bg-white/10 text-[#b9adb6] border border-white/10"
+                          }`}
+                        >
+                          {req.automated_review_status || "queued"}
+                        </span>
+                      </div>
+
+                      {req.automated_score !== undefined && req.automated_score !== null && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-[#b9adb6]">Confidence Score:</span>
+                          <span
+                            className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${
+                              req.automated_score >= 90
+                                ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/40"
+                                : req.automated_score >= 70
+                                ? "bg-amber-950/80 text-amber-300 border border-amber-500/40"
+                                : "bg-rose-950/80 text-rose-300 border border-rose-500/40"
+                            }`}
+                          >
+                            {req.automated_score}/100
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Extracted Details vs Application Details */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-[#b9adb6]">
+                      <div>
+                        <span className="text-[#8f7d8c] block">Extracted Name:</span>
+                        <span className="font-semibold text-white">
+                          {req.extracted_full_name || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#8f7d8c] block">Extracted DOB:</span>
+                        <span className="font-semibold text-white">
+                          {req.extracted_date_of_birth || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#8f7d8c] block">Extracted ID Type:</span>
+                        <span className="font-semibold text-white">
+                          {req.extracted_id_type || "—"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Flags */}
+                    {Array.isArray(req.automated_flags) && req.automated_flags.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-[#8f7d8c] font-bold uppercase">Flags:</span>
+                        {req.automated_flags.map((flag) => (
+                          <span
+                            key={flag}
+                            className="px-2 py-0.5 rounded-md bg-amber-950/60 border border-amber-500/30 text-amber-300 text-[10px] font-bold"
+                          >
+                            {flag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    {req.automated_review_summary && (
+                      <p className="text-[11px] text-[#b9adb6] pt-1 border-t border-white/5 italic">
+                        &ldquo;{req.automated_review_summary}&rdquo;
+                      </p>
+                    )}
+                  </div>
+
                   {/* Rejection reason callout if rejected */}
                   {isRejected && req.rejection_reason && (
                     <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/20 text-xs text-rose-300 space-y-0.5">
