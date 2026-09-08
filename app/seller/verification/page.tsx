@@ -288,12 +288,15 @@ export default function SellerVerificationPage() {
     ? "Rejected"
     : "Not Started";
 
+  const isVerificationOnlyNav = profile?.role !== "seller" && profile?.role !== "admin";
+
   if (isLoading) {
     return (
       <SellerLayout
         title="Seller Verification"
         subtitle="Verify your identity to build trust and unlock seller privileges."
         showAddProduct={profile?.role === "seller" || profile?.role === "admin"}
+        isVerificationOnlyNav={isVerificationOnlyNav}
       >
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-[#b9adb6]">
           <Loader2 className="size-8 animate-spin text-[#e59bc9]" />
@@ -308,6 +311,7 @@ export default function SellerVerificationPage() {
       title="Seller Verification"
       subtitle="Verify your identity to build trust and unlock verified seller features."
       showAddProduct={profile?.role === "seller" || profile?.role === "admin"}
+      isVerificationOnlyNav={isVerificationOnlyNav}
     >
       <div className="max-w-4xl space-y-8">
         {/* ======================================================= */}
@@ -446,10 +450,10 @@ export default function SellerVerificationPage() {
             <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
               <p className="text-xs font-bold text-[#fffafa] flex items-center gap-1.5">
                 <Upload className="size-3.5 text-[#e59bc9]" />
-                <span>Hardware Publishing</span>
+                <span>Create Listings</span>
               </p>
               <p className="text-[11px] text-[#b9adb6] leading-snug">
-                Unlock real listing creation for laptops, GPUs, components, and electronics.
+                Unlock real product listing creation after your seller verification is approved.
               </p>
             </div>
 
