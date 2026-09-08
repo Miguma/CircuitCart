@@ -36,6 +36,13 @@ interface AnalysisResult {
   summary: string;
 }
 
+interface OcrProviderResult {
+  providerSucceeded: boolean;
+  text: string;
+  confidence: number;
+  error?: string;
+}
+
 /**
  * Normalize text for string comparison
  */
@@ -182,53 +189,15 @@ function extractDatesFromText(text: string): string[] {
 }
 
 /**
- * OCR Engine Integration Point
- * Extracts text from image bytes using configurable OCR backend
+ * Validate image file structure without pseudo-OCR decoding
  */
-async function performDocumentOcr(
+function validateImageFileIntegrity(
   imageBytes: Uint8Array
-): Promise<{ text: string; confidence: number }> {
-  // Option 1: External Cloud Vision / Document AI if API key configured
-  const ocrApiKey = Deno.env.get("OCR_API_KEY") || Deno.env.get("GOOGLE_VISION_API_KEY");
-
-  if (ocrApiKey) {
-    try {
-      const base64Image = btoa(
-        Array.from(imageBytes)
-          .map((b) => String.fromCharCode(b))
-          .join("")
-      );
-
-      const visionRes = await fetch(
-        `https://vision.googleapis.com/v1/images:annotate?key=${ocrApiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requests: [
-              {
-                image: { content: base64Image },
-                features: [{ type: "TEXT_DETECTION" }],
-              },
-            ],
-          }),
-        }
-      );
-
-      if (visionRes.ok) {
-        const data = await visionRes.json();
-        const fullText = data.responses?.[0]?.fullTextAnnotation?.text || "";
-        if (fullText) {
-          return { text: fullText, confidence: 0.95 };
-        }
-      }
-    } catch (err) {
-      console.warn("External OCR provider failed, falling back to heuristic parser:", err);
-    }
+): { isValid: boolean; error?: string } {
+  if (imageBytes.length < 30 * 1024) {
+    return { isValid: false, error: "Image file is too small (<30KB)." };
   }
 
-  // Option 2: Intelligent Document Analysis Engine
-  // Analyzes image header, metadata, byte density, and document validity
   const isJpg = imageBytes[0] === 0xff && imageBytes[1] === 0xd8;
   const isPng =
     imageBytes[0] === 0x89 &&
@@ -243,17 +212,100 @@ async function performDocumentOcr(
     imageBytes[11] === 0x50;
 
   if (!isJpg && !isPng && !isWebp) {
-    return { text: "", confidence: 0 };
+    return { isValid: false, error: "Invalid image format header (JPEG, PNG, WebP only)." };
   }
 
-  // For valid image uploads within the secure pipeline, extract text representation
-  const textDecoder = new TextDecoder("utf-8", { fatal: false });
-  const rawString = textDecoder.decode(imageBytes.subarray(0, Math.min(imageBytes.length, 10000)));
+  return { isValid: true };
+}
 
-  return {
-    text: rawString,
-    confidence: imageBytes.length > 50000 ? 0.9 : 0.7,
-  };
+/**
+ * OCR Engine Integration Point
+ * Strictly queries configured OCR provider (e.g. Google Cloud Vision API).
+ * NEVER decodes raw JPEG/PNG binary bytes as pseudo-text.
+ */
+async function performDocumentOcr(
+  imageBytes: Uint8Array
+): Promise<OcrProviderResult> {
+  const ocrApiKey = Deno.env.get("OCR_API_KEY") || Deno.env.get("GOOGLE_VISION_API_KEY");
+
+  // If OCR provider is not configured, return explicit provider failure state
+  if (!ocrApiKey) {
+    return {
+      providerSucceeded: false,
+      text: "",
+      confidence: 0,
+      error: "OCR provider not configured (missing OCR_API_KEY / GOOGLE_VISION_API_KEY).",
+    };
+  }
+
+  try {
+    const base64Image = btoa(
+      Array.from(imageBytes)
+        .map((b) => String.fromCharCode(b))
+        .join("")
+    );
+
+    const visionRes = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${ocrApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requests: [
+            {
+              image: { content: base64Image },
+              features: [{ type: "TEXT_DETECTION" }],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!visionRes.ok) {
+      const errText = await visionRes.text().catch(() => "");
+      return {
+        providerSucceeded: false,
+        text: "",
+        confidence: 0,
+        error: `OCR API request failed with status ${visionRes.status}: ${errText}`,
+      };
+    }
+
+    const data = await visionRes.json();
+    const fullTextAnnotation = data.responses?.[0]?.fullTextAnnotation;
+    const textAnnotations = data.responses?.[0]?.textAnnotations;
+    const extractedText = (fullTextAnnotation?.text || textAnnotations?.[0]?.description || "").trim();
+
+    if (!extractedText) {
+      return {
+        providerSucceeded: false,
+        text: "",
+        confidence: 0,
+        error: "OCR provider detected no readable text in document.",
+      };
+    }
+
+    // Conservative confidence estimation
+    let confidence = 0.85;
+    const pages = fullTextAnnotation?.pages;
+    if (pages && pages.length > 0 && typeof pages[0].confidence === "number") {
+      confidence = Math.min(1.0, Math.max(0.1, pages[0].confidence));
+    }
+
+    return {
+      providerSucceeded: true,
+      text: extractedText,
+      confidence,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "OCR provider error";
+    return {
+      providerSucceeded: false,
+      text: "",
+      confidence: 0,
+      error: msg,
+    };
+  }
 }
 
 /**
@@ -266,18 +318,15 @@ async function analyzeVerificationRequest(
   const flags: string[] = [];
   let score = 0;
 
-  // 1. Image Readability & Validity (+15)
-  const ocrResult = await performDocumentOcr(imageBytes);
-  const minImageSize = 30 * 1024; // 30KB
-  const isReadable = imageBytes.length >= minImageSize;
-
-  if (isReadable) {
+  // 1. Image Format / Readability (+15 points max)
+  const imageIntegrity = validateImageFileIntegrity(imageBytes);
+  if (imageIntegrity.isValid) {
     score += 15;
   } else {
     flags.push("UNREADABLE_DOCUMENT");
   }
 
-  // 2. Required Fields Validation (+10)
+  // 2. Required Fields Completeness (+10 points max)
   const hasRequiredFields =
     Boolean(req.full_name?.trim()) &&
     Boolean(req.date_of_birth) &&
@@ -290,77 +339,85 @@ async function analyzeVerificationRequest(
     score += 10;
   }
 
-  // Check Age >= 18
+  // 3. Age Verification (Applicant >= 18)
+  let ageVerified = false;
   if (req.date_of_birth) {
     const dob = new Date(req.date_of_birth);
     const ageDiffMs = Date.now() - dob.getTime();
     const ageDate = new Date(ageDiffMs);
     const age = Math.abs(ageDate.getUTCFullYear() - 1970);
-    if (age < 18) {
+    if (age >= 18) {
+      ageVerified = true;
+    } else {
       flags.push("UNDERAGE_APPLICANT");
     }
   }
 
-  // 3. Document Text Analysis
-  const docText = ocrResult.text;
+  // 4. Real OCR Document Text Extraction
+  const ocrResult = await performDocumentOcr(imageBytes);
+
+  let ocrSucceeded = false;
+  let nameVerified = false;
+  let dobVerified = false;
+  let idTypeVerified = false;
+
   let extractedName: string | null = null;
   let extractedDob: string | null = null;
-  let extractedIdType: string | null = req.id_type;
+  let extractedIdType: string | null = null;
 
-  if (docText && docText.length > 50) {
-    // Name Check (+35)
+  if (!ocrResult.providerSucceeded || !ocrResult.text.trim()) {
+    flags.push("OCR_FAILED");
+  } else {
+    ocrSucceeded = true;
+    const docText = ocrResult.text;
+
+    // A. Real Name Match (+35 points max)
     const nameAnalysis = calculateNameMatch(req.full_name, docText);
     if (nameAnalysis.isStrongMatch) {
       score += 35;
+      nameVerified = true;
       extractedName = req.full_name;
     } else if (nameAnalysis.isMatch) {
-      score += 25;
+      score += 20;
+      nameVerified = true;
       extractedName = req.full_name;
     } else {
       flags.push("NAME_MISMATCH");
     }
 
-    // DOB Check (+25)
+    // B. Real DOB Match (+25 points max)
     const extractedDates = extractDatesFromText(docText);
     if (extractedDates.includes(req.date_of_birth)) {
       score += 25;
+      dobVerified = true;
       extractedDob = req.date_of_birth;
     } else if (extractedDates.length > 0) {
       extractedDob = extractedDates[0];
-      // Date mismatch
-      if (extractedDob !== req.date_of_birth) {
-        flags.push("DOB_MISMATCH");
-      } else {
+      if (extractedDob === req.date_of_birth) {
         score += 25;
+        dobVerified = true;
+      } else {
+        flags.push("DOB_MISMATCH");
       }
     } else {
-      // DOB not detected distinctly in OCR: award partial score if valid age
-      score += 15;
+      flags.push("DOB_MISMATCH");
     }
 
-    // ID Type Check (+15)
+    // C. Real ID Type Match (+15 points max)
     const idTypeAnalysis = matchIdType(req.id_type, docText);
     if (idTypeAnalysis.matches) {
       score += 15;
+      idTypeVerified = true;
       extractedIdType = idTypeAnalysis.detectedType || req.id_type;
     } else {
       flags.push("ID_TYPE_MISMATCH");
     }
-  } else {
-    // Document is clean high-resolution image upload
-    // Award baseline points for valid Philippine identity payload
-    score += 35; // name verified
-    score += 25; // DOB verified
-    score += 15; // ID type matches
-    extractedName = req.full_name;
-    extractedDob = req.date_of_birth;
-    extractedIdType = req.id_type;
   }
 
-  // Ensure score is within 0 - 100
+  // Cap score between 0 and 100
   score = Math.max(0, Math.min(100, score));
 
-  // Critical Flags check
+  // Critical Flags List
   const criticalFlags = [
     "NAME_MISMATCH",
     "DOB_MISMATCH",
@@ -372,17 +429,29 @@ async function analyzeVerificationRequest(
 
   const hasCriticalFlag = flags.some((f) => criticalFlags.includes(f));
 
-  // Auto approval threshold: score >= 90 AND no critical flags
+  // STRICT AUTO-APPROVAL INVARIANTS:
+  // Must satisfy ALL explicit boolean conditions
+  const canAutoApprove =
+    ocrSucceeded &&
+    nameVerified &&
+    dobVerified &&
+    idTypeVerified &&
+    ageVerified &&
+    score >= 90 &&
+    !hasCriticalFlag;
+
   let status: "passed" | "manual_review" | "failed" = "manual_review";
   let summary = "";
 
-  if (score >= 90 && !hasCriticalFlag) {
+  if (canAutoApprove) {
     status = "passed";
-    summary = `Automated verification passed with score ${score}/100. Identity documents and applicant credentials verified successfully.`;
+    summary = `Automated verification passed with score ${score}/100. Real OCR verified name, birthdate, and Philippine ID credentials.`;
   } else {
     status = "manual_review";
-    if (hasCriticalFlag) {
-      summary = `Automated review queued application for manual compliance review. Flags: ${flags.join(", ")} (Score: ${score}/100).`;
+    if (!ocrSucceeded) {
+      summary = `Automated checks queued application for manual review (OCR extraction was unavailable or unreadable). Score: ${score}/100.`;
+    } else if (hasCriticalFlag) {
+      summary = `Automated review flagged items for manual review: ${flags.join(", ")} (Score: ${score}/100).`;
     } else {
       summary = `Automated review completed with score ${score}/100. Application queued for manual administrator review.`;
     }
@@ -528,7 +597,9 @@ serve(async (req: Request) => {
       await adminClient
         .from("seller_verification_requests")
         .update({
-          automated_review_status: "failed",
+          automated_review_status: "manual_review",
+          automated_flags: ["UNREADABLE_DOCUMENT", "OCR_FAILED"],
+          automated_score: 0,
           automated_review_summary: "Could not retrieve document for automated review. Queued for manual admin review.",
           automated_reviewed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -538,7 +609,7 @@ serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: false,
-          status: "failed",
+          status: "manual_review",
           message: "Could not download verification document. Queued for manual review.",
         }),
         {
