@@ -17,6 +17,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useMarketplace } from "./marketplace-provider";
+import { useMarketplaceAccount } from "./marketplace-account";
 import { CategoryFilter } from "./marketplace-data";
 import { toast } from "sonner";
 import { signOut } from "@/lib/supabase/auth";
@@ -42,6 +43,12 @@ export function MarketplaceHeader({
     unreadNotificationsCount,
     demoProfile,
   } = useMarketplace();
+  const { profile, isSeller } = useMarketplaceAccount();
+
+  const displayName = profile?.full_name || demoProfile.name;
+  const displayEmail = profile?.username ? `@${profile.username}` : demoProfile.email;
+  const displayInitial = displayName.charAt(0) || "U";
+
 
   const searchQuery = propSearchQuery ?? ctxSearchQuery;
   const onSearchChange = propOnSearchChange ?? ctxSetSearchQuery;
@@ -153,7 +160,7 @@ export function MarketplaceHeader({
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Sell Button */}
             <Link
-              href="/marketplace/sell"
+              href="/sell"
               className="hidden sm:inline-flex items-center gap-1.5 h-10 px-4 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-[#fffafa] rounded-xl shadow-xs transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
             >
               <PlusCircle className="size-4 text-[#e59bc9]" />
@@ -221,10 +228,10 @@ export function MarketplaceHeader({
                 aria-label="User account menu"
               >
                 <div className="size-7 rounded-full bg-[#65486f] border border-white/10 flex items-center justify-center text-xs font-bold text-[#fffafa]">
-                  {demoProfile.name.charAt(0) || "D"}
+                  {displayInitial}
                 </div>
                 <span className="hidden lg:inline text-xs font-semibold max-w-[90px] truncate text-[#fffafa]">
-                  {demoProfile.name}
+                  {displayName}
                 </span>
                 <ChevronDown className="size-3.5 text-[#b9adb6] hidden sm:block" />
               </button>
@@ -239,23 +246,24 @@ export function MarketplaceHeader({
                   {/* Account Summary Header */}
                   <div className="px-4 py-2 border-b border-white/10 mb-1">
                     <div className="text-xs font-bold text-[#fffafa] truncate">
-                      {demoProfile.name}
+                      {displayName}
                     </div>
                     <div className="text-[11px] text-[#b9adb6] truncate">
-                      {demoProfile.email}
+                      {displayEmail}
                     </div>
                   </div>
 
                   {/* Menu Items */}
                   <Link
-                    href="/seller"
+                    href={isSeller ? "/seller" : "/sell"}
                     role="menuitem"
                     onClick={() => setShowUserMenu(false)}
                     className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#fffafa] hover:bg-[#342339] hover:text-[#e59bc9] transition-colors"
                   >
                     <Package className="size-3.5 text-[#e59bc9]" />
-                    <span>Seller Dashboard</span>
+                    <span>{isSeller ? "Seller Dashboard" : "Start Selling"}</span>
                   </Link>
+
 
                   <Link
                     href="/marketplace/profile"

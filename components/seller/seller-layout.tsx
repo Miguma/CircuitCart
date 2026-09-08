@@ -1,67 +1,55 @@
 "use client";
 
-import React, { useState } from "react";
-import { SellerSidebar } from "./seller-sidebar";
-import { SellerHeader } from "./seller-header";
-import { Toaster } from "sonner";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ArrowLeft, PlusCircle } from "lucide-react";
 
 interface SellerLayoutProps {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
   showAddProduct?: boolean;
+  hidePageHeading?: boolean;
 }
 
-export function SellerLayout({
-  children,
-  title,
-  subtitle,
-  showAddProduct = true,
-}: SellerLayoutProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const MANAGEMENT_LINKS = [
+  { href: "/seller", label: "Overview" },
+  { href: "/seller/products", label: "My Listings" },
+  { href: "/seller/orders", label: "Sales" },
+  { href: "/marketplace/messages", label: "Messages" },
+  { href: "/seller/shop", label: "My Shop" },
+  { href: "/seller/analytics", label: "Analytics" },
+  { href: "/seller/verification", label: "Verification" },
+];
 
+// Seller routes retain their existing logic inside the shared marketplace shell.
+export function SellerLayout({ children, title, subtitle, showAddProduct = true, hidePageHeading = false }: SellerLayoutProps) {
+  const pathname = usePathname();
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-[#8f7375] via-[#3a283e] to-[#19131b] text-[#fffafa] flex font-sans">
-      {/* 1. Desktop Sticky Left Sidebar */}
-      <div className="hidden lg:block shrink-0 sticky top-0 h-screen">
-        <SellerSidebar />
-      </div>
-
-      {/* 2. Mobile Slide-in Drawer */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          {/* Drawer Panel */}
-          <div className="relative w-64 max-w-[80vw] h-full z-50 animate-in slide-in-from-left duration-250 shadow-2xl">
-            <SellerSidebar onCloseMobile={() => setMobileMenuOpen(false)} />
+    <main className="max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <nav aria-label="Selling tools" className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        {MANAGEMENT_LINKS.map((item) => (
+          <Link key={item.href} href={item.href} aria-current={pathname === item.href ? "page" : undefined}
+            className={`shrink-0 rounded-xl border px-4 py-2.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] ${pathname === item.href ? "border-[#eadcde] bg-[#f8f3f3] text-[#1d1720]" : "border-white/10 bg-[#342339]/80 text-[#fffafa] hover:bg-[#45304b]"}`}>
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+      {!hidePageHeading && title && (
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <Link href="/marketplace" className="mb-2 inline-flex items-center gap-1.5 text-xs text-[#d6cbd5] hover:text-white">
+              <ArrowLeft className="size-3.5" /> Marketplace
+            </Link>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#fffafa]">{title}</h1>
+            {subtitle && <p className="mt-2 text-sm text-[#d6cbd5]">{subtitle}</p>}
           </div>
+          {showAddProduct && <Link href="/sell" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#65486f] px-4 text-xs font-semibold text-white transition-colors hover:bg-[#7a5985] focus-visible:outline-2 focus-visible:outline-[#e59bc9]">
+            <PlusCircle className="size-4 text-[#e59bc9]" /> Create Listing
+          </Link>}
         </div>
       )}
-
-      {/* 3. Main Workspace Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        <SellerHeader
-          onToggleMobileMenu={() => setMobileMenuOpen(true)}
-          title={title}
-          subtitle={subtitle}
-          showAddProduct={showAddProduct}
-        />
-
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-8">
-          {children}
-        </main>
-      </div>
-
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          className: "glass-toast font-sans text-xs font-medium",
-        }}
-      />
-    </div>
+      {children}
+    </main>
   );
 }

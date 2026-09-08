@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { SellerLayout } from "@/components/seller/seller-layout";
 import {
-  DEMO_SELLER_PRODUCTS,
   type ListingStatus,
   type SellerProductItem,
 } from "@/lib/seller/seller-data";
@@ -32,23 +31,25 @@ import {
 import { toast } from "sonner";
 
 export default function SellerProductsPage() {
-  const [products, setProducts] = useState<SellerProductItem[]>(DEMO_SELLER_PRODUCTS);
+  const [products, setProducts] = useState<SellerProductItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
+    setIsLoading(true);
     try {
       const user = await getCurrentUser();
       if (user) {
         const dbItems = await getSellerProducts(user.id);
-        if (dbItems.length > 0) {
-          setProducts(dbItems);
-        }
+        setProducts(dbItems || []);
+      } else {
+        setProducts([]);
       }
     } catch (err) {
       console.warn("Could not load Supabase seller products:", err);
+      setProducts([]);
     } finally {
       setIsLoading(false);
     }
@@ -65,15 +66,16 @@ export default function SellerProductsPage() {
       })
       .then((dbItems) => {
         if (active) {
-          if (dbItems && dbItems.length > 0) {
-            setProducts(dbItems);
-          }
+          setProducts(dbItems || []);
           setIsLoading(false);
         }
       })
       .catch((err) => {
         console.warn("Could not load Supabase seller products:", err);
-        if (active) setIsLoading(false);
+        if (active) {
+          setProducts([]);
+          setIsLoading(false);
+        }
       });
 
     return () => {
@@ -83,6 +85,7 @@ export default function SellerProductsPage() {
 
   // Status counts
   const statusCounts = useMemo(() => {
+
     return {
       All: products.length,
       Active: products.filter((p) => p.status === "Active").length,
@@ -288,29 +291,49 @@ export default function SellerProductsPage() {
         {/* 2. PRODUCT TABLE (Desktop) & STACKED CARDS (Mobile)       */}
         {/* ========================================================= */}
         <div className="bg-[#1e1322]/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-xl shadow-black/20 overflow-hidden">
-          {filteredProducts.length === 0 ? (
+          {isLoading ? (
+            <div className="p-16 text-center flex flex-col items-center justify-center gap-3">
+              <Loader2 className="size-7 text-[#e59bc9] animate-spin" />
+              <span className="text-sm font-semibold text-[#d6cbd5]">
+                Loading your listings...
+              </span>
+            </div>
+          ) : filteredProducts.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <div className="size-12 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
                 <Package className="size-6" />
               </div>
               <h3 className="text-base font-bold text-[#fffafa]">
-                No products found
+                {products.length === 0 ? "No listings yet" : "No products found"}
               </h3>
               <p className="text-xs text-[#b9adb6] max-w-sm mx-auto">
-                No listings matched your active search or status filter.
+                {products.length === 0
+                  ? "You have not listed any hardware products yet. Add your first listing to reach verified buyers across Cebu."
+                  : "No listings matched your active search or status filter."}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedStatus("All");
-                }}
-                className="px-4 py-2 text-xs font-semibold bg-white/10 hover:bg-white/15 text-white rounded-xl transition-colors cursor-pointer"
-              >
-                Reset filters
-              </button>
+              {products.length === 0 ? (
+                <Link
+                  href="/sell"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl transition-colors cursor-pointer"
+                >
+                  <PlusCircle className="size-3.5 text-[#e59bc9]" />
+                  <span>Create Listing</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedStatus("All");
+                  }}
+                  className="px-4 py-2 text-xs font-semibold bg-white/10 hover:bg-white/15 text-white rounded-xl transition-colors cursor-pointer"
+                >
+                  Reset filters
+                </button>
+              )}
             </div>
           ) : (
+
             <>
               {/* DESKTOP TABLE (Hidden on small screens) */}
               <div className="hidden md:block overflow-x-auto">

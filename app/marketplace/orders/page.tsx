@@ -6,7 +6,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Package,
-  ArrowLeft,
   Clock,
   Truck,
   MapPin,
@@ -24,6 +23,8 @@ import { getOrCreateOrderConversation } from "@/lib/supabase/messages";
 import { OrderWithItems } from "@/lib/supabase/types";
 import { getProductImageUrl } from "@/lib/supabase/storage";
 import { toast } from "sonner";
+import { OrdersHeader } from "@/components/orders/orders-header";
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 
 type OrderFilter = "All" | "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled";
 
@@ -119,98 +120,28 @@ export default function OrdersPage() {
     });
   }, [orders, activeFilter]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return {
-          label: "Pending Confirmation",
-          className: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-        };
-      case "confirmed":
-        return {
-          label: "Order Confirmed",
-          className: "bg-sky-500/20 text-sky-300 border-sky-500/30",
-        };
-      case "preparing":
-        return {
-          label: "Preparing Package",
-          className: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-        };
-      case "ready":
-        return {
-          label: "Ready for Pickup/Delivery",
-          className: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-        };
-      case "shipped":
-        return {
-          label: "In Transit",
-          className: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-        };
-      case "completed":
-        return {
-          label: "Completed",
-          className: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-        };
-      case "cancelled":
-        return {
-          label: "Cancelled",
-          className: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-        };
-      default:
-        return {
-          label: status,
-          className: "bg-white/10 text-white/80 border-white/20",
-        };
-    }
-  };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 text-xs text-[#b9adb6] mb-1">
-          <Link
-            href="/marketplace"
-            className="hover:text-white transition-colors flex items-center gap-1"
-          >
-            <ArrowLeft className="size-3.5" />
-            <span>Back to Marketplace</span>
-          </Link>
-        </div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            My Orders
-          </h1>
-          {orders.length > 0 && (
-            <span className="px-2.5 py-0.5 text-xs font-bold bg-[#65486f] text-white rounded-full">
-              {orders.length} orders
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-[#b9adb6] mt-1">
-          Track active shipments, meetup schedules, and historical marketplace receipts.
-        </p>
-      </div>
+      <OrdersHeader view="purchases" count={orders.length} isLoading={isLoading} />
 
       {/* Filter Tabs */}
       <div
-        role="tablist"
-        aria-label="Order status filter"
-        className="flex items-center gap-2 border-b border-white/10 pb-2 overflow-x-auto scrollbar-none no-scrollbar"
+        role="group"
+        aria-label="Purchase status filter"
+        className="flex flex-wrap items-center gap-1.5"
       >
         {filters.map((filter) => {
           const isActive = activeFilter === filter;
           return (
             <button
               key={filter}
-              role="tab"
-              aria-selected={isActive}
-              tabIndex={isActive ? 0 : -1}
+              type="button"
+              aria-pressed={isActive}
               onClick={() => setActiveFilter(filter)}
-              className={`px-4 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl border whitespace-nowrap transition-all focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer ${
                 isActive
-                  ? "bg-[#65486f] text-white shadow-xs"
-                  : "text-[#b9adb6] hover:bg-[#342339] hover:text-white"
+                  ? "bg-[#65486f] text-white border-white/20 shadow-xs"
+                  : "bg-[#241c27] border-white/10 text-[#b9adb6] hover:bg-[#342339] hover:text-white"
               }`}
             >
               {filter}
@@ -224,7 +155,7 @@ export default function OrdersPage() {
         <div className="w-full bg-[#241c27] border border-white/10 rounded-3xl p-16 text-center flex flex-col items-center justify-center gap-3">
           <Loader2 className="size-7 text-[#e59bc9] animate-spin" />
           <span className="text-sm font-semibold text-[#d6cbd5]">
-            Loading your orders...
+            Loading your purchases...
           </span>
         </div>
       ) : filteredOrders.length === 0 ? (
@@ -233,11 +164,11 @@ export default function OrdersPage() {
             <Package className="size-6 sm:size-7 stroke-[1.5]" />
           </div>
           <h2 className="text-lg sm:text-xl font-bold text-white">
-            No {activeFilter !== "All" ? activeFilter.toLowerCase() : ""} orders found
+            {activeFilter === "All" ? "No purchases yet" : `No ${activeFilter.toLowerCase()} purchases`}
           </h2>
           <p className="text-xs text-[#b9adb6] max-w-sm mx-auto leading-relaxed">
             {activeFilter === "All"
-              ? "When you place orders on CircuitCart, track your delivery status and verified order receipts here."
+              ? "Your orders from other sellers will appear here, with delivery updates and order receipts."
               : `You do not have any orders currently in "${activeFilter}" status.`}
           </p>
           <div className="pt-2">
@@ -252,7 +183,6 @@ export default function OrdersPage() {
       ) : (
         <div className="space-y-5">
           {filteredOrders.map((order) => {
-            const statusBadge = getStatusBadge(order.status);
             const sellerName =
               order.shops?.name || order.seller?.full_name || "CircuitCart Seller";
             const dateStr = new Date(order.created_at).toLocaleDateString("en-US", {
@@ -291,11 +221,7 @@ export default function OrdersPage() {
                   </div>
 
                   <div className="flex items-center gap-2 self-start sm:self-auto">
-                    <span
-                      className={`px-3 py-1 text-xs font-bold rounded-full border ${statusBadge.className}`}
-                    >
-                      {statusBadge.label}
-                    </span>
+                    <OrderStatusBadge status={order.status} />
 
                     <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-[#342339] text-[#e59bc9] border border-white/10 flex items-center gap-1">
                       {order.delivery_method === "delivery" ? (
@@ -372,7 +298,7 @@ export default function OrdersPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-4 self-end sm:self-auto">
+                  <div className="flex flex-wrap items-center justify-end gap-4 self-end sm:self-auto">
                     <div className="text-right">
                       <span className="text-xs text-[#b9adb6] block">Order Total</span>
                       <span className="text-base font-extrabold text-[#e59bc9]">
@@ -380,7 +306,7 @@ export default function OrdersPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <button
                         type="button"
                         disabled={messagingOrderId === order.id}

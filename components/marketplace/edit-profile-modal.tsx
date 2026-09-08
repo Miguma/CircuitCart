@@ -4,26 +4,33 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, User, MapPin, AtSign, FileText } from "lucide-react";
 import { useMarketplace } from "./marketplace-provider";
 import { toast } from "sonner";
+import { updateCurrentUserProfile } from "@/lib/supabase/auth";
+import { useMarketplaceAccount } from "./marketplace-account";
 
 interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   triggerRef?: React.RefObject<HTMLButtonElement | null>;
+  onProfileUpdated?: () => void;
 }
 
 function EditProfileForm({
   onClose,
   triggerRef,
+  onProfileUpdated,
 }: {
   onClose: () => void;
   triggerRef?: React.RefObject<HTMLButtonElement | null>;
+  onProfileUpdated?: () => void;
 }) {
   const { demoProfile, updateProfile } = useMarketplace();
+  const { profile } = useMarketplaceAccount();
 
-  const [name, setName] = useState(demoProfile.name);
-  const [username, setUsername] = useState(demoProfile.username);
-  const [location, setLocation] = useState(demoProfile.location);
-  const [bio, setBio] = useState(demoProfile.bio);
+  const [name, setName] = useState(profile?.full_name || demoProfile.name);
+  const [username, setUsername] = useState(profile?.username || demoProfile.username);
+  const [location, setLocation] = useState(profile?.location || demoProfile.location);
+  const [bio, setBio] = useState(profile?.bio || demoProfile.bio);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +54,7 @@ function EditProfileForm({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleClose]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError("Full name is required.");
@@ -57,23 +64,40 @@ function EditProfileForm({
       setError("Username is required.");
       return;
     }
-    if (!location.trim()) {
-      setError("Location is required.");
-      return;
-    }
 
-    updateProfile({
-      name: name.trim(),
-      username: username.startsWith("@")
-        ? username.trim()
-        : `@${username.trim()}`,
+    setIsSaving(true);
+    setError(null);
+
+    const cleanUsername = username.trim().replace(/^@/, "");
+
+    // Update in Supabase if logged in
+    const res = await updateCurrentUserProfile({
+      full_name: name.trim(),
+      username: cleanUsername,
       location: location.trim(),
       bio: bio.trim(),
     });
 
-    toast.success("Profile updated for this demo session.");
+    setIsSaving(false);
+
+    if (!res.success && res.error) {
+      setError(res.error);
+      return;
+    }
+
+    // Update local state
+    updateProfile({
+      name: name.trim(),
+      username: `@${cleanUsername}`,
+      location: location.trim(),
+      bio: bio.trim(),
+    });
+
+    toast.success("Profile updated successfully.");
+    onProfileUpdated?.();
     handleClose();
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 glass-dialog-overlay animate-in fade-in duration-200">
@@ -208,9 +232,10 @@ function EditProfileForm({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl shadow-xs transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              disabled={isSaving}
+              className="px-5 py-2 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl shadow-xs transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] disabled:opacity-50"
             >
-              Save Changes
+              {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>
@@ -223,7 +248,15 @@ export function EditProfileModal({
   isOpen,
   onClose,
   triggerRef,
+  onProfileUpdated,
 }: EditProfileModalProps) {
   if (!isOpen) return null;
-  return <EditProfileForm onClose={onClose} triggerRef={triggerRef} />;
+  return (
+    <EditProfileForm
+      onClose={onClose}
+      triggerRef={triggerRef}
+      onProfileUpdated={onProfileUpdated}
+    />
+  );
 }
+

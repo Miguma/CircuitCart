@@ -16,8 +16,11 @@ import {
   Gamepad2,
   Cpu,
   Layers,
+  Package,
+  Loader2,
 } from "lucide-react";
 import { Product } from "./marketplace-data";
+import { useMarketplaceAccount } from "./marketplace-account";
 
 interface ProductCardProps {
   product: Product;
@@ -34,6 +37,9 @@ export function ProductCard({
   onQuickView,
   onAddToCart,
 }: ProductCardProps) {
+  const { userId, isLoading } = useMarketplaceAccount();
+  const isOwner = Boolean(userId && product.sellerId === userId);
+
   const getFallbackIcon = (category: string) => {
     switch (category) {
       case "Laptops":
@@ -71,8 +77,13 @@ export function ProductCard({
             {product.condition}
           </span>
 
-          <button
+          {isOwner ? (
+            <span className="rounded-md bg-[#eadcde] px-2 py-1 text-[10px] font-bold text-[#65486f]">
+              Your listing
+            </span>
+          ) : <button
             type="button"
+            disabled={isLoading}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -86,7 +97,7 @@ export function ProductCard({
             aria-label={isWishlisted ? `Remove ${product.name} from saved items` : `Save ${product.name}`}
           >
             <Heart className={`size-4 ${isWishlisted ? "fill-rose-600" : ""}`} />
-          </button>
+          </button>}
         </div>
 
         {/* Product Visual Container with Real Image */}
@@ -181,18 +192,28 @@ export function ProductCard({
             )}
           </div>
 
-          <button
+          {isOwner ? (
+            <Link
+              href={`/seller/products?listing=${encodeURIComponent(product.id)}`}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#65486f] p-2 text-xs font-semibold text-[#fffafa] transition-colors hover:bg-[#7a5985] focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              aria-label={`Manage listing for ${product.name}`}
+            >
+              <Package className="size-4" />
+              Manage
+            </Link>
+          ) : <button
             type="button"
+            disabled={isLoading}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onAddToCart(product);
             }}
-            className="p-2 text-[#fffafa] bg-[#65486f] hover:bg-[#7a5985] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer"
-            aria-label={`Add ${product.name} to cart`}
+            className="p-2 text-[#fffafa] bg-[#65486f] hover:bg-[#7a5985] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer disabled:cursor-wait disabled:opacity-50"
+            aria-label={isLoading ? "Loading listing actions" : `Add ${product.name} to cart`}
           >
-            <ShoppingCart className="size-4" />
-          </button>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <ShoppingCart className="size-4" />}
+          </button>}
         </div>
       </div>
     </div>

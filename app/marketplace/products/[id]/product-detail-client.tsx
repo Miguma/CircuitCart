@@ -28,6 +28,8 @@ import {
 import { Product } from "@/components/marketplace/marketplace-data";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
 import { ProductCard } from "@/components/marketplace/product-card";
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
+import { ListingOwnerActions } from "@/components/marketplace/listing-owner-actions";
 import { getOrCreateProductConversation } from "@/lib/supabase/messages";
 import { toast } from "sonner";
 
@@ -43,6 +45,8 @@ export default function ProductDetailClient({
   const router = useRouter();
   const { isFavorite, toggleFavorite, addToCart, setQuickViewProduct } =
     useMarketplace();
+  const { userId, isLoading } = useMarketplaceAccount();
+  const isOwner = Boolean(userId && product.sellerId === userId);
 
   const [quantity, setQuantity] = useState(1);
   const [isStartingChat, setIsStartingChat] = useState(false);
@@ -56,11 +60,13 @@ export default function ProductDetailClient({
     }).format(price);
 
   const handleAddToCart = () => {
+    if (isOwner || isLoading) return;
     addToCart(product, quantity);
     toast.success(`Added ${quantity} × "${product.name}" to cart!`);
   };
 
   const handleToggleFavorite = () => {
+    if (isOwner || isLoading) return;
     toggleFavorite(product.id);
     if (!wishlisted) {
       toast.success(`Saved "${product.name}" to favorites.`);
@@ -70,7 +76,7 @@ export default function ProductDetailClient({
   };
 
   const handleMessageSeller = async () => {
-    if (isStartingChat) return;
+    if (isStartingChat || isOwner || isLoading) return;
     setIsStartingChat(true);
 
     try {
@@ -142,8 +148,9 @@ export default function ProductDetailClient({
             </div>
 
             {/* Favorite Button on Image */}
-            <button
+            {!isOwner && <button
               type="button"
+              disabled={isLoading}
               onClick={handleToggleFavorite}
               className={`absolute top-4 right-4 p-2.5 rounded-full border shadow-sm transition-all z-10 cursor-pointer ${
                 wishlisted
@@ -153,7 +160,7 @@ export default function ProductDetailClient({
               aria-label={wishlisted ? "Remove from saved items" : "Save product"}
             >
               <Heart className={`size-5 ${wishlisted ? "fill-rose-600" : ""}`} />
-            </button>
+            </button>}
 
             {/* Main Product Image */}
             {product.image ? (
@@ -250,7 +257,7 @@ export default function ProductDetailClient({
             <div className="p-4 bg-[#342339]/30 border border-white/5 rounded-2xl flex items-center justify-between">
               <div>
                 <span className="text-[11px] uppercase tracking-wider text-[#d6cbd5] block mb-0.5">
-                  Sold by
+                  {isOwner ? "Your listing" : "Sold by"}
                 </span>
                 <div className="flex items-center gap-1.5 font-bold text-white text-sm">
                   <span>{product.sellerName}</span>
@@ -301,6 +308,14 @@ export default function ProductDetailClient({
 
             {/* Purchase / Action Row */}
             <div className="pt-4 border-t border-white/10 space-y-4">
+              {isOwner ? (
+                <ListingOwnerActions productId={product.id} />
+              ) : isLoading ? (
+                <div role="status" className="flex h-12 items-center gap-2 text-xs text-[#d6cbd5]">
+                  <Loader2 className="size-4 animate-spin text-[#e59bc9]" />
+                  Loading listing actions…
+                </div>
+              ) : (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                 {/* Quantity Controls */}
                 <div className="flex items-center justify-between sm:justify-start gap-3 bg-[#342339] border border-white/10 rounded-2xl p-1.5 shrink-0">
@@ -359,6 +374,7 @@ export default function ProductDetailClient({
                   <span>Message Seller</span>
                 </button>
               </div>
+              )}
             </div>
           </div>
         </div>

@@ -19,9 +19,12 @@ import {
   Gamepad2,
   Cpu,
   Layers,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Product } from "./marketplace-data";
+import { useMarketplaceAccount } from "./marketplace-account";
+import { ListingOwnerActions } from "./listing-owner-actions";
 
 interface QuickViewDialogProps {
   product: Product | null;
@@ -40,6 +43,9 @@ export function QuickViewDialog({
   onToggleWishlist,
   onAddToCart,
 }: QuickViewDialogProps) {
+  const { userId, isLoading } = useMarketplaceAccount();
+  const isOwner = Boolean(userId && product?.sellerId === userId);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -208,8 +214,9 @@ export function QuickViewDialog({
                   )}
                 </div>
 
-                <button
+                {!isOwner && <button
                   type="button"
+                  disabled={isLoading}
                   onClick={() => onToggleWishlist(product.id)}
                   className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
                     isWishlisted
@@ -219,18 +226,22 @@ export function QuickViewDialog({
                   aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
                 >
                   <Heart className={`size-4 ${isWishlisted ? "fill-rose-600" : ""}`} />
-                </button>
+                </button>}
               </div>
 
+              {isOwner ? (
+                <ListingOwnerActions productId={product.id} appearance="light" onNavigate={onClose} />
+              ) : (
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
+                  disabled={isLoading}
                   onClick={() => {
                     onAddToCart(product);
                   }}
                   className="w-full h-11 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs cursor-pointer"
                 >
-                  <ShoppingCart className="size-4" />
+                  {isLoading ? <Loader2 className="size-4 animate-spin" /> : <ShoppingCart className="size-4" />}
                   <span>Add to cart</span>
                 </Button>
 
@@ -243,6 +254,17 @@ export function QuickViewDialog({
                   <ArrowRight className="size-3.5" />
                 </Link>
               </div>
+              )}
+              {isOwner && (
+                <Link
+                  href={`/marketplace/products/${product.id}`}
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#65486f] hover:underline"
+                >
+                  View public listing
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              )}
             </div>
           </div>
         </div>

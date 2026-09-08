@@ -171,3 +171,38 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
     return null;
   }
 }
+
+/**
+ * Update profile of the currently logged in user
+ */
+export async function updateCurrentUserProfile(
+  updates: Partial<Pick<UserProfile, "full_name" | "username" | "location" | "bio" | "avatar_url">>
+): Promise<AuthResponse<UserProfile>> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", user.id)
+      .select()
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: profile as UserProfile };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Failed to update profile.";
+    return { success: false, error: errorMsg };
+  }
+}
+

@@ -3,8 +3,9 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { CheckCircle2, MapPin, Eye, ShoppingCart, Sparkles } from "lucide-react";
+import { CheckCircle2, MapPin, Eye, ShoppingCart, Sparkles, Package, Loader2 } from "lucide-react";
 import { Product } from "./marketplace-data";
+import { useMarketplaceAccount } from "./marketplace-account";
 
 interface FeaturedSectionProps {
   product: Product;
@@ -15,6 +16,9 @@ export function FeaturedSection({
   product,
   onAddToCart,
 }: FeaturedSectionProps) {
+  const { userId, isLoading } = useMarketplaceAccount();
+  const isOwner = Boolean(userId && product.sellerId === userId);
+
   return (
     <section
       aria-label="Featured Discovery"
@@ -25,7 +29,7 @@ export function FeaturedSection({
         <div className="md:col-span-7 lg:col-span-8 space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#342339] border border-white/10 rounded-full text-xs font-semibold text-[#e59bc9]">
             <Sparkles className="size-3.5 text-[#e59bc9]" />
-            <span>Featured Deal</span>
+            <span>{isOwner ? "Your featured listing" : "Featured Deal"}</span>
             {product.condition && (
               <>
                 <span className="text-white/30">•</span>
@@ -74,7 +78,7 @@ export function FeaturedSection({
             )}
           </div>
 
-          <div className="flex items-center gap-3 pt-1.5">
+          <div className="flex flex-wrap items-center gap-3 pt-1.5">
             <Link
               href={`/marketplace/products/${product.id}`}
               className="inline-flex items-center justify-center gap-2 h-10 px-5 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-[#fffafa] rounded-xl transition-all shadow-xs focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
@@ -83,14 +87,23 @@ export function FeaturedSection({
               <span>View product</span>
             </Link>
 
-            <button
+            {isOwner ? (
+              <Link
+                href={`/seller/products?listing=${encodeURIComponent(product.id)}`}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/20 px-4 text-xs font-semibold text-[#fffafa] transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              >
+                <Package className="size-4 text-[#e59bc9]" />
+                Manage Listing
+              </Link>
+            ) : <button
               type="button"
+              disabled={isLoading}
               onClick={() => onAddToCart(product)}
-              className="inline-flex items-center justify-center gap-2 h-10 px-4 text-xs font-semibold bg-transparent text-[#fffafa] border border-white/20 hover:bg-white/10 rounded-xl transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 text-xs font-semibold bg-transparent text-[#fffafa] border border-white/20 hover:bg-white/10 rounded-xl transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] disabled:cursor-wait disabled:opacity-50"
             >
-              <ShoppingCart className="size-4 text-[#e59bc9]" />
+              {isLoading ? <Loader2 className="size-4 animate-spin text-[#e59bc9]" /> : <ShoppingCart className="size-4 text-[#e59bc9]" />}
               <span>Add to cart</span>
-            </button>
+            </button>}
           </div>
         </div>
 

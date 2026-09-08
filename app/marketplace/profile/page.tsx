@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   User,
@@ -18,23 +18,87 @@ import {
   ShoppingBag,
   ExternalLink,
   Info,
+  Loader2,
 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
 import { EditProfileModal } from "@/components/marketplace/edit-profile-modal";
+import { getBuyerOrders } from "@/lib/supabase/orders";
+import { getSellerProducts } from "@/lib/supabase/products";
+import type { OrderWithItems } from "@/lib/supabase/types";
+import type { SellerProductItem } from "@/lib/seller/seller-data";
 import { toast } from "sonner";
 
 type ProfileTab = "overview" | "purchases" | "listings" | "reviews";
 
 export default function ProfilePage() {
   const { demoProfile, favorites } = useMarketplace();
+  const { userId, profile, isSeller } = useMarketplaceAccount();
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const editButtonRef = useRef<HTMLButtonElement>(null);
 
+  const [buyerOrders, setBuyerOrders] = useState<OrderWithItems[]>([]);
+  const [sellerProducts, setSellerProducts] = useState<SellerProductItem[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    async function fetchData() {
+      try {
+        const orders = await getBuyerOrders();
+        if (!active) return;
+        setBuyerOrders(orders || []);
+
+        if (userId) {
+          const prods = await getSellerProducts(userId);
+          if (!active) return;
+          setSellerProducts(prods || []);
+        } else {
+          setSellerProducts([]);
+        }
+      } catch (err) {
+        console.error("Failed to load profile orders/products:", err);
+      } finally {
+        if (active) setDataLoading(false);
+      }
+    }
+
+    fetchData();
+    return () => {
+      active = false;
+    };
+  }, [userId, refreshKey]);
+
+  const activeListingsCount = sellerProducts.filter(
+    (p) => p.status === "Active"
+  ).length;
+
+
+
+  const displayName = profile?.full_name || demoProfile.name;
+  const displayUsername = profile?.username
+    ? `@${profile.username}`
+    : demoProfile.username;
+  const displayLocation = profile?.location || demoProfile.location;
+  const displayBio = profile?.bio || demoProfile.bio;
+  const displayRole = profile?.role
+    ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1)
+    : isSeller
+    ? "Seller"
+    : "Buyer";
+  const displayJoinedDate = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : demoProfile.joinedDate;
+
   const tabs: { key: ProfileTab; label: string; count?: number }[] = [
     { key: "overview", label: "Overview" },
-    { key: "purchases", label: "Purchases", count: 0 },
-    { key: "listings", label: "Listings", count: 0 },
+    { key: "purchases", label: "Purchases", count: buyerOrders.length },
+    { key: "listings", label: "Listings", count: activeListingsCount },
     { key: "reviews", label: "Reviews", count: 0 },
   ];
 
@@ -63,12 +127,16 @@ export default function ProfilePage() {
             {/* Avatar with Camera Placeholder */}
             <div className="relative group">
               <div className="size-20 sm:size-24 rounded-full bg-[#65486f] border-2 border-white/20 flex items-center justify-center text-3xl font-extrabold text-white shadow-lg">
-                {demoProfile.name.charAt(0) || "D"}
+                {displayName.charAt(0) || "U"}
               </div>
               <button
                 type="button"
                 aria-label="Change profile photo"
-                onClick={() => toast.info("Photo uploading will be available when cloud storage is connected.")}
+                onClick={() =>
+                  toast.info(
+                    "Photo uploading will be available in future profile settings updates."
+                  )
+                }
                 className="absolute bottom-0 right-0 size-7 bg-[#211a24] hover:bg-[#342339] border border-white/20 rounded-full flex items-center justify-center text-[#e59bc9] transition-colors cursor-pointer shadow-md focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
               >
                 <Camera className="size-3.5" />
@@ -79,24 +147,24 @@ export default function ProfilePage() {
             <div className="space-y-1 w-full text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-white tracking-tight">
-                  {demoProfile.name}
+                  {displayName}
                 </h2>
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 rounded-md">
-                  {demoProfile.accountType}
+                  {displayRole}
                 </span>
               </div>
               <p className="text-xs text-[#e59bc9] font-medium">
-                {demoProfile.username}
+                {displayUsername}
               </p>
               <p className="text-xs text-[#b9adb6] flex items-center justify-center sm:justify-start gap-1 pt-1">
                 <MapPin className="size-3.5 text-[#b9adb6] shrink-0" />
-                <span>{demoProfile.location}</span>
+                <span>{displayLocation}</span>
               </p>
             </div>
 
             {/* Bio snippet */}
             <p className="text-xs text-[#b9adb6] leading-relaxed pt-1 border-t border-white/10 w-full text-center sm:text-left">
-              {demoProfile.bio}
+              {displayBio}
             </p>
 
             {/* Action Buttons */}
@@ -112,11 +180,11 @@ export default function ProfilePage() {
               </button>
 
               <Link
-                href="/marketplace/sell"
+                href={isSeller ? "/seller" : "/sell"}
                 className="inline-flex items-center justify-center gap-1.5 h-10 px-4 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl transition-colors shadow-xs focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
               >
                 <Store className="size-3.5 text-[#e59bc9]" />
-                <span>Start selling</span>
+                <span>{isSeller ? "Dashboard" : "Start selling"}</span>
               </Link>
             </div>
           </div>
@@ -127,18 +195,26 @@ export default function ProfilePage() {
               <span className="text-xs font-bold uppercase tracking-wider text-[#b9adb6]">
                 Seller status
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-800/50 rounded-md">
-                Not enrolled
-              </span>
+              {isSeller ? (
+                <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-800/50 rounded-md">
+                  Active seller
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-800/50 rounded-md">
+                  Not enrolled
+                </span>
+              )}
             </div>
             <p className="text-xs text-[#b9adb6] leading-relaxed">
-              Complete seller verification before publishing technology listings on CircuitCart.
+              {isSeller
+                ? "Your shop and listings are active on CircuitCart marketplace."
+                : "Complete seller verification before publishing technology listings on CircuitCart."}
             </p>
             <Link
-              href="/marketplace/sell"
+              href={isSeller ? "/seller" : "/sell"}
               className="inline-flex items-center gap-1 text-xs font-bold text-[#e59bc9] hover:text-white transition-colors"
             >
-              <span>Learn about seller verification</span>
+              <span>{isSeller ? "Manage your seller shop" : "Learn about seller verification"}</span>
               <ExternalLink className="size-3" />
             </Link>
           </div>
@@ -194,7 +270,9 @@ export default function ProfilePage() {
                   <div className="size-8 rounded-lg bg-[#342339] flex items-center justify-center text-[#e59bc9] mx-auto sm:mx-0 mb-2">
                     <Package className="size-4" />
                   </div>
-                  <div className="text-xl font-extrabold text-white">0</div>
+                  <div className="text-xl font-extrabold text-white">
+                    {dataLoading ? "..." : buyerOrders.length}
+                  </div>
                   <div className="text-[11px] font-medium text-[#b9adb6]">Orders</div>
                 </div>
 
@@ -210,7 +288,9 @@ export default function ProfilePage() {
                   <div className="size-8 rounded-lg bg-[#342339] flex items-center justify-center text-[#b78bd7] mx-auto sm:mx-0 mb-2">
                     <Tag className="size-4" />
                   </div>
-                  <div className="text-xl font-extrabold text-white">0</div>
+                  <div className="text-xl font-extrabold text-white">
+                    {dataLoading ? "..." : activeListingsCount}
+                  </div>
                   <div className="text-[11px] font-medium text-[#b9adb6]">Active listings</div>
                 </div>
 
@@ -242,12 +322,12 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6 text-xs">
                   <div>
                     <span className="text-[#b9adb6] block mb-1">Full Name</span>
-                    <span className="font-semibold text-white">{demoProfile.name}</span>
+                    <span className="font-semibold text-white">{displayName}</span>
                   </div>
 
                   <div>
                     <span className="text-[#b9adb6] block mb-1">Username</span>
-                    <span className="font-semibold text-white">{demoProfile.username}</span>
+                    <span className="font-semibold text-white">{displayUsername}</span>
                   </div>
 
                   <div>
@@ -262,7 +342,7 @@ export default function ProfilePage() {
                     <span className="text-[#b9adb6] block mb-1">Primary Location</span>
                     <span className="font-semibold text-white flex items-center gap-1.5">
                       <MapPin className="size-3.5 text-[#b9adb6]" />
-                      <span>{demoProfile.location}</span>
+                      <span>{displayLocation}</span>
                     </span>
                   </div>
 
@@ -270,7 +350,7 @@ export default function ProfilePage() {
                     <span className="text-[#b9adb6] block mb-1">Account Role</span>
                     <span className="font-semibold text-white flex items-center gap-1.5">
                       <Shield className="size-3.5 text-emerald-400" />
-                      <span>{demoProfile.accountType}</span>
+                      <span>{displayRole}</span>
                     </span>
                   </div>
 
@@ -278,7 +358,7 @@ export default function ProfilePage() {
                     <span className="text-[#b9adb6] block mb-1">Date Joined</span>
                     <span className="font-semibold text-white flex items-center gap-1.5">
                       <Calendar className="size-3.5 text-[#b9adb6]" />
-                      <span>{demoProfile.joinedDate}</span>
+                      <span>{displayJoinedDate}</span>
                     </span>
                   </div>
                 </div>
@@ -286,7 +366,7 @@ export default function ProfilePage() {
                 <div className="pt-2">
                   <span className="text-[#b9adb6] block mb-1 text-xs">About Me</span>
                   <p className="text-xs text-white leading-relaxed bg-[#342339]/50 p-3.5 rounded-xl border border-white/5">
-                    {demoProfile.bio}
+                    {displayBio}
                   </p>
                 </div>
               </div>
@@ -317,25 +397,71 @@ export default function ProfilePage() {
               role="tabpanel"
               id="profile-panel-purchases"
               aria-labelledby="profile-tab-purchases"
-              className="bg-[#241c27] border border-white/10 rounded-3xl p-8 sm:p-10 text-center space-y-3 shadow-xl min-h-[230px] sm:min-h-[280px] flex flex-col items-center justify-center animate-in fade-in duration-200"
+              className="space-y-4 animate-in fade-in duration-200"
             >
-              <div className="size-12 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
-                <ShoppingBag className="size-6" />
-              </div>
-              <h3 className="text-lg font-bold text-white">
-                No purchases yet
-              </h3>
-              <p className="text-xs text-[#b9adb6] max-w-sm mx-auto leading-relaxed">
-                Products you purchase on CircuitCart will appear here with tracking and transaction history.
-              </p>
-              <div className="pt-1">
-                <Link
-                  href="/marketplace"
-                  className="inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl transition-colors shadow-xs focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
-                >
-                  Browse marketplace
-                </Link>
-              </div>
+              {dataLoading ? (
+                <div className="bg-[#241c27] border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center justify-center">
+                  <Loader2 className="size-8 text-[#e59bc9] animate-spin mb-3" />
+                  <p className="text-xs text-[#b9adb6]">Loading your purchases...</p>
+                </div>
+              ) : buyerOrders.length === 0 ? (
+                <div className="bg-[#241c27] border border-white/10 rounded-3xl p-8 sm:p-10 text-center space-y-3 shadow-xl min-h-[230px] sm:min-h-[280px] flex flex-col items-center justify-center">
+                  <div className="size-12 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
+                    <ShoppingBag className="size-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">
+                    No purchases yet
+                  </h3>
+                  <p className="text-xs text-[#b9adb6] max-w-sm mx-auto leading-relaxed">
+                    Products you purchase on CircuitCart will appear here with tracking and transaction history.
+                  </p>
+                  <div className="pt-1">
+                    <Link
+                      href="/marketplace"
+                      className="inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl transition-colors shadow-xs focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                    >
+                      Browse marketplace
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs text-[#b9adb6]">
+                      {buyerOrders.length} {buyerOrders.length === 1 ? "order" : "orders"} placed
+                    </span>
+                    <Link
+                      href="/marketplace/orders"
+                      className="text-xs font-bold text-[#e59bc9] hover:underline"
+                    >
+                      View all orders &rarr;
+                    </Link>
+                  </div>
+                  <div className="space-y-2.5">
+                    {buyerOrders.slice(0, 5).map((order) => (
+                      <Link
+                        key={order.id}
+                        href="/marketplace/orders"
+                        className="block bg-[#241c27] border border-white/10 hover:border-white/20 rounded-2xl p-4 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-white">
+                              {order.shops?.name || "CircuitCart Shop"}
+                            </span>
+                            <p className="text-[11px] text-[#b9adb6] mt-0.5">
+                              {order.order_items?.length || 0} item(s) • ₱{Number(order.total).toLocaleString()}
+                            </p>
+                          </div>
+                          <span className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-[#342339] text-[#e59bc9] border border-white/10">
+                            {order.status}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -345,27 +471,76 @@ export default function ProfilePage() {
               role="tabpanel"
               id="profile-panel-listings"
               aria-labelledby="profile-tab-listings"
-              className="bg-[#241c27] border border-white/10 rounded-3xl p-8 sm:p-10 text-center space-y-3 shadow-xl min-h-[230px] sm:min-h-[280px] flex flex-col items-center justify-center animate-in fade-in duration-200"
+              className="space-y-4 animate-in fade-in duration-200"
             >
-              <div className="size-12 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
-                <Tag className="size-6" />
-              </div>
-              <h3 className="text-lg font-bold text-white">
-                You are not selling yet
-              </h3>
-              <p className="text-xs text-[#b9adb6] max-w-sm mx-auto leading-relaxed">
-                Complete seller verification before creating your first listing and reaching buyers across Cebu.
-              </p>
-              <div className="pt-1">
-                <Link
-                  href="/marketplace/sell"
-                  className="inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl transition-colors shadow-xs focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
-                >
-                  Start selling
-                </Link>
-              </div>
+              {dataLoading ? (
+                <div className="bg-[#241c27] border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center justify-center">
+                  <Loader2 className="size-8 text-[#e59bc9] animate-spin mb-3" />
+                  <p className="text-xs text-[#b9adb6]">Loading your listings...</p>
+                </div>
+              ) : sellerProducts.length === 0 ? (
+                <div className="bg-[#241c27] border border-white/10 rounded-3xl p-8 sm:p-10 text-center space-y-3 shadow-xl min-h-[230px] sm:min-h-[280px] flex flex-col items-center justify-center">
+                  <div className="size-12 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
+                    <Tag className="size-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">
+                    {isSeller ? "No listings created yet" : "You are not selling yet"}
+                  </h3>
+                  <p className="text-xs text-[#b9adb6] max-w-sm mx-auto leading-relaxed">
+                    {isSeller
+                      ? "Create your first tech listing to reach buyers across Cebu and Visayas."
+                      : "Complete seller verification before creating your first listing and reaching buyers across Cebu."}
+                  </p>
+                  <div className="pt-1">
+                    <Link
+                      href={isSeller ? "/sell" : "/sell"}
+                      className="inline-flex items-center justify-center px-5 py-2.5 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl transition-colors shadow-xs focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                    >
+                      {isSeller ? "Create listing" : "Start selling"}
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs text-[#b9adb6]">
+                      {sellerProducts.length} {sellerProducts.length === 1 ? "listing" : "listings"} total
+                    </span>
+                    <Link
+                      href="/seller/products"
+                      className="text-xs font-bold text-[#e59bc9] hover:underline"
+                    >
+                      Manage listings &rarr;
+                    </Link>
+                  </div>
+                  <div className="space-y-2.5">
+                    {sellerProducts.slice(0, 5).map((prod) => (
+                      <Link
+                        key={prod.id}
+                        href={`/marketplace/product/${prod.id}`}
+                        className="block bg-[#241c27] border border-white/10 hover:border-white/20 rounded-2xl p-4 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-white">
+                              {prod.name}
+                            </span>
+                            <p className="text-[11px] text-[#b9adb6] mt-0.5">
+                              ₱{prod.price.toLocaleString()} • Stock: {prod.stock ?? 0}
+                            </p>
+                          </div>
+                          <span className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-emerald-950/70 text-emerald-300 border border-emerald-800/50">
+                            {prod.status}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
+
 
           {/* TAB 4: REVIEWS */}
           {activeTab === "reviews" && (
@@ -394,7 +569,9 @@ export default function ProfilePage() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         triggerRef={editButtonRef}
+        onProfileUpdated={() => setRefreshKey((k) => k + 1)}
       />
     </div>
   );
 }
+

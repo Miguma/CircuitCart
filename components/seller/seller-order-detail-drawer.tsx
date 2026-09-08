@@ -29,6 +29,7 @@ import {
 } from "@/lib/seller/seller-data";
 import { getOrCreateOrderConversation } from "@/lib/supabase/messages";
 import { toast } from "sonner";
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 
 interface SellerOrderDetailDrawerProps {
   order: SellerOrder | null;
@@ -58,7 +59,7 @@ export function SellerOrderDetailDrawer({
     setIsMessaging(true);
     try {
       const convId = await getOrCreateOrderConversation(order.id);
-      router.push(`/seller/messages?conversationId=${convId}`);
+      router.push(`/marketplace/messages?conversationId=${convId}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to open conversation.";
       toast.error(msg);
@@ -67,76 +68,6 @@ export function SellerOrderDetailDrawer({
   };
 
   if (!isOpen || !order) return null;
-
-  const getStatusBadge = (status: OrderStatus) => {
-    switch (status) {
-      case "Pending":
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-950/70 border border-amber-500/30 text-amber-300">
-            <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Pending Confirmation
-          </span>
-        );
-      case "Confirmed":
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-blue-950/70 border border-blue-500/30 text-blue-300">
-            Confirmed
-          </span>
-        );
-      case "Packed":
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#45284f] border border-[#e59bc9]/30 text-[#e59bc9]">
-            Packed
-          </span>
-        );
-      case "Ready for Dispatch":
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-sky-950/70 border border-sky-500/30 text-sky-300">
-            <Truck className="size-3" />
-            Ready for Dispatch
-          </span>
-        );
-      case "Shipped":
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-sky-950/70 border border-sky-500/30 text-sky-300">
-            <Truck className="size-3" />
-            Shipped
-          </span>
-        );
-      case "Ready for Meetup":
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-purple-950/70 border border-purple-500/30 text-purple-300">
-            <MapPin className="size-3" />
-            Ready for Meetup
-          </span>
-        );
-      case "Delivered":
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/70 border border-emerald-500/30 text-emerald-300">
-            Delivered
-          </span>
-        );
-      case "Completed":
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">
-            <CheckCircle2 className="size-3.5" />
-            Completed
-          </span>
-        );
-      case "Cancelled":
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/70 border border-rose-500/30 text-rose-300">
-            Cancelled
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-white">
-            {status}
-          </span>
-        );
-    }
-  };
 
   // Lifecycle Timeline Steps
   const deliveryStages: { key: OrderStatus; label: string; time?: string }[] = [
@@ -221,7 +152,7 @@ export function SellerOrderDetailDrawer({
               <span className="text-xs font-bold text-[#b9adb6] uppercase tracking-wider">
                 Current Status
               </span>
-              {getStatusBadge(order.status)}
+              <OrderStatusBadge status={order.status} />
             </div>
 
             {/* CONTEXTUAL NEXT ACTION BUTTONS */}

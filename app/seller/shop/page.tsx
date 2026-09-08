@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Store,
@@ -18,18 +18,41 @@ import {
   MessageSquare,
   Globe,
   Settings,
+  Loader2,
 } from "lucide-react";
 import { SellerLayout } from "@/components/seller/seller-layout";
 import {
-  DEMO_SHOP_PROFILE,
-  DEMO_SELLER_STATS,
-  DEMO_SELLER_PRODUCTS,
   type SellerShopProfile,
 } from "@/lib/seller/seller-data";
+import { getCurrentUser } from "@/lib/supabase/auth";
+import { getShopByOwnerId, updateShop, ensureSellerShop } from "@/lib/supabase/shops";
+import { getSellerProducts } from "@/lib/supabase/products";
+import { getSellerOrders } from "@/lib/supabase/orders";
 import { toast } from "sonner";
 
 export default function SellerShopPage() {
-  const [profile, setProfile] = useState<SellerShopProfile>(DEMO_SHOP_PROFILE);
+  const [dbShopId, setDbShopId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<SellerShopProfile>({
+    id: "",
+    shopName: "My Shop",
+    slug: "my-shop",
+    description: "Welcome to my CircuitCart store.",
+    location: "Cebu City, Central Visayas",
+    contactPreference: "CircuitCart Chat",
+    businessType: "Individual Tech Seller",
+    memberSince: "Aug 2026",
+    rating: 5.0,
+    reviewCount: 0,
+    completedOrders: 0,
+    responseRate: 100,
+    isVerified: false,
+    shopStatus: "Active",
+    fulfillmentPreference: "Both",
+    defaultMeetupArea: "Cebu IT Park, Lahug",
+    handlingTime: "1–2 days",
+  });
+  const [totalListingsCount, setTotalListingsCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const bannerPresets = [
@@ -39,14 +62,98 @@ export default function SellerShopPage() {
   ];
   const [selectedBannerPreset, setSelectedBannerPreset] = useState("plum");
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    let active = true;
+
+    async function loadShopData() {
+      try {
+        const user = await getCurrentUser();
+        if (!user) {
+          if (active) setIsLoading(false);
+          return;
+        }
+
+        let dbShop = await getShopByOwnerId(user.id);
+        if (!dbShop) {
+          dbShop = await ensureSellerShop(user.id, user.user_metadata?.full_name || "Tech Shop");
+        }
+
+        const [dbProducts, dbOrders] = await Promise.all([
+          getSellerProducts(user.id),
+          getSellerOrders(),
+        ]);
+
+        if (active && dbShop) {
+          setDbShopId(dbShop.id);
+          const completedCount = (dbOrders || []).filter((o) => o.status === "Completed").length;
+          setTotalListingsCount((dbProducts || []).length);
+
+          setProfile({
+            id: dbShop.id,
+            shopName: dbShop.name,
+            slug: dbShop.slug,
+            description: dbShop.description || "Welcome to my CircuitCart store.",
+            logo: dbShop.logo_url || undefined,
+            banner: dbShop.banner_url || undefined,
+            location: dbShop.location || "Cebu City, Central Visayas",
+            contactPreference: "CircuitCart Chat",
+            businessType: "Individual Tech Seller",
+            memberSince: new Date(dbShop.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+            }),
+            rating: 5.0,
+            reviewCount: 0,
+            completedOrders: completedCount,
+            responseRate: 100,
+            isVerified: dbShop.is_verified,
+            shopStatus: dbShop.status === "vacation" ? "Vacation Mode" : "Active",
+            fulfillmentPreference: "Both",
+            defaultMeetupArea: dbShop.location || "Cebu IT Park, Lahug",
+            handlingTime: "1–2 days",
+          });
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.warn("Could not load shop data:", err);
+        if (active) setIsLoading(false);
+      }
+    }
+
+    loadShopData();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!dbShopId) {
+      toast.error("Shop not initialized.");
+      return;
+    }
+
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const dbStatus = profile.shopStatus === "Vacation Mode" ? "vacation" : "active";
+      await updateShop(dbShopId, {
+        name: profile.shopName,
+        slug: profile.slug,
+        description: profile.description,
+        location: profile.location,
+        status: dbStatus,
+      });
+
+      toast.success("Shop profile and public storefront updated in Supabase!");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update shop.";
+      toast.error(msg);
+    } finally {
       setIsSaving(false);
-      toast.success("Shop profile and public storefront updated!");
-    }, 400);
+    }
   };
+
 
   return (
     <SellerLayout
@@ -386,10 +493,11 @@ export default function SellerShopPage() {
                 </div>
                 <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                   <p className="font-extrabold text-sm text-[#e59bc9]">
-                    {DEMO_SELLER_PRODUCTS.length}
+                    {totalListingsCount}
                   </p>
                   <p className="text-[10px] text-[#b9adb6] mt-0.5">Listings</p>
                 </div>
+
               </div>
 
               {/* Meetup / Dispatch details */}

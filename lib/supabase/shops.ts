@@ -1,4 +1,4 @@
-﻿import { createClient } from "./client";
+import { createClient } from "./client";
 import type { DbShop } from "./types";
 
 /**
@@ -69,3 +69,46 @@ export async function ensureSellerShop(ownerId: string, sellerName: string): Pro
 
   return data as DbShop;
 }
+
+/**
+ * Updates an existing shop owned by the current seller
+ */
+export async function updateShop(
+  shopId: string,
+  updates: {
+    name?: string;
+    slug?: string;
+    description?: string;
+    location?: string;
+    status?: "active" | "vacation";
+    banner_url?: string;
+    logo_url?: string;
+  }
+): Promise<DbShop> {
+  const supabase = createClient();
+  const updatePayload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.name !== undefined) updatePayload.name = updates.name.trim();
+  if (updates.slug !== undefined) updatePayload.slug = updates.slug.trim().toLowerCase();
+  if (updates.description !== undefined) updatePayload.description = updates.description.trim() || null;
+  if (updates.location !== undefined) updatePayload.location = updates.location.trim() || null;
+  if (updates.status !== undefined) updatePayload.status = updates.status;
+  if (updates.banner_url !== undefined) updatePayload.banner_url = updates.banner_url;
+  if (updates.logo_url !== undefined) updatePayload.logo_url = updates.logo_url;
+
+  const { data, error } = await supabase
+    .from("shops")
+    .update(updatePayload)
+    .eq("id", shopId)
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Failed to update shop: ${error?.message || "Database update error"}`);
+  }
+
+  return data as DbShop;
+}
+

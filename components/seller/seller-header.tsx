@@ -1,17 +1,16 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Menu,
   Bell,
   PlusCircle,
-  Search,
   ExternalLink,
-  ShieldCheck,
-  User,
 } from "lucide-react";
-import { DEMO_SELLER_STATS } from "@/lib/seller/seller-data";
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
+import { getShopByOwnerId } from "@/lib/supabase/shops";
+import type { DbShop } from "@/lib/supabase/types";
 
 interface SellerHeaderProps {
   onToggleMobileMenu: () => void;
@@ -26,6 +25,25 @@ export function SellerHeader({
   subtitle,
   showAddProduct = true,
 }: SellerHeaderProps) {
+  const { userId, profile } = useMarketplaceAccount();
+  const [shop, setShop] = useState<DbShop | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    getShopByOwnerId(userId)
+      .then((s) => {
+        if (active && s) setShop(s);
+      })
+      .catch((err) => console.error("Error fetching shop for header:", err));
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  const shopName = shop?.name || (profile?.full_name ? `${profile.full_name}'s Shop` : "Seller Studio");
+  const shopInitial = shopName.charAt(0) || "S";
+
   return (
     <header className="sticky top-0 z-30 h-16 w-full bg-[#1c121e]/85 backdrop-blur-xl border-b border-white/[0.08] px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
       {/* Left: Mobile Menu Toggle & Title */}
@@ -91,11 +109,11 @@ export function SellerHeader({
           className="flex items-center gap-2 pl-2 border-l border-white/10 group focus-visible:outline-2 focus-visible:outline-[#e59bc9] rounded-lg"
         >
           <div className="size-8 rounded-lg bg-[#3d2743] border border-[#e59bc9]/30 flex items-center justify-center text-[#e59bc9] text-xs font-bold shrink-0 group-hover:border-[#e59bc9] transition-colors">
-            {DEMO_SELLER_STATS.shopName.charAt(0)}
+            {shopInitial}
           </div>
           <div className="hidden xl:block text-left text-xs leading-tight">
             <p className="font-bold text-[#fffafa] group-hover:text-[#e59bc9] transition-colors truncate max-w-[110px]">
-              {DEMO_SELLER_STATS.shopName}
+              {shopName}
             </p>
             <p className="text-[10px] text-[#b9adb6]">Seller Studio</p>
           </div>
@@ -104,3 +122,4 @@ export function SellerHeader({
     </header>
   );
 }
+

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,10 +13,12 @@ import {
   ShieldCheck,
   Settings,
   ArrowLeft,
-  Sparkles,
   X,
 } from "lucide-react";
-import { DEMO_SELLER_STATS } from "@/lib/seller/seller-data";
+
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
+import { getShopByOwnerId } from "@/lib/supabase/shops";
+import type { DbShop } from "@/lib/supabase/types";
 
 interface SellerSidebarProps {
   onCloseMobile?: () => void;
@@ -24,6 +26,25 @@ interface SellerSidebarProps {
 
 export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
   const pathname = usePathname();
+  const { userId, profile } = useMarketplaceAccount();
+  const [shop, setShop] = useState<DbShop | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    getShopByOwnerId(userId)
+      .then((s) => {
+        if (active && s) setShop(s);
+      })
+      .catch((err) => console.error("Error fetching shop for sidebar:", err));
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  const shopName = shop?.name || profile?.full_name ? `${profile?.full_name}'s Shop` : "Seller Studio";
+  const shopHandle = shop?.slug ? `@${shop.slug}` : profile?.username ? `@${profile.username}` : "@seller";
+  const isVerified = shop?.is_verified ?? false;
 
   const mainNavItems = [
     {
@@ -42,13 +63,13 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
       label: "Orders",
       href: "/seller/orders",
       icon: ShoppingBag,
-      badge: DEMO_SELLER_STATS.pendingOrders > 0 ? DEMO_SELLER_STATS.pendingOrders : null,
+      badge: null,
     },
     {
       label: "Messages",
       href: "/seller/messages",
       icon: MessageSquare,
-      badge: 2,
+      badge: null,
     },
     {
       label: "Analytics",
@@ -68,7 +89,7 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
       label: "Verification",
       href: "/seller/verification",
       icon: ShieldCheck,
-      isVerified: DEMO_SELLER_STATS.isVerified,
+      isVerified,
     },
     {
       label: "Settings",
@@ -140,22 +161,23 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
       {/* Seller Shop Tagline Card */}
       <div className="p-4 mx-3 mt-3 rounded-xl bg-[#281b2a]/60 border border-white/[0.06] flex items-center gap-3">
         <div className="size-9 rounded-lg bg-[#3d2743] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold text-sm shrink-0">
-          {DEMO_SELLER_STATS.shopName.charAt(0)}
+          {shopName.charAt(0)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
             <h4 className="text-xs font-bold text-[#fffafa] truncate">
-              {DEMO_SELLER_STATS.shopName}
+              {shopName}
             </h4>
-            {DEMO_SELLER_STATS.isVerified && (
+            {isVerified && (
               <ShieldCheck className="size-3 text-emerald-400 shrink-0" />
             )}
           </div>
           <p className="text-[11px] text-[#b9adb6] truncate">
-            {DEMO_SELLER_STATS.shopHandle}
+            {shopHandle}
           </p>
         </div>
       </div>
+
 
       {/* Navigation List */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">

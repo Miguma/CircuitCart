@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import {
   ShoppingBag,
   Search,
-  CheckCircle2,
   Clock,
   PackageCheck,
   Truck,
@@ -32,6 +31,8 @@ import {
 } from "@/lib/supabase/orders";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { OrdersHeader } from "@/components/orders/orders-header";
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 
 function SellerOrdersContent() {
   const searchParams = useSearchParams();
@@ -182,77 +183,15 @@ function SellerOrdersContent() {
     }
   };
 
-  const getStatusBadge = (status: OrderStatus) => {
-    switch (status) {
-      case "Pending":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-950/60 border border-amber-500/30 text-amber-300">
-            <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Pending
-          </span>
-        );
-      case "Confirmed":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-950/60 border border-blue-500/30 text-blue-300">
-            Confirmed
-          </span>
-        );
-      case "Packed":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#45284f] border border-[#e59bc9]/30 text-[#e59bc9]">
-            Packed
-          </span>
-        );
-      case "Ready for Dispatch":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-950/60 border border-sky-500/30 text-sky-300">
-            <Truck className="size-3" />
-            Ready for Dispatch
-          </span>
-        );
-      case "Shipped":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-950/60 border border-sky-500/30 text-sky-300">
-            <Truck className="size-3" />
-            Shipped
-          </span>
-        );
-      case "Ready for Meetup":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-950/60 border border-purple-500/30 text-purple-300">
-            <MapPin className="size-3" />
-            Ready for Meetup
-          </span>
-        );
-      case "Completed":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-950/60 border border-emerald-500/30 text-emerald-300">
-            <CheckCircle2 className="size-3" />
-            Completed
-          </span>
-        );
-      case "Cancelled":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-950/60 border border-rose-500/30 text-rose-300">
-            Cancelled
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-white">
-            {status}
-          </span>
-        );
-    }
-  };
-
   return (
     <SellerLayout
       title="Orders"
       subtitle="Manage customer orders and update fulfillment status."
-      showAddProduct={true}
+      showAddProduct={false}
+      hidePageHeading
     >
       <div className="space-y-6">
+        <OrdersHeader view="sales" count={orders.length} isLoading={isLoading} />
         {/* ========================================================= */}
         {/* 1. TOP SUMMARY METRIC COUNTS                              */}
         {/* ========================================================= */}
@@ -273,6 +212,7 @@ function SellerOrdersContent() {
               <button
                 key={item.key}
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => setSelectedStatus(item.key)}
                 className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                   isSelected
@@ -312,6 +252,7 @@ function SellerOrdersContent() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#b9adb6] pointer-events-none" />
               <input
                 type="text"
+                aria-label="Search sales by order, buyer, or product"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search orders, buyers, products..."
@@ -322,6 +263,7 @@ function SellerOrdersContent() {
             <div className="flex items-center gap-2.5">
               {/* Fulfillment dropdown */}
               <select
+                aria-label="Sales fulfillment method"
                 value={fulfillmentFilter}
                 onChange={(e) => setFulfillmentFilter(e.target.value)}
                 className="h-9 px-3 rounded-xl bg-[#1e1322]/80 border border-white/10 text-xs font-semibold text-[#fffafa] outline-hidden focus:border-[#e59bc9] transition-colors cursor-pointer"
@@ -348,7 +290,7 @@ function SellerOrdersContent() {
           </div>
 
           {/* Status filter tabs (flex-wrap ensures all 8 status pills are clearly visible with zero cutoff) */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <div role="group" aria-label="Sale status filter" className="flex flex-wrap items-center gap-1.5 pt-1">
             {(
               [
                 "All",
@@ -371,11 +313,12 @@ function SellerOrdersContent() {
                 <button
                   key={st}
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => setSelectedStatus(st)}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                     isSelected
                       ? "bg-[#65486f] text-white border border-white/20 shadow-xs"
-                      : "bg-[#1e1322]/60 hover:bg-[#342339] text-[#b9adb6] hover:text-white border border-white/[0.06]"
+                      : "bg-[#241c27] hover:bg-[#342339] text-[#b9adb6] hover:text-white border border-white/10"
                   }`}
                 >
                   <span>{st}</span>
@@ -397,12 +340,12 @@ function SellerOrdersContent() {
         {/* ========================================================= */}
         {/* 3. ORDER TABLE (Desktop) & STACKED CARDS (Mobile)         */}
         {/* ========================================================= */}
-        <div className="bg-[#1e1322]/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-xl shadow-black/20 overflow-hidden">
+        <div className="bg-[#241c27] border border-white/10 rounded-3xl shadow-xl shadow-black/20 overflow-hidden">
           {isLoading ? (
             <div className="p-16 text-center flex flex-col items-center justify-center gap-3">
               <Loader2 className="size-7 text-[#e59bc9] animate-spin" />
               <span className="text-sm font-semibold text-[#d6cbd5]">
-                Loading orders...
+                Loading your sales...
               </span>
             </div>
           ) : filteredOrders.length === 0 ? (
@@ -411,10 +354,12 @@ function SellerOrdersContent() {
                 <ShoppingBag className="size-6" />
               </div>
               <h3 className="text-base font-bold text-[#fffafa]">
-                No orders found
+                {orders.length === 0 ? "No sales yet" : "No sales found"}
               </h3>
               <p className="text-xs text-[#b9adb6] max-w-sm mx-auto">
-                No buyer orders match your active search or status filters.
+                {orders.length === 0
+                  ? "When someone orders your listings, manage their orders and fulfillment here."
+                  : "No sales match your active search or status filters."}
               </p>
               <button
                 type="button"
@@ -489,7 +434,7 @@ function SellerOrdersContent() {
                             </span>
                           </td>
                           <td className="py-4 px-4">
-                            {getStatusBadge(ord.status)}
+                            <OrderStatusBadge status={ord.status} />
                           </td>
                           <td className="py-4 px-4 text-xs text-[#b9adb6] whitespace-nowrap">
                             {ord.placedAt}
@@ -535,7 +480,7 @@ function SellerOrdersContent() {
                           {ord.buyer.name}
                         </h4>
                       </div>
-                      {getStatusBadge(ord.status)}
+                      <OrderStatusBadge status={ord.status} />
                     </div>
 
                     <p className="text-xs text-[#d6cbd5] truncate">
