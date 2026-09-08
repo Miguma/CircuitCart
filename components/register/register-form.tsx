@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CircuitCartWordmark } from "@/components/ui/circuitcart-wordmark";
 import { AuthPhase, FocusedField } from "@/components/login/tech-characters";
-import { signUpWithEmail } from "@/lib/supabase/auth";
+import { signUpWithEmail, resendConfirmationEmail } from "@/lib/supabase/auth";
 import { toast } from "sonner";
 
 const registerSchema = z
@@ -69,18 +69,19 @@ export function RegisterForm({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSuccessState, setIsSuccessState] = useState(false);
   const [isSubmittingState, setIsSubmittingState] = useState(false);
+  const [confirmationRequiredState, setConfirmationRequiredState] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [isConfirmationResending, setIsConfirmationResending] = useState(false);
+  const [confirmationResentSuccess, setConfirmationResentSuccess] = useState(false);
   const [formHasSubmittedError, setFormHasSubmittedError] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
-
-  const [passwordValue, setPasswordValue] = useState("");
-  const [confirmPasswordValue, setConfirmPasswordValue] = useState("");
 
   const {
     register,
     handleSubmit,
     clearErrors,
-    getValues,
+    setValue,
     control,
     formState: { errors },
   } = useForm<RegisterFormData>({
@@ -96,8 +97,10 @@ export function RegisterForm({
     },
   });
 
-  const watchFullName = useWatch({ control, name: "fullName" });
-  const watchEmail = useWatch({ control, name: "email" });
+  const watchFullName = useWatch({ control, name: "fullName" }) || "";
+  const watchEmail = useWatch({ control, name: "email" }) || "";
+  const watchPassword = useWatch({ control, name: "password" }) || "";
+  const watchConfirmPassword = useWatch({ control, name: "confirmPassword" }) || "";
   const watchTerms = useWatch({ control, name: "terms" });
 
   const markTouched = (field: string) => {
@@ -105,18 +108,18 @@ export function RegisterForm({
   };
 
   // Field validity checks
-  const isValidFullName = (watchFullName?.length ?? 0) >= 2;
+  const isValidFullName = watchFullName.trim().length >= 2;
   const isValidEmail = !!watchEmail && z.string().email().safeParse(watchEmail).success;
 
   // Live password requirement checklist
-  const hasMinLen = passwordValue.length >= 8;
-  const hasLetter = /[a-zA-Z]/.test(passwordValue);
-  const hasNumber = /[0-9]/.test(passwordValue);
+  const hasMinLen = watchPassword.length >= 8;
+  const hasLetter = /[a-zA-Z]/.test(watchPassword);
+  const hasNumber = /[0-9]/.test(watchPassword);
   const isPasswordValid = hasMinLen && hasLetter && hasNumber;
 
   // Confirm password match status
-  const confirmHasTyped = confirmPasswordValue.length > 0;
-  const isConfirmMatching = confirmHasTyped && confirmPasswordValue === passwordValue;
+  const confirmHasTyped = watchConfirmPassword.length > 0;
+  const isConfirmMatching = confirmHasTyped && watchConfirmPassword === watchPassword;
 
   // Overall form validity check for button enabling
   const isFormValid =
@@ -134,8 +137,10 @@ export function RegisterForm({
   }, [isPassVisible, onPasswordVisibilityChange]);
 
   useEffect(() => {
-    onPasswordLengthChange(passwordValue.length > 0 ? passwordValue.length : confirmPasswordValue.length);
-  }, [passwordValue, confirmPasswordValue, onPasswordLengthChange]);
+    onPasswordLengthChange(
+      watchPassword.length > 0 ? watchPassword.length : watchConfirmPassword.length
+    );
+  }, [watchPassword, watchConfirmPassword, onPasswordLengthChange]);
 
   useEffect(() => {
     if (isSuccessState) {
@@ -172,7 +177,6 @@ export function RegisterForm({
       setFormHasSubmittedError(false);
       setAuthError(null);
       const val = e.target.value;
-      setPasswordValue(val);
       if (val.length >= 8 && /[a-zA-Z]/.test(val) && /[0-9]/.test(val)) {
         clearErrors("password");
       }
@@ -184,20 +188,30 @@ export function RegisterForm({
       setFormHasSubmittedError(false);
       setAuthError(null);
       const val = e.target.value;
-      setConfirmPasswordValue(val);
-      if (val === getValues("password")) {
+      if (val === watchPassword) {
         clearErrors("confirmPassword");
       }
     },
   });
 
-  const termsRegister = register("terms", {
-    onChange: (e) => {
-      setFormHasSubmittedError(false);
-      setAuthError(null);
-      if (e.target.checked) clearErrors("terms");
-    },
-  });
+  const handleResendRegistrationConfirmation = async () => {
+    if (!registeredEmail) return;
+    setIsConfirmationResending(true);
+    setConfirmationResentSuccess(false);
+    try {
+      const res = await resendConfirmationEmail(registeredEmail);
+      setIsConfirmationResending(false);
+      if (res.success) {
+        setConfirmationResentSuccess(true);
+        toast.success("Confirmation email resent. Check your inbox.");
+      } else {
+        toast.error(res.error || "Failed to resend confirmation email.");
+      }
+    } catch {
+      setIsConfirmationResending(false);
+      toast.error("Failed to resend confirmation email.");
+    }
+  };
 
   const onSubmit = async (data: RegisterFormData) => {
     setFormHasSubmittedError(false);
@@ -209,19 +223,17 @@ export function RegisterForm({
 
       if (res.success) {
         setIsSubmittingState(false);
-        setIsSuccessState(true);
 
         if (res.data?.sessionExists) {
+          setIsSuccessState(true);
           setTimeout(() => {
             router.push("/marketplace");
             router.refresh();
           }, 600);
         } else {
+          setRegisteredEmail(data.email);
+          setConfirmationRequiredState(true);
           toast.success("Account created! Please check your email to confirm your account.");
-          setTimeout(() => {
-            router.push("/login?registered=true");
-            router.refresh();
-          }, 1200);
         }
       } else {
         setIsSubmittingState(false);
@@ -236,6 +248,82 @@ export function RegisterForm({
   const onInvalidSubmit = () => {
     setFormHasSubmittedError(true);
   };
+
+  if (confirmationRequiredState) {
+    return (
+      <div className="w-full max-w-[440px] mx-auto px-4 sm:px-2 animate-in fade-in duration-140">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors mb-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 rounded-sm"
+        >
+          <ArrowLeft className="size-4" />
+          Back to showcase
+        </Link>
+
+        <div className="mb-4">
+          <div className="mb-2">
+            <CircuitCartWordmark />
+          </div>
+
+          <div className="flex items-center gap-3 mt-4">
+            <div className="size-10 rounded-xl bg-[#6e546f]/10 border border-[#6e546f]/20 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="size-5 text-[#6e546f]" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1d1720] leading-tight">
+                Account created
+              </h1>
+              <p className="text-xs sm:text-sm text-[#716872] leading-relaxed">
+                Confirm your email to get started.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-white border border-[#dfd3d7] shadow-xs flex flex-col gap-3 my-5">
+          <p className="text-sm font-semibold text-[#1d1720] leading-snug">
+            Account created. Check your email to confirm your account before logging in.
+          </p>
+          <p className="text-xs text-[#716872] leading-relaxed">
+            We sent a confirmation link to <span className="font-semibold text-[#1d1720]">{registeredEmail}</span>. Please click the link to activate your CircuitCart account.
+          </p>
+
+          {confirmationResentSuccess && (
+            <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs text-emerald-800 font-medium">
+              <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
+              <span>Confirmation email resent. Please check your inbox.</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <Link
+            href="/login"
+            className="w-full h-[46px] flex items-center justify-center text-sm font-semibold bg-[#201524] text-white hover:bg-[#34253a] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-140 rounded-xl shadow-xs focus-visible:ring-3 focus-visible:ring-[#6e546f]/30"
+          >
+            Go to login
+          </Link>
+
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isConfirmationResending}
+            onClick={handleResendRegistrationConfirmation}
+            className="w-full h-[44px] text-xs font-semibold text-[#6e546f] border-[#dfd3d7] hover:bg-[#f7f2f4] hover:text-[#201524] rounded-xl transition-all"
+          >
+            {isConfirmationResending ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin text-[#6e546f]" />
+                Resending…
+              </span>
+            ) : (
+              "Resend confirmation email"
+            )}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[440px] mx-auto px-4 sm:px-2">
@@ -403,7 +491,7 @@ export function RegisterForm({
               className={`flex items-center gap-1.5 transition-colors duration-140 ${
                 hasMinLen
                   ? "text-[#6e546f] font-medium"
-                  : errors.password && passwordValue.length > 0
+                  : errors.password && watchPassword.length > 0
                   ? "text-[#b3261e]"
                   : "text-[#716872]"
               }`}
@@ -420,7 +508,7 @@ export function RegisterForm({
               className={`flex items-center gap-1.5 transition-colors duration-140 ${
                 hasLetter
                   ? "text-[#6e546f] font-medium"
-                  : errors.password && passwordValue.length > 0
+                  : errors.password && watchPassword.length > 0
                   ? "text-[#b3261e]"
                   : "text-[#716872]"
               }`}
@@ -437,7 +525,7 @@ export function RegisterForm({
               className={`flex items-center gap-1.5 transition-colors duration-140 ${
                 hasNumber
                   ? "text-[#6e546f] font-medium"
-                  : errors.password && passwordValue.length > 0
+                  : errors.password && watchPassword.length > 0
                   ? "text-[#b3261e]"
                   : "text-[#716872]"
               }`}
@@ -519,8 +607,18 @@ export function RegisterForm({
           <div className="flex items-center gap-2.5">
             <Checkbox
               id="terms"
+              checked={watchTerms === true}
+              onCheckedChange={(checked) => {
+                setValue("terms", checked === true, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                  shouldTouch: true,
+                });
+                setFormHasSubmittedError(false);
+                setAuthError(null);
+                if (checked) clearErrors("terms");
+              }}
               disabled={isSubmittingState || isSuccessState}
-              {...termsRegister}
               onFocus={() => onFocusChange("terms")}
               onBlur={() => onFocusChange(null)}
               className="size-[18px] rounded-md border-[#dfd3d7] text-[#201524] focus-visible:ring-2 focus-visible:ring-[#6e546f]/30"

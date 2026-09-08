@@ -59,12 +59,14 @@ export default function LoginPage() {
         aria-label="Login Form"
         className="w-full md:w-[50%] lg:w-[44%] flex items-center justify-center p-6 sm:p-8 lg:p-10 md:h-full bg-[#faf6f7] box-border overflow-y-auto"
       >
-        <LoginForm 
-          onAuthPhaseChange={setAuthPhase}
-          onFocusChange={setFocusedField}
-          onPasswordVisibilityChange={setIsPasswordVisible}
-          onPasswordLengthChange={setPasswordLength}
-        />
+        <React.Suspense fallback={null}>
+          <LoginForm 
+            onAuthPhaseChange={setAuthPhase}
+            onFocusChange={setFocusedField}
+            onPasswordVisibilityChange={setIsPasswordVisible}
+            onPasswordLengthChange={setPasswordLength}
+          />
+        </React.Suspense>
       </section>
     </main>
   );

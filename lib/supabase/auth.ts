@@ -27,18 +27,26 @@ export interface AuthResponse<T = unknown> {
 export async function signInWithEmail(
   email: string,
   password: string
-): Promise<AuthResponse<User>> {
+): Promise<AuthResponse<User> & { isEmailNotConfirmed?: boolean }> {
   try {
     const supabase = createClient();
+    const cleanEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password,
     });
 
     if (error) {
+      const isEmailNotConfirmed =
+        error.message?.toLowerCase().includes("email not confirmed") ||
+        (error as { code?: string }).code === "email_not_confirmed";
+
       return {
         success: false,
-        error: error.message || "Failed to sign in. Please check your credentials.",
+        isEmailNotConfirmed,
+        error: isEmailNotConfirmed
+          ? "Your email address hasn’t been confirmed yet."
+          : error.message || "Failed to sign in. Please check your credentials.",
       };
     }
 
@@ -68,11 +76,13 @@ export async function signUpWithEmail(
     const cleanEmail = email.trim().toLowerCase();
     const cleanFullName = fullName.trim();
     const generatedUsername = cleanEmail.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "");
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
 
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
       options: {
+        emailRedirectTo: `${origin}/auth/callback`,
         data: {
           full_name: cleanFullName,
           username: generatedUsername,
@@ -101,6 +111,43 @@ export async function signUpWithEmail(
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "An unexpected error occurred.";
+    return {
+      success: false,
+      error: errorMsg,
+    };
+  }
+}
+
+/**
+ * Resend signup email confirmation
+ */
+export async function resendConfirmationEmail(
+  email: string
+): Promise<AuthResponse> {
+  try {
+    const supabase = createClient();
+    const cleanEmail = email.trim().toLowerCase();
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: cleanEmail,
+      options: {
+        emailRedirectTo: `${origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: error.message || "Failed to resend confirmation email.",
+      };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const errorMsg =
+      err instanceof Error ? err.message : "Failed to resend confirmation email.";
     return {
       success: false,
       error: errorMsg,

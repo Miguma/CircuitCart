@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Store,
-  KeyRound,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CircuitCartWordmark } from "@/components/ui/circuitcart-wordmark";
-import { signInWithEmail } from "@/lib/supabase/auth";
+import { signInWithEmail, resendConfirmationEmail } from "@/lib/supabase/auth";
 import { AuthPhase, FocusedField } from "./tech-characters";
 
 const loginSchema = z.object({
@@ -52,8 +51,17 @@ export function LoginForm({
   onPasswordLengthChange,
 }: LoginFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isConfirmedParam = searchParams.get("confirmed") === "1";
+  const isRegisteredParam = searchParams.get("registered") === "true";
+  const isCallbackErrorParam = searchParams.get("error") === "auth_callback_failed";
+
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isEmailNotConfirmed, setIsEmailNotConfirmed] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState("");
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
   const [isSuccessState, setIsSuccessState] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [passwordLength, setPasswordLength] = useState(0);
@@ -62,7 +70,6 @@ export function LoginForm({
   const {
     register,
     handleSubmit,
-    setValue,
     clearErrors,
     control,
     formState: { errors },
@@ -108,19 +115,14 @@ export function LoginForm({
     }
   }, [isSuccessState, authError, isChecking, onAuthPhaseChange]);
 
-  const handleFillDemo = () => {
-    setValue("email", "demo@circuitcart.test", { shouldValidate: true });
-    setValue("password", "Demo1234!", { shouldValidate: true });
-    setPasswordLength(9);
-    setTouchedFields({ email: true, password: true });
-    setAuthError(null);
-    clearErrors();
-  };
-
   // Immediate error clearance when editing either field
   const emailRegister = register("email", {
     onChange: (e) => {
-      if (authError) setAuthError(null);
+      if (authError) {
+        setAuthError(null);
+        setIsEmailNotConfirmed(false);
+        setResendSuccess(false);
+      }
       if (e.target.value && z.string().email().safeParse(e.target.value).success) {
         clearErrors("email");
       }
@@ -129,7 +131,11 @@ export function LoginForm({
 
   const passwordRegister = register("password", {
     onChange: (e) => {
-      if (authError) setAuthError(null);
+      if (authError) {
+        setAuthError(null);
+        setIsEmailNotConfirmed(false);
+        setResendSuccess(false);
+      }
       const val = e.target.value;
       setPasswordLength(val ? val.length : 0);
       if (val) {
@@ -138,8 +144,34 @@ export function LoginForm({
     },
   });
 
+  const handleResendConfirmation = async () => {
+    const targetEmail = unconfirmedEmail || watchEmail;
+    if (!targetEmail || !z.string().email().safeParse(targetEmail).success) {
+      setAuthError("Please enter a valid email address to resend confirmation.");
+      return;
+    }
+
+    setIsResending(true);
+    setResendSuccess(false);
+
+    try {
+      const res = await resendConfirmationEmail(targetEmail);
+      setIsResending(false);
+      if (res.success) {
+        setResendSuccess(true);
+      } else {
+        setAuthError(res.error || "Failed to resend confirmation email.");
+      }
+    } catch {
+      setIsResending(false);
+      setAuthError("Failed to resend confirmation email.");
+    }
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     setAuthError(null);
+    setIsEmailNotConfirmed(false);
+    setResendSuccess(false);
     setIsChecking(true);
 
     try {
@@ -156,16 +188,24 @@ export function LoginForm({
         }, 600);
       } else {
         setIsChecking(false);
-        setAuthError(res.error || "Incorrect email or password.");
+        if (res.isEmailNotConfirmed) {
+          setIsEmailNotConfirmed(true);
+          setUnconfirmedEmail(data.email);
+          setAuthError(res.error || "Your email address hasn’t been confirmed yet.");
+        } else {
+          setIsEmailNotConfirmed(false);
+          setAuthError(res.error || "Incorrect email or password.");
+        }
       }
     } catch {
       setIsChecking(false);
+      setIsEmailNotConfirmed(false);
       setAuthError("An unexpected error occurred. Please try again.");
     }
   };
 
   const onInvalidSubmit = () => {
-    // Optionally focus the first invalid field or just let native HTML5 validation work
+    // Native or react-hook-form validation handles focus
   };
 
   return (
@@ -192,6 +232,37 @@ export function LoginForm({
           Sign in to continue to your CircuitCart account.
         </p>
       </div>
+
+      {/* Confirmation & Callback Status Banners */}
+      {isConfirmedParam && (
+        <div
+          role="status"
+          className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-xs text-emerald-800 font-medium animate-in fade-in zoom-in-95 duration-140"
+        >
+          <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+          <span>Email confirmed. You can log in now.</span>
+        </div>
+      )}
+
+      {isRegisteredParam && !isConfirmedParam && (
+        <div
+          role="status"
+          className="mb-4 p-3 rounded-xl bg-[#6e546f]/10 border border-[#6e546f]/30 flex items-center gap-2.5 text-xs text-[#201524] font-medium animate-in fade-in zoom-in-95 duration-140"
+        >
+          <CheckCircle2 className="size-4 text-[#6e546f] shrink-0" />
+          <span>Account created. Please check your email to confirm your account.</span>
+        </div>
+      )}
+
+      {isCallbackErrorParam && (
+        <div
+          role="alert"
+          className="mb-4 p-3 rounded-xl bg-[#cf6679]/10 border border-[#cf6679]/30 flex items-start gap-2.5 text-xs text-[#b3261e] font-medium animate-in fade-in zoom-in-95 duration-140"
+        >
+          <CircleAlert className="size-4 text-[#b3261e] shrink-0 mt-0.5" />
+          <span>Confirmation link was invalid or expired. Please sign in or resend a new confirmation email.</span>
+        </div>
+      )}
 
       {/* Form with compact rhythm */}
       <form onSubmit={handleSubmit(onSubmit, onInvalidSubmit)} className="flex flex-col gap-4" noValidate>
@@ -320,12 +391,12 @@ export function LoginForm({
           </Label>
         </div>
 
-        {/* Compact Accessible Form Status Area (Single Live Region: role="status", aria-live="polite", aria-atomic="true") */}
+        {/* Form Status Area (Accessible live region) */}
         <div
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          className="mt-2 max-h-[20px] flex items-center justify-center text-center"
+          className="mt-1 min-h-[22px] flex items-center justify-center text-center"
         >
           {isSuccessState ? (
             <span className="flex items-center justify-center gap-1.5 text-xs text-emerald-700 font-medium animate-in fade-in duration-140">
@@ -337,6 +408,28 @@ export function LoginForm({
               <Loader2 className="size-3.5 animate-spin text-[#6e546f] shrink-0" />
               <span>Checking your account…</span>
             </span>
+          ) : isEmailNotConfirmed ? (
+            <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in duration-140">
+              <span role="alert" className="flex items-center justify-center gap-1.5 text-xs text-[#b3261e] font-medium">
+                <CircleAlert className="size-3.5 shrink-0 text-[#b3261e]" />
+                <span>Your email address hasn’t been confirmed yet.</span>
+              </span>
+              {resendSuccess ? (
+                <span className="flex items-center justify-center gap-1 text-xs text-emerald-700 font-medium pt-0.5">
+                  <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
+                  <span>Confirmation email resent. Please check your inbox.</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendConfirmation}
+                  disabled={isResending}
+                  className="text-xs font-semibold text-[#6e546f] hover:text-[#201524] hover:underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-[#6e546f] rounded-xs disabled:opacity-60 transition-colors pt-0.5"
+                >
+                  {isResending ? "Resending confirmation email…" : "Resend confirmation email"}
+                </button>
+              )}
+            </div>
           ) : authError ? (
             <span role="alert" className="flex items-center justify-center gap-1.5 text-xs text-[#b3261e] font-medium animate-in fade-in duration-140">
               <CircleAlert className="size-3.5 shrink-0" />
@@ -345,7 +438,7 @@ export function LoginForm({
           ) : null}
         </div>
 
-        {/* Primary Log In Button (12px gap from status area -> starts 36-48px below Remember me row) */}
+        {/* Primary Log In Button */}
         <Button
           type="submit"
           disabled={isChecking || isSuccessState}
@@ -367,20 +460,8 @@ export function LoginForm({
         </Button>
       </form>
 
-      {/* Demo Account Action with KeyRound Icon */}
-      <div className="mt-3.5 text-center">
-        <button
-          type="button"
-          onClick={handleFillDemo}
-          className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-[#6e546f] hover:text-[#201524] hover:underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-[#6e546f] rounded-xs transition-colors"
-        >
-          <KeyRound className="size-3.5 text-[#6e546f]" />
-          <span>Use demo account</span>
-        </button>
-      </div>
-
       {/* Footer Link pointing to /register */}
-      <div className="mt-3 text-center text-xs text-[#716872]">
+      <div className="mt-4 text-center text-xs text-[#716872]">
         Don&apos;t have an account?{" "}
         <Link
           href="/register"
