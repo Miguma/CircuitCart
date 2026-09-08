@@ -49,7 +49,7 @@ export function mapDbProductToMarketplaceProduct(dbProduct: ProductWithRelations
 
   const isVerified = Boolean(dbProduct.shops?.is_verified);
   const sellerName = dbProduct.shops?.name || dbProduct.profiles?.full_name || "CircuitCart Seller";
-  const location = dbProduct.location || dbProduct.shops?.location || "Cebu City, Central Visayas";
+  const location = dbProduct.location || dbProduct.shops?.location || "Location not provided";
 
   return {
     id: dbProduct.id,
@@ -58,13 +58,14 @@ export function mapDbProductToMarketplaceProduct(dbProduct: ProductWithRelations
     price: Number(dbProduct.price),
     originalPrice: dbProduct.original_price ? Number(dbProduct.original_price) : undefined,
     condition: dbProduct.condition,
-    rating: 5.0,
+    rating: 0,
     reviewCount: 0,
     sellerName,
     sellerId: dbProduct.seller_id,
     shopId: dbProduct.shop_id || undefined,
     isVerifiedSeller: isVerified,
     location,
+
     section: "Recommended for you",
     specs: dbProduct.specs || "",
     stock: dbProduct.stock,

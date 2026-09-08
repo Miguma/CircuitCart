@@ -171,11 +171,17 @@ export function PublicShopClientView({
                 Seller Rating
               </span>
               <p className="text-base sm:text-lg font-extrabold text-[#fffafa] mt-0.5 flex items-center gap-1">
-                <Star className="size-4 fill-amber-400 text-amber-400" />
-                <span>{profile.rating}</span>
-                <span className="text-xs text-[#8f7d8c] font-normal">
-                  ({profile.reviewCount})
-                </span>
+                {profile.reviewCount > 0 ? (
+                  <>
+                    <Star className="size-4 fill-amber-400 text-amber-400" />
+                    <span>{profile.rating}</span>
+                    <span className="text-xs text-[#8f7d8c] font-normal">
+                      ({profile.reviewCount})
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-[#b9adb6] font-normal">No ratings yet</span>
+                )}
               </p>
             </div>
 
@@ -193,7 +199,7 @@ export function PublicShopClientView({
                 Response Rate
               </span>
               <p className="text-base sm:text-lg font-extrabold text-[#e59bc9] mt-0.5">
-                {profile.responseRate}% (under 15m)
+                —
               </p>
             </div>
 
@@ -202,10 +208,11 @@ export function PublicShopClientView({
                 Location & Dispatch
               </span>
               <p className="text-xs sm:text-sm font-bold text-[#fffafa] mt-0.5 truncate">
-                {profile.location}
+                {profile.location || "Location not provided"}
               </p>
             </div>
           </div>
+
         </div>
       </div>
 

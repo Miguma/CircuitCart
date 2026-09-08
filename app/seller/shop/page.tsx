@@ -24,7 +24,7 @@ import { SellerLayout } from "@/components/seller/seller-layout";
 import {
   type SellerShopProfile,
 } from "@/lib/seller/seller-data";
-import { getCurrentUser } from "@/lib/supabase/auth";
+import { getCurrentUser, getCurrentUserProfile } from "@/lib/supabase/auth";
 import { getShopByOwnerId, updateShop, ensureSellerShop } from "@/lib/supabase/shops";
 import { getSellerProducts } from "@/lib/supabase/products";
 import { getSellerOrders } from "@/lib/supabase/orders";
@@ -36,20 +36,20 @@ export default function SellerShopPage() {
     id: "",
     shopName: "My Shop",
     slug: "my-shop",
-    description: "Welcome to my CircuitCart store.",
-    location: "Cebu City, Central Visayas",
+    description: "",
+    location: "",
     contactPreference: "CircuitCart Chat",
     businessType: "Individual Tech Seller",
-    memberSince: "Aug 2026",
-    rating: 5.0,
+    memberSince: "",
+    rating: 0,
     reviewCount: 0,
     completedOrders: 0,
-    responseRate: 100,
+    responseRate: 0,
     isVerified: false,
     shopStatus: "Active",
     fulfillmentPreference: "Both",
-    defaultMeetupArea: "Cebu IT Park, Lahug",
-    handlingTime: "1–2 days",
+    defaultMeetupArea: "",
+    handlingTime: "Not set",
   });
   const [totalListingsCount, setTotalListingsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,7 +75,9 @@ export default function SellerShopPage() {
 
         let dbShop = await getShopByOwnerId(user.id);
         if (!dbShop) {
-          dbShop = await ensureSellerShop(user.id, user.user_metadata?.full_name || "Tech Shop");
+          const userProfile = await getCurrentUserProfile();
+          const defaultShopName = userProfile?.full_name || userProfile?.username || "Tech Shop";
+          dbShop = await ensureSellerShop(user.id, defaultShopName);
         }
 
         const [dbProducts, dbOrders] = await Promise.all([
@@ -92,25 +94,25 @@ export default function SellerShopPage() {
             id: dbShop.id,
             shopName: dbShop.name,
             slug: dbShop.slug,
-            description: dbShop.description || "Welcome to my CircuitCart store.",
+            description: dbShop.description || "",
             logo: dbShop.logo_url || undefined,
             banner: dbShop.banner_url || undefined,
-            location: dbShop.location || "Cebu City, Central Visayas",
+            location: dbShop.location || "",
             contactPreference: "CircuitCart Chat",
             businessType: "Individual Tech Seller",
             memberSince: new Date(dbShop.created_at).toLocaleDateString("en-US", {
               month: "short",
               year: "numeric",
             }),
-            rating: 5.0,
+            rating: 0,
             reviewCount: 0,
             completedOrders: completedCount,
-            responseRate: 100,
+            responseRate: 0,
             isVerified: dbShop.is_verified,
             shopStatus: dbShop.status === "vacation" ? "Vacation Mode" : "Active",
             fulfillmentPreference: "Both",
-            defaultMeetupArea: dbShop.location || "Cebu IT Park, Lahug",
-            handlingTime: "1–2 days",
+            defaultMeetupArea: dbShop.location || "Not set",
+            handlingTime: "Not set",
           });
           setIsLoading(false);
         }
@@ -126,6 +128,7 @@ export default function SellerShopPage() {
       active = false;
     };
   }, []);
+
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,6 +391,7 @@ export default function SellerShopPage() {
                     }
                     className="w-full h-10 px-3 rounded-xl bg-[#342339] border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9] transition-colors"
                   >
+                    <option value="Not set">Not set</option>
                     <option value="Same Day">Same Day Dispatch</option>
                     <option value="1–2 days">1–2 Business Days</option>
                     <option value="2–3 days">2–3 Business Days</option>
@@ -450,14 +454,14 @@ export default function SellerShopPage() {
                 <div className="min-w-0 pb-1">
                   <div className="flex items-center gap-1.5">
                     <h3 className="text-base font-extrabold text-[#fffafa] truncate">
-                      {profile.shopName || "TechVault Cebu"}
+                      {profile.shopName || "Tech Shop"}
                     </h3>
                     {profile.isVerified && (
                       <ShieldCheck className="size-4 text-emerald-400 shrink-0" />
                     )}
                   </div>
                   <p className="text-xs text-[#e59bc9] font-semibold">
-                    @{profile.slug || "techvault"}
+                    @{profile.slug || "shop"}
                   </p>
                 </div>
               </div>
@@ -465,10 +469,10 @@ export default function SellerShopPage() {
               {/* Location & Badges */}
               <div className="flex items-center gap-2 text-xs text-[#b9adb6]">
                 <MapPin className="size-3.5 text-[#e59bc9] shrink-0" />
-                <span className="truncate">{profile.location}</span>
+                <span className="truncate">{profile.location || "Location not provided"}</span>
                 <span>&bull;</span>
                 <span className="text-amber-300 font-semibold flex items-center gap-0.5">
-                  ★ {profile.rating}
+                  {profile.reviewCount > 0 ? `★ ${profile.rating}` : "No ratings yet"}
                 </span>
               </div>
 
@@ -487,7 +491,7 @@ export default function SellerShopPage() {
                 </div>
                 <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                   <p className="font-extrabold text-sm text-emerald-400">
-                    {profile.responseRate}%
+                    —
                   </p>
                   <p className="text-[10px] text-[#b9adb6] mt-0.5">Response</p>
                 </div>
@@ -504,10 +508,10 @@ export default function SellerShopPage() {
               <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-[#b9adb6] space-y-1">
                 <div className="flex items-center gap-1.5 text-white font-semibold">
                   <Truck className="size-3.5 text-[#e59bc9]" />
-                  <span>Dispatch: {profile.handlingTime}</span>
+                  <span>Dispatch: {profile.handlingTime || "Not set"}</span>
                 </div>
                 <p className="text-[11px] text-[#d6cbd5] truncate">
-                  Meetup: {profile.defaultMeetupArea}
+                  Meetup: {profile.defaultMeetupArea || "Not set"}
                 </p>
               </div>
 
@@ -520,6 +524,7 @@ export default function SellerShopPage() {
                 <ExternalLink className="size-3.5" />
               </Link>
             </div>
+
           </div>
         </div>
       </div>

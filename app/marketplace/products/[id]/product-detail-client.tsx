@@ -220,18 +220,23 @@ export default function ProductDetailClient({
 
               {/* Rating & Seller Location */}
               <div className="flex flex-wrap items-center gap-4 text-xs text-[#d6cbd5] pt-1">
-                <div className="flex items-center gap-1 text-amber-400">
-                  <Star className="size-4 fill-amber-400" />
-                  <span className="font-bold text-white text-sm">{product.rating}</span>
-                  <span>({product.reviewCount} customer reviews)</span>
-                </div>
+                {product.reviewCount > 0 ? (
+                  <div className="flex items-center gap-1 text-amber-400">
+                    <Star className="size-4 fill-amber-400" />
+                    <span className="font-bold text-white text-sm">{product.rating}</span>
+                    <span>({product.reviewCount} customer reviews)</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-[#b9adb6]">No reviews yet</span>
+                )}
                 <span>•</span>
                 <div className="flex items-center gap-1 text-[#d6cbd5]">
                   <MapPin className="size-3.5 text-[#e59bc9]" />
-                  <span>{product.location}</span>
+                  <span>{product.location || "Location not provided"}</span>
                 </div>
               </div>
             </div>
+
 
             {/* Price Box */}
             <div className="p-4 bg-[#342339]/50 border border-white/10 rounded-2xl flex items-baseline justify-between gap-4 flex-wrap">

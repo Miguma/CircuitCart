@@ -162,14 +162,21 @@ export function QuickViewDialog({
 
               {/* Rating */}
               <div className="flex items-center gap-1.5 text-xs text-[#716872] mt-1.5">
-                <div className="flex items-center gap-1 text-amber-500">
-                  <Star className="size-3.5 fill-amber-400 text-amber-400" />
-                  <span className="font-bold text-[#1d1720]">{product.rating}</span>
-                </div>
-                <span>•</span>
-                <span>{product.reviewCount} customer reviews</span>
+                {product.reviewCount > 0 ? (
+                  <>
+                    <div className="flex items-center gap-1 text-amber-500">
+                      <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                      <span className="font-bold text-[#1d1720]">{product.rating}</span>
+                    </div>
+                    <span>•</span>
+                    <span>{product.reviewCount} customer reviews</span>
+                  </>
+                ) : (
+                  <span>No reviews yet</span>
+                )}
               </div>
             </div>
+
 
             {/* Seller Card */}
             <div className="bg-[#f0e6e9] border border-[#eadcde] rounded-xl p-3 flex items-center justify-between text-xs">

@@ -1,6 +1,8 @@
 import { createClient } from "./client";
-import { getCurrentUser } from "./auth";
+import { getCurrentUser, getCurrentUserProfile } from "./auth";
 import { ensureSellerShop } from "./shops";
+
+
 import { uploadProductImage, deleteProductImage } from "./storage";
 import {
   mapDbProductToMarketplaceProduct,
@@ -162,10 +164,10 @@ export async function createProduct(
   }
 
   // Ensure seller has an active shop row
-  const shop = await ensureSellerShop(
-    user.id,
-    user.user_metadata?.full_name || "Seller Shop"
-  );
+  const userProfile = await getCurrentUserProfile();
+  const defaultShopName = userProfile?.full_name || userProfile?.username || "Seller Shop";
+  const shop = await ensureSellerShop(user.id, defaultShopName);
+
 
   const supabase = createClient();
   const cleanTitle = input.title.trim();

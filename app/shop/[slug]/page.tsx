@@ -33,26 +33,27 @@ export default async function PublicShopPage({ params }: PageProps) {
     id: dbShop.id,
     shopName: dbShop.name,
     slug: dbShop.slug,
-    description: dbShop.description || "Welcome to our CircuitCart store.",
+    description: dbShop.description || "No shop description provided yet.",
     logo: dbShop.logo_url || undefined,
     banner: dbShop.banner_url || undefined,
-    location: dbShop.location || "Cebu City, Central Visayas",
+    location: dbShop.location || "Location not provided",
     contactPreference: "CircuitCart Chat",
     businessType: "Individual Tech Seller",
     memberSince: new Date(dbShop.created_at).toLocaleDateString("en-US", {
       month: "short",
       year: "numeric",
     }),
-    rating: 5.0,
+    rating: 0,
     reviewCount: 0,
     completedOrders: 0,
-    responseRate: 100,
+    responseRate: 0,
     isVerified: dbShop.is_verified,
     shopStatus: dbShop.status === "vacation" ? "Vacation Mode" : "Active",
     fulfillmentPreference: "Both",
-    defaultMeetupArea: dbShop.location || "Cebu IT Park, Lahug",
-    handlingTime: "Ships or meets within 24 hours",
+    defaultMeetupArea: dbShop.location || "Not set",
+    handlingTime: "Not set",
   };
+
 
   // Fetch active products for this shop
   let shopProducts: Product[] = [];

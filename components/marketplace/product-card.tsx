@@ -152,10 +152,17 @@ export function ProductCard({
 
         {/* Rating & Review Count */}
         <div className="flex items-center gap-1 text-xs text-[#716872] mb-1.5">
-          <Star className="size-3.5 fill-amber-400 text-amber-400" />
-          <span className="font-semibold text-[#1d1720]">{product.rating}</span>
-          <span className="text-[#716872]">({product.reviewCount})</span>
+          {product.reviewCount > 0 ? (
+            <>
+              <Star className="size-3.5 fill-amber-400 text-amber-400" />
+              <span className="font-semibold text-[#1d1720]">{product.rating}</span>
+              <span className="text-[#716872]">({product.reviewCount})</span>
+            </>
+          ) : (
+            <span className="text-[11px] text-[#716872]">No reviews yet</span>
+          )}
         </div>
+
 
         {/* Specs snippet */}
         <p className="text-xs text-[#716872] line-clamp-1 mb-3 leading-relaxed">
