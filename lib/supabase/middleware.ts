@@ -43,26 +43,37 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // 1. Protected buyer routes
-  const isBuyerProtected =
+  // 1. Routes requiring authentication (any valid role)
+  const isAuthRequired =
     pathname.startsWith("/marketplace/profile") ||
     pathname.startsWith("/marketplace/orders") ||
-    pathname.startsWith("/marketplace/settings");
+    pathname.startsWith("/marketplace/settings") ||
+    pathname === "/sell" ||
+    pathname.startsWith("/sell/") ||
+    pathname.startsWith("/seller") ||
+    pathname.startsWith("/admin");
 
-  // 2. Protected seller routes
-  const isSellerRoute = pathname.startsWith("/seller");
-
-  // If user is not authenticated and attempts to visit protected route
-  if (!user && (isBuyerProtected || isSellerRoute)) {
+  // If user is not authenticated and attempts to visit an auth-required route
+  if (!user && isAuthRequired) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(url);
   }
 
-  // If user is authenticated and attempts to visit seller routes,
+  // 2. Protected seller management routes (excludes /seller/verification)
+  // /seller/verification is explicitly whitelisted for authenticated buyers/sellers/admins
+  const isSellerManagementRoute =
+    pathname.startsWith("/seller") &&
+    pathname !== "/seller/verification" &&
+    !pathname.startsWith("/seller/verification/");
+
+  // 3. Protected admin routes
+  const isAdminRoute = pathname.startsWith("/admin");
+
+  // If user is authenticated and attempts to visit role-restricted routes,
   // verify role STRICTLY from public.profiles table (do NOT trust user_metadata)
-  if (user && isSellerRoute) {
+  if (user && (isSellerManagementRoute || isAdminRoute)) {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
@@ -71,13 +82,25 @@ export async function updateSession(request: NextRequest) {
 
     const role = profile?.role;
 
-    // DEFAULT DENY: Allow ONLY 'seller' or 'admin'
-    // If profile does not exist, query fails, role is null, role is buyer, or role is unknown -> redirect to /marketplace
-    if (error || !profile || !role || (role !== "seller" && role !== "admin")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/marketplace";
-      url.searchParams.set("error", "seller_access_required");
-      return NextResponse.redirect(url);
+    if (isSellerManagementRoute) {
+      // DEFAULT DENY: Allow ONLY 'seller' or 'admin'
+      // If profile does not exist, query fails, role is null, role is buyer, or role is unknown -> redirect to /marketplace
+      if (error || !profile || !role || (role !== "seller" && role !== "admin")) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/marketplace";
+        url.searchParams.set("error", "seller_access_required");
+        return NextResponse.redirect(url);
+      }
+    }
+
+    if (isAdminRoute) {
+      // DEFAULT DENY: Allow ONLY 'admin'
+      if (error || !profile || !role || role !== "admin") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/marketplace";
+        url.searchParams.set("error", "admin_access_required");
+        return NextResponse.redirect(url);
+      }
     }
   }
 
