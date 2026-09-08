@@ -210,8 +210,10 @@ export default function SellerVerificationPage() {
     setUploadProgressText("Uploading front of ID...");
 
     try {
+      const groupId = crypto.randomUUID();
+
       // 1. Upload front ID
-      const frontRes = await uploadVerificationDocument(frontIdFile, "id-front");
+      const frontRes = await uploadVerificationDocument(frontIdFile, "id-front", groupId);
       if (!frontRes.path || frontRes.error) {
         throw new Error(frontRes.error || "Failed to upload Front ID photo.");
       }
@@ -220,7 +222,7 @@ export default function SellerVerificationPage() {
       let backPath: string | null = null;
       if (backIdFile) {
         setUploadProgressText("Uploading back of ID...");
-        const backRes = await uploadVerificationDocument(backIdFile, "id-back");
+        const backRes = await uploadVerificationDocument(backIdFile, "id-back", groupId);
         if (!backRes.path || backRes.error) {
           throw new Error(backRes.error || "Failed to upload Back ID photo.");
         }
@@ -229,7 +231,7 @@ export default function SellerVerificationPage() {
 
       // 3. Upload selfie
       setUploadProgressText("Uploading selfie image...");
-      const selfieRes = await uploadVerificationDocument(selfieFile, "selfie");
+      const selfieRes = await uploadVerificationDocument(selfieFile, "selfie", groupId);
       if (!selfieRes.path || selfieRes.error) {
         throw new Error(selfieRes.error || "Failed to upload selfie photo.");
       }

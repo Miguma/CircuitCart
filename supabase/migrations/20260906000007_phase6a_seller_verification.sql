@@ -113,14 +113,25 @@ create policy "Users and admins can view verification documents"
     )
   );
 
+-- Users may only delete unsubmitted/orphan files; submitted verification evidence is immutable
 drop policy if exists "Users can delete own pending verification documents" on storage.objects;
-create policy "Users can delete own pending verification documents"
+drop policy if exists "Users can delete own unsubmitted verification documents" on storage.objects;
+create policy "Users can delete own unsubmitted verification documents"
   on storage.objects
   for delete
   to authenticated
   using (
     bucket_id = 'seller-verification'
     and (storage.foldername(name))[1] = auth.uid()::text
+    and not exists (
+      select 1 from public.seller_verification_requests req
+      where req.user_id = auth.uid()
+        and (
+          req.id_front_path = name
+          or req.id_back_path = name
+          or req.selfie_path = name
+        )
+    )
   );
 
 -- 5. Secure RPC: submit_seller_verification
@@ -145,6 +156,10 @@ as $$
 declare
   v_user_id uuid;
   v_user_role text;
+  v_front_parts text[];
+  v_back_parts text[];
+  v_selfie_parts text[];
+  v_group_id text;
   v_new_req public.seller_verification_requests;
 begin
   v_user_id := auth.uid();
@@ -200,17 +215,29 @@ begin
     raise exception 'Contact email and phone number are required';
   end if;
 
-  -- Validate document ownership paths
-  if not (p_id_front_path like v_user_id::text || '/%') then
-    raise exception 'Invalid front ID document path';
+  -- Validate front ID document path: <user_id>/<group_id>/<filename>
+  v_front_parts := string_to_array(p_id_front_path, '/');
+  if array_length(v_front_parts, 1) != 3 or v_front_parts[1] != v_user_id::text then
+    raise exception 'Invalid front ID document path or ownership mismatch';
   end if;
 
-  if p_id_back_path is not null and length(trim(p_id_back_path)) > 0 and not (p_id_back_path like v_user_id::text || '/%') then
-    raise exception 'Invalid back ID document path';
+  v_group_id := v_front_parts[2];
+  if length(trim(v_group_id)) < 8 then
+    raise exception 'Invalid upload group identifier in front ID document path';
   end if;
 
-  if not (p_selfie_path like v_user_id::text || '/%') then
-    raise exception 'Invalid selfie document path';
+  -- Validate selfie document path belongs to same user and upload group
+  v_selfie_parts := string_to_array(p_selfie_path, '/');
+  if array_length(v_selfie_parts, 1) != 3 or v_selfie_parts[1] != v_user_id::text or v_selfie_parts[2] != v_group_id then
+    raise exception 'Selfie document path does not match user ownership or upload group';
+  end if;
+
+  -- Validate optional back ID document path
+  if p_id_back_path is not null and length(trim(p_id_back_path)) > 0 then
+    v_back_parts := string_to_array(p_id_back_path, '/');
+    if array_length(v_back_parts, 1) != 3 or v_back_parts[1] != v_user_id::text or v_back_parts[2] != v_group_id then
+      raise exception 'Back ID document path does not match user ownership or upload group';
+    end if;
   end if;
 
   -- Insert pending verification request

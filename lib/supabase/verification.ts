@@ -41,7 +41,8 @@ export function validateVerificationFile(file: File): { valid: boolean; error?: 
  */
 export async function uploadVerificationDocument(
   file: File,
-  docType: "id-front" | "id-back" | "selfie"
+  docType: "id-front" | "id-back" | "selfie",
+  groupId: string
 ): Promise<{ path: string | null; error?: string }> {
   try {
     const validation = validateVerificationFile(file);
@@ -59,8 +60,7 @@ export async function uploadVerificationDocument(
     }
 
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const randomSuffix = Math.random().toString(36).substring(2, 10);
-    const storagePath = `${user.id}/${docType}-${Date.now()}-${randomSuffix}.${ext}`;
+    const storagePath = `${user.id}/${groupId}/${docType}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("seller-verification")
