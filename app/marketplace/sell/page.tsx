@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Store,
@@ -10,30 +10,57 @@ import {
   UserCheck,
   Clock,
   ArrowLeft,
-  Info,
+  ChevronRight,
 } from "lucide-react";
+import { getCurrentUserProfile, type UserProfile } from "@/lib/supabase/auth";
+import { getMyVerificationRequest } from "@/lib/supabase/verification";
+import type { DbSellerVerificationRequest } from "@/lib/supabase/types";
 
 export default function SellPage() {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [verification, setVerification] = useState<DbSellerVerificationRequest | null>(null);
+
+  useEffect(() => {
+    async function loadStatus() {
+      try {
+        const [p, v] = await Promise.all([
+          getCurrentUserProfile(),
+          getMyVerificationRequest(),
+        ]);
+        setProfile(p);
+        setVerification(v);
+      } catch (err) {
+        console.error("Failed to load seller status:", err);
+      }
+    }
+    loadStatus();
+  }, []);
+
+  const isVerified = verification?.status === "approved" || profile?.role === "seller";
+  const isPending = verification?.status === "pending";
+
   const steps = [
     {
       number: 1,
-      title: "Account Information",
-      description: "Basic profile details verified for Demo Account (@demouser).",
-      status: "completed",
+      title: "Account Registration",
+      description: profile
+        ? `Account registered for ${profile.full_name || profile.username || "User"}.`
+        : "Complete initial CircuitCart user registration.",
+      status: profile ? "completed" : "pending",
       icon: UserCheck,
     },
     {
       number: 2,
-      title: "Identity & Business Verification",
-      description: "Government-issued ID or business registry check for authentic sellers.",
-      status: "pending",
+      title: "Identity Verification",
+      description: "Submit government-issued Philippine ID and selfie photo review.",
+      status: isVerified ? "completed" : isPending ? "in_progress" : "pending",
       icon: ShieldCheck,
     },
     {
       number: 3,
-      title: "Seller Safety Review",
-      description: "Final account activation ensuring secure payouts and buyer protection.",
-      status: "pending",
+      title: "Seller Activation",
+      description: "Publish tech listings and manage your CircuitCart shop.",
+      status: isVerified ? "completed" : "pending",
       icon: FileCheck,
     },
   ];
@@ -56,7 +83,7 @@ export default function SellPage() {
           <span>Start Selling on CircuitCart</span>
         </h1>
         <p className="text-xs sm:text-sm text-[#b9adb6] mt-2 leading-relaxed max-w-xl">
-          Seller verification protects buyers and responsible sellers across Cebu and the Visayas. You will need to complete verification checks before publishing hardware listings.
+          Seller verification protects buyers and responsible sellers across Cebu and the Visayas. Complete verification checks to start publishing hardware listings.
         </p>
       </div>
 
@@ -70,12 +97,16 @@ export default function SellPage() {
           {steps.map((step) => {
             const IconComp = step.icon;
             const isDone = step.status === "completed";
+            const isInProgress = step.status === "in_progress";
+
             return (
               <div
                 key={step.number}
                 className={`p-4 sm:p-5 rounded-2xl border transition-all flex items-start gap-4 ${
                   isDone
                     ? "bg-[#342339]/40 border-emerald-500/30"
+                    : isInProgress
+                    ? "bg-[#342339]/40 border-amber-500/30"
                     : "bg-[#342339]/20 border-white/5 opacity-80"
                 }`}
               >
@@ -83,6 +114,8 @@ export default function SellPage() {
                   className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
                     isDone
                       ? "bg-emerald-950/80 text-emerald-300 border border-emerald-600/40"
+                      : isInProgress
+                      ? "bg-amber-950/80 text-amber-300 border border-amber-600/40"
                       : "bg-[#241c27] text-[#b9adb6] border border-white/10"
                   }`}
                 >
@@ -102,10 +135,12 @@ export default function SellPage() {
                       className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                         isDone
                           ? "bg-emerald-950/80 text-emerald-300 border border-emerald-700/60"
-                          : "bg-amber-950/60 text-amber-300 border border-amber-800/40"
+                          : isInProgress
+                          ? "bg-amber-950/60 text-amber-300 border border-amber-800/40"
+                          : "bg-white/5 text-[#8f7d8c] border border-white/10"
                       }`}
                     >
-                      {isDone ? "Ready" : "Pending Backend"}
+                      {isDone ? "Completed" : isInProgress ? "Under Review" : "Pending"}
                     </span>
                   </div>
                   <p className="text-xs text-[#b9adb6] leading-relaxed">
@@ -117,14 +152,6 @@ export default function SellPage() {
           })}
         </div>
 
-        {/* Backend notice */}
-        <div className="p-4 rounded-2xl bg-[#342339]/60 border border-[#e59bc9]/30 flex items-start gap-3 text-xs text-[#b9adb6] leading-relaxed">
-          <Info className="size-4 text-[#e59bc9] shrink-0 mt-0.5" />
-          <span>
-            Seller verification will be enabled after the secure backend is connected. Identity documentation or sensitive personal uploads are not collected in this UI preview.
-          </span>
-        </div>
-
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2 border-t border-white/10">
           <Link
@@ -134,13 +161,13 @@ export default function SellPage() {
             Continue later
           </Link>
 
-          <button
-            type="button"
-            disabled
-            className="w-full sm:w-auto px-6 py-2.5 text-xs font-semibold bg-[#65486f]/50 border border-white/10 text-[#fffafa]/50 rounded-xl cursor-not-allowed text-center shadow-xs"
+          <Link
+            href={isVerified ? "/sell" : "/seller/verification"}
+            className="w-full sm:w-auto px-6 py-2.5 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] border border-white/10 text-[#fffafa] rounded-xl text-center shadow-xs transition-all flex items-center justify-center gap-1.5"
           >
-            Start verification
-          </button>
+            <span>{isVerified ? "Create Listing" : isPending ? "Check Status" : "Start Verification"}</span>
+            <ChevronRight className="size-4" />
+          </Link>
         </div>
       </div>
 

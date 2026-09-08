@@ -1,104 +1,311 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
   CheckCircle2,
   FileCheck,
-  UserCheck,
   Clock,
   Camera,
   Upload,
-  AlertCircle,
-  ArrowRight,
-  ArrowLeft,
-  Sparkles,
-  Award,
-  Check,
   ChevronRight,
   Info,
   Smartphone,
   Mail,
   User,
-  Image as ImageIcon,
+  X,
+  Loader2,
+  AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 import { SellerLayout } from "@/components/seller/seller-layout";
+import { getCurrentUserProfile, UserProfile } from "@/lib/supabase/auth";
 import {
-  DEMO_VERIFICATION_DATA,
-  type VerificationStatus,
-  type SellerVerificationData,
-} from "@/lib/seller/seller-data";
+  getMyVerificationRequest,
+  uploadVerificationDocument,
+  submitSellerVerification,
+  validateVerificationFile,
+} from "@/lib/supabase/verification";
+import type { DbSellerVerificationRequest, DbSellerType } from "@/lib/supabase/types";
 import { toast } from "sonner";
 
 export default function SellerVerificationPage() {
-  const [verification, setVerification] = useState<SellerVerificationData>(
-    DEMO_VERIFICATION_DATA
-  );
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [verification, setVerification] = useState<DbSellerVerificationRequest | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isResubmitting, setIsResubmitting] = useState(false);
+
+  // Stepper state
   const [currentStep, setCurrentStep] = useState(1);
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState("");
 
   // Form Fields
-  const [fullName, setFullName] = useState(verification.fullName);
-  const [dob, setDob] = useState(verification.dateOfBirth);
-  const [sellerType, setSellerType] = useState<"Individual" | "Business">(
-    verification.sellerType
-  );
-  const [cityAddress, setCityAddress] = useState(verification.cityAddress);
-  const [businessName, setBusinessName] = useState(
-    verification.businessName || ""
-  );
-  const [idType, setIdType] = useState(verification.idType);
-  const [hasFrontId, setHasFrontId] = useState(true);
-  const [hasBackId, setHasBackId] = useState(true);
-  const [hasSelfie, setHasSelfie] = useState(true);
+  const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState("");
+  const [sellerType, setSellerType] = useState<DbSellerType>("individual");
+  const [cityAddress, setCityAddress] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [idType, setIdType] = useState("Philippine National ID (PhilID)");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+
+  // Document Files
+  const [frontIdFile, setFrontIdFile] = useState<File | null>(null);
+  const [backIdFile, setBackIdFile] = useState<File | null>(null);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+
+  const frontInputRef = useRef<HTMLInputElement>(null);
+  const backInputRef = useRef<HTMLInputElement>(null);
+  const selfieInputRef = useRef<HTMLInputElement>(null);
 
   const steps = [
     { number: 1, title: "Basic Information", icon: User },
     { number: 2, title: "Government ID", icon: FileCheck },
-    { number: 3, title: "Face Verification", icon: Camera },
+    { number: 3, title: "Selfie Review", icon: Camera },
     { number: 4, title: "Contact Details", icon: Smartphone },
     { number: 5, title: "Review & Submit", icon: ShieldCheck },
   ];
 
-  const handleSubmitReview = () => {
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchData() {
+      try {
+        const [userProfile, req] = await Promise.all([
+          getCurrentUserProfile(),
+          getMyVerificationRequest(),
+        ]);
+
+        if (!isMounted) return;
+        setProfile(userProfile);
+        setVerification(req);
+
+        if (userProfile) {
+          if (userProfile.full_name) {
+            setFullName((prev) => prev || userProfile.full_name || "");
+          }
+          if (userProfile.location) {
+            setCityAddress((prev) => prev || userProfile.location || "");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load verification status:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    fetchData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [userProfile, req] = await Promise.all([
+        getCurrentUserProfile(),
+        getMyVerificationRequest(),
+      ]);
+
+      setProfile(userProfile);
+      setVerification(req);
+
+      if (userProfile) {
+        if (userProfile.full_name) {
+          setFullName((prev) => prev || userProfile.full_name || "");
+        }
+        if (userProfile.location) {
+          setCityAddress((prev) => prev || userProfile.location || "");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load verification status:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileSelect = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "front" | "back" | "selfie"
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const check = validateVerificationFile(file);
+    if (!check.valid) {
+      toast.error(check.error || "Invalid file");
+      return;
+    }
+
+    if (type === "front") setFrontIdFile(file);
+    if (type === "back") setBackIdFile(file);
+    if (type === "selfie") setSelfieFile(file);
+
+    toast.success(`Attached ${file.name}`);
+  };
+
+  const handleNextFromStep1 = () => {
+    if (!fullName.trim()) {
+      toast.error("Please enter your full legal name.");
+      return;
+    }
+    if (!dob) {
+      toast.error("Please provide your date of birth.");
+      return;
+    }
+    if (sellerType === "business" && !businessName.trim()) {
+      toast.error("Please provide your registered business name.");
+      return;
+    }
+    if (!cityAddress.trim()) {
+      toast.error("Please provide your permanent or residential address.");
+      return;
+    }
+    setCurrentStep(2);
+  };
+
+  const handleNextFromStep2 = () => {
+    if (!frontIdFile) {
+      toast.error("Please attach a clear photo of the front of your ID.");
+      return;
+    }
+    setCurrentStep(3);
+  };
+
+  const handleNextFromStep3 = () => {
+    if (!selfieFile) {
+      toast.error("Please attach your selfie document photo.");
+      return;
+    }
+    setCurrentStep(4);
+  };
+
+  const handleNextFromStep4 = () => {
+    if (!contactEmail.trim()) {
+      toast.error("Please provide a contact email address.");
+      return;
+    }
+    if (!contactPhone.trim()) {
+      toast.error("Please provide a contact phone number.");
+      return;
+    }
+    setCurrentStep(5);
+  };
+
+  const handleSubmitReview = async () => {
     if (!termsAgreed) {
       toast.error("Please confirm the information accuracy before submitting.");
       return;
     }
+    if (!frontIdFile || !selfieFile) {
+      toast.error("Required identity documents are missing.");
+      return;
+    }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      const now = new Date().toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
+    setUploadProgressText("Uploading front of ID...");
+
+    try {
+      // 1. Upload front ID
+      const frontRes = await uploadVerificationDocument(frontIdFile, "id-front");
+      if (!frontRes.path || frontRes.error) {
+        throw new Error(frontRes.error || "Failed to upload Front ID photo.");
+      }
+
+      // 2. Upload back ID if provided
+      let backPath: string | null = null;
+      if (backIdFile) {
+        setUploadProgressText("Uploading back of ID...");
+        const backRes = await uploadVerificationDocument(backIdFile, "id-back");
+        if (!backRes.path || backRes.error) {
+          throw new Error(backRes.error || "Failed to upload Back ID photo.");
+        }
+        backPath = backRes.path;
+      }
+
+      // 3. Upload selfie
+      setUploadProgressText("Uploading selfie image...");
+      const selfieRes = await uploadVerificationDocument(selfieFile, "selfie");
+      if (!selfieRes.path || selfieRes.error) {
+        throw new Error(selfieRes.error || "Failed to upload selfie photo.");
+      }
+
+      // 4. Submit verification RPC
+      setUploadProgressText("Finalizing verification request...");
+      const submitRes = await submitSellerVerification({
+        seller_type: sellerType,
+        full_name: fullName.trim(),
+        date_of_birth: dob,
+        city_address: cityAddress.trim(),
+        business_name: sellerType === "business" ? businessName.trim() : null,
+        id_type: idType,
+        id_front_path: frontRes.path,
+        id_back_path: backPath,
+        selfie_path: selfieRes.path,
+        contact_email: contactEmail.trim(),
+        contact_phone: contactPhone.trim(),
       });
-      setVerification((prev) => ({
-        ...prev,
-        status: "Under Review",
-        submittedAt: `${now} · Today`,
-      }));
-      toast.success("Verification documents submitted for review!");
-    }, 600);
+
+      if (!submitRes.success || !submitRes.data) {
+        throw new Error(submitRes.error || "Failed to submit verification request.");
+      }
+
+      toast.success("Seller verification submitted successfully!");
+      setVerification(submitRes.data);
+      setIsResubmitting(false);
+      await loadData();
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to submit verification.";
+      toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+      setUploadProgressText("");
+    }
   };
 
-  const handleStartFresh = () => {
-    setVerification((prev) => ({
-      ...prev,
-      status: "In Progress",
-    }));
+  const handleStartResubmission = () => {
+    setIsResubmitting(true);
     setCurrentStep(1);
-    toast.info("Starting seller verification flow.");
+    setTermsAgreed(false);
+    setFrontIdFile(null);
+    setBackIdFile(null);
+    setSelfieFile(null);
   };
+
+  const displayStatus = isResubmitting
+    ? "In Progress"
+    : verification?.status === "approved" || profile?.role === "seller"
+    ? "Verified"
+    : verification?.status === "pending"
+    ? "Under Review"
+    : verification?.status === "rejected"
+    ? "Rejected"
+    : "Not Started";
+
+  if (isLoading) {
+    return (
+      <SellerLayout
+        title="Seller Verification"
+        subtitle="Verify your identity to build trust and unlock seller privileges."
+        showAddProduct={profile?.role === "seller" || profile?.role === "admin"}
+      >
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-[#b9adb6]">
+          <Loader2 className="size-8 animate-spin text-[#e59bc9]" />
+          <p className="text-xs font-semibold">Loading verification status…</p>
+        </div>
+      </SellerLayout>
+    );
+  }
 
   return (
     <SellerLayout
       title="Seller Verification"
       subtitle="Verify your identity to build trust and unlock verified seller features."
-      showAddProduct={true}
+      showAddProduct={profile?.role === "seller" || profile?.role === "admin"}
     >
       <div className="max-w-4xl space-y-8">
         {/* ======================================================= */}
@@ -109,17 +316,21 @@ export default function SellerVerificationPage() {
             <div className="flex items-center gap-3.5">
               <div
                 className={`size-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-xl shrink-0 ${
-                  verification.status === "Verified"
+                  displayStatus === "Verified"
                     ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/40"
-                    : verification.status === "Under Review"
+                    : displayStatus === "Under Review"
                     ? "bg-amber-950/80 text-amber-300 border border-amber-500/40"
+                    : displayStatus === "Rejected"
+                    ? "bg-rose-950/80 text-rose-300 border border-rose-500/40"
                     : "bg-[#3d2743] text-[#e59bc9] border border-[#e59bc9]/30"
                 }`}
               >
-                {verification.status === "Verified" ? (
+                {displayStatus === "Verified" ? (
                   <CheckCircle2 className="size-6" />
-                ) : verification.status === "Under Review" ? (
+                ) : displayStatus === "Under Review" ? (
                   <Clock className="size-6 animate-pulse" />
+                ) : displayStatus === "Rejected" ? (
+                  <AlertTriangle className="size-6" />
                 ) : (
                   <ShieldCheck className="size-6" />
                 )}
@@ -132,58 +343,88 @@ export default function SellerVerificationPage() {
                   </span>
                   <span
                     className={`text-xs font-extrabold px-2.5 py-0.5 rounded-md ${
-                      verification.status === "Verified"
+                      displayStatus === "Verified"
                         ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/30"
-                        : verification.status === "Under Review"
+                        : displayStatus === "Under Review"
                         ? "bg-amber-950/80 text-amber-300 border border-amber-500/30"
+                        : displayStatus === "Rejected"
+                        ? "bg-rose-950/80 text-rose-300 border border-rose-500/30"
                         : "bg-[#45284f] text-[#e59bc9] border border-[#e59bc9]/30"
                     }`}
                   >
-                    {verification.status}
+                    {displayStatus}
                   </span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-[#fffafa] tracking-tight mt-0.5">
-                  {verification.status === "Verified"
+                  {displayStatus === "Verified"
                     ? "You are a Verified CircuitCart Seller"
-                    : verification.status === "Under Review"
+                    : displayStatus === "Under Review"
                     ? "Your Verification is Under Review"
-                    : "Complete Verification to Unlock Seller Perks"}
+                    : displayStatus === "Rejected"
+                    ? "Seller Verification Not Approved"
+                    : "Complete Verification to Start Selling"}
                 </h2>
               </div>
             </div>
 
-            {verification.status === "Verified" && (
+            {displayStatus === "Rejected" && !isResubmitting && (
               <button
                 type="button"
-                onClick={handleStartFresh}
-                className="text-xs font-semibold text-[#b9adb6] hover:text-white px-3 py-1.5 rounded-xl border border-white/10 hover:bg-white/5 transition-colors self-start sm:self-auto"
+                onClick={handleStartResubmission}
+                className="text-xs font-semibold text-[#e59bc9] hover:text-white px-4 py-2 rounded-xl border border-[#e59bc9]/40 hover:bg-[#65486f]/40 transition-colors flex items-center gap-2 self-start sm:self-auto"
               >
-                Update Verification Documents
+                <RotateCcw className="size-3.5" />
+                <span>Submit New Application</span>
               </button>
             )}
           </div>
 
           {/* Contextual Description */}
-          {verification.status === "Verified" && (
+          {displayStatus === "Verified" && (
             <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-xs text-emerald-300 space-y-1 leading-relaxed">
               <p className="font-bold flex items-center gap-1.5">
                 <CheckCircle2 className="size-4 text-emerald-400" />
-                <span>Verified on {verification.reviewedAt}</span>
+                <span>
+                  Verified{" "}
+                  {verification?.reviewed_at
+                    ? `on ${new Date(verification.reviewed_at).toLocaleDateString()}`
+                    : ""}
+                </span>
               </p>
               <p className="text-emerald-300/80">
-                Your shop is authenticated with biometric identity checks. The verified checkmark is active on all your product listings and public shop storefront.
+                Your account is verified with approved identity documentation. You have full access to create shops and publish hardware product listings.
               </p>
             </div>
           )}
 
-          {verification.status === "Under Review" && (
+          {displayStatus === "Under Review" && (
             <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/20 text-xs text-amber-300 space-y-1 leading-relaxed">
               <p className="font-bold flex items-center gap-1.5">
                 <Clock className="size-4 text-amber-400" />
-                <span>Submitted on {verification.submittedAt}</span>
+                <span>
+                  Submitted{" "}
+                  {verification?.submitted_at
+                    ? `on ${new Date(verification.submitted_at).toLocaleDateString()}`
+                    : ""}
+                </span>
               </p>
               <p className="text-amber-300/80">
-                Our verification team is reviewing your Philippine ID and facial selfie. Estimated review time is 1–3 business days. You will be notified once approved.
+                Our verification compliance team is reviewing your Philippine ID and selfie document. Review usually takes 1–3 business days. You will gain seller access as soon as approved.
+              </p>
+            </div>
+          )}
+
+          {displayStatus === "Rejected" && !isResubmitting && (
+            <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-500/20 text-xs text-rose-300 space-y-2 leading-relaxed">
+              <p className="font-bold flex items-center gap-1.5 text-rose-200">
+                <AlertTriangle className="size-4 text-rose-400" />
+                <span>Reason for Rejection</span>
+              </p>
+              <p className="text-rose-300/90 font-medium">
+                {verification?.rejection_reason || "Document details did not match required Philippine verification standards."}
+              </p>
+              <p className="text-[11px] text-rose-300/70 pt-1">
+                Please review the feedback above and click &ldquo;Submit New Application&rdquo; to provide updated documentation.
               </p>
             </div>
           )}
@@ -196,27 +437,27 @@ export default function SellerVerificationPage() {
                 <span>Verified Badge</span>
               </p>
               <p className="text-[11px] text-[#b9adb6] leading-snug">
-                Green verified checkmark displayed across all search results.
+                Verified status badge displayed across your shop and listings.
               </p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
               <p className="text-xs font-bold text-[#fffafa] flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-[#e59bc9]" />
-                <span>Filter Priority</span>
+                <Upload className="size-3.5 text-[#e59bc9]" />
+                <span>Hardware Publishing</span>
               </p>
               <p className="text-[11px] text-[#b9adb6] leading-snug">
-                Eligible for the &ldquo;Verified sellers only&rdquo; buyer filter.
+                Unlock real listing creation for laptops, GPUs, components, and electronics.
               </p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
               <p className="text-xs font-bold text-[#fffafa] flex items-center gap-1.5">
-                <Award className="size-3.5 text-amber-300" />
-                <span>Buyer Trust</span>
+                <CheckCircle2 className="size-3.5 text-amber-300" />
+                <span>Buyer Confidence</span>
               </p>
               <p className="text-[11px] text-[#b9adb6] leading-snug">
-                Verified sellers achieve 3.4x higher conversion on GPU & laptop sales.
+                Verified identity provides authentic assurance for local buyers.
               </p>
             </div>
           </div>
@@ -225,7 +466,7 @@ export default function SellerVerificationPage() {
         {/* ======================================================= */}
         {/* 2. 5-STEP VERIFICATION FLOW                             */}
         {/* ======================================================= */}
-        {verification.status !== "Under Review" && (
+        {(displayStatus === "Not Started" || isResubmitting) && (
           <div className="bg-[#1e1322]/85 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-8">
             {/* Step Stepper Header */}
             <div className="w-full overflow-x-auto scrollbar-none no-scrollbar pb-1">
@@ -238,13 +479,17 @@ export default function SellerVerificationPage() {
                     <React.Fragment key={st.number}>
                       <button
                         type="button"
-                        onClick={() => setCurrentStep(st.number)}
-                        className={`flex items-center gap-2 group cursor-pointer transition-all shrink-0 ${
+                        onClick={() => {
+                          if (st.number < currentStep) {
+                            setCurrentStep(st.number);
+                          }
+                        }}
+                        className={`flex items-center gap-2 group transition-all shrink-0 ${
                           isCurrent
                             ? "text-[#fffafa]"
                             : isDone
-                            ? "text-emerald-400"
-                            : "text-[#8f7d8c]"
+                            ? "text-emerald-400 cursor-pointer"
+                            : "text-[#8f7d8c] cursor-default"
                         }`}
                       >
                         <div
@@ -256,7 +501,7 @@ export default function SellerVerificationPage() {
                               : "bg-white/5 border border-white/10"
                           }`}
                         >
-                          {isDone ? <Check className="size-3.5" /> : st.number}
+                          {isDone ? <CheckCircle2 className="size-3.5" /> : st.number}
                         </div>
                         <span className="text-xs font-semibold whitespace-nowrap">
                           {st.title}
@@ -297,9 +542,10 @@ export default function SellerVerificationPage() {
                     </label>
                     <input
                       type="text"
+                      required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Mark Anthony Miguma"
+                      placeholder="e.g. Juan Dela Cruz"
                       className="w-full h-10 px-3.5 rounded-xl bg-[#342339]/50 border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9]"
                     />
                   </div>
@@ -310,6 +556,7 @@ export default function SellerVerificationPage() {
                     </label>
                     <input
                       type="date"
+                      required
                       value={dob}
                       onChange={(e) => setDob(e.target.value)}
                       className="w-full h-10 px-3.5 rounded-xl bg-[#342339]/50 border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9]"
@@ -325,46 +572,47 @@ export default function SellerVerificationPage() {
                     <select
                       value={sellerType}
                       onChange={(e) =>
-                        setSellerType(e.target.value as "Individual" | "Business")
+                        setSellerType(e.target.value as DbSellerType)
                       }
                       className="w-full h-10 px-3 rounded-xl bg-[#342339] border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9]"
                     >
-                      <option value="Individual">Individual Hardware Seller</option>
-                      <option value="Business">Registered Business / DTI Store</option>
+                      <option value="individual">Individual Hardware Seller</option>
+                      <option value="business">Registered Business / Store</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="text-xs font-semibold text-[#fffafa] block mb-1.5">
-                      Business / Shop Trade Name (Optional)
+                      Business / Shop Trade Name {sellerType === "business" && <span className="text-[#e59bc9]">*</span>}
                     </label>
                     <input
                       type="text"
                       value={businessName}
                       onChange={(e) => setBusinessName(e.target.value)}
-                      placeholder="e.g. TechVault Cebu Hardware"
-                      className="w-full h-10 px-3.5 rounded-xl bg-[#342339]/50 border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9]"
+                      placeholder={sellerType === "business" ? "e.g. TechVault Cebu Hardware" : "Optional for individual sellers"}
+                      className="w-full h-10 px-3.5 rounded-xl bg-[#342339]/50 border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9]"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-[#fffafa] block mb-1.5">
-                    Permanent / Residential Address
+                    Permanent / Residential Address <span className="text-[#e59bc9]">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={cityAddress}
                     onChange={(e) => setCityAddress(e.target.value)}
-                    placeholder="e.g. Gov. Cuenco Ave, Banilad, Cebu City 6000"
-                    className="w-full h-10 px-3.5 rounded-xl bg-[#342339]/50 border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9]"
+                    placeholder="e.g. Banilad, Cebu City 6000"
+                    className="w-full h-10 px-3.5 rounded-xl bg-[#342339]/50 border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9]"
                   />
                 </div>
 
                 <div className="flex justify-end pt-3">
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(2)}
+                    onClick={handleNextFromStep1}
                     className="px-6 py-2.5 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                   >
                     <span>Continue to Government ID</span>
@@ -382,7 +630,7 @@ export default function SellerVerificationPage() {
                     Step 2: Government-Issued Identity Document
                   </h3>
                   <p className="text-xs text-[#b9adb6] mt-0.5">
-                    Select your Philippine ID type and upload clear front & back photos.
+                    Select your Philippine ID type and attach clear photos.
                   </p>
                 </div>
 
@@ -404,7 +652,23 @@ export default function SellerVerificationPage() {
                   </select>
                 </div>
 
-                {/* Front & Back Upload Previews */}
+                {/* Hidden File Inputs */}
+                <input
+                  ref={frontInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, "front")}
+                />
+                <input
+                  ref={backInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, "back")}
+                />
+
+                {/* Front & Back Upload Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 rounded-xl bg-white/[0.02] border border-dashed border-white/20 text-center space-y-3">
                     <div className="size-10 rounded-xl bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
@@ -412,22 +676,32 @@ export default function SellerVerificationPage() {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-[#fffafa]">
-                        Front of ID Card
+                        Front of ID Card <span className="text-[#e59bc9]">*</span>
                       </p>
-                      <p className="text-[11px] text-[#b9adb6]">
-                        {hasFrontId ? "philid_front_scan.png (Attached)" : "PNG, JPG up to 10MB"}
+                      <p className="text-[11px] text-[#b9adb6] truncate px-2">
+                        {frontIdFile ? `${frontIdFile.name} (${(frontIdFile.size / 1024 / 1024).toFixed(2)} MB)` : "JPG, PNG, or WebP up to 5MB"}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHasFrontId(true);
-                        toast.success("Front of ID attached.");
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition-colors"
-                    >
-                      {hasFrontId ? "Replace Photo" : "Upload Front Photo"}
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => frontInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Upload className="size-3.5" />
+                        <span>{frontIdFile ? "Replace File" : "Upload Front Photo"}</span>
+                      </button>
+                      {frontIdFile && (
+                        <button
+                          type="button"
+                          onClick={() => setFrontIdFile(null)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-950/60 text-rose-300"
+                          title="Remove file"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="p-4 rounded-xl bg-white/[0.02] border border-dashed border-white/20 text-center space-y-3">
@@ -436,22 +710,32 @@ export default function SellerVerificationPage() {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-[#fffafa]">
-                        Back of ID Card
+                        Back of ID Card (Optional for Passports)
                       </p>
-                      <p className="text-[11px] text-[#b9adb6]">
-                        {hasBackId ? "philid_back_scan.png (Attached)" : "PNG, JPG up to 10MB"}
+                      <p className="text-[11px] text-[#b9adb6] truncate px-2">
+                        {backIdFile ? `${backIdFile.name} (${(backIdFile.size / 1024 / 1024).toFixed(2)} MB)` : "JPG, PNG, or WebP up to 5MB"}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHasBackId(true);
-                        toast.success("Back of ID attached.");
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-white transition-colors"
-                    >
-                      {hasBackId ? "Replace Photo" : "Upload Back Photo"}
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => backInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Upload className="size-3.5" />
+                        <span>{backIdFile ? "Replace File" : "Upload Back Photo"}</span>
+                      </button>
+                      {backIdFile && (
+                        <button
+                          type="button"
+                          onClick={() => setBackIdFile(null)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-950/60 text-rose-300"
+                          title="Remove file"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -462,7 +746,7 @@ export default function SellerVerificationPage() {
                     <span>Upload Requirements</span>
                   </p>
                   <p className="text-[11px] leading-relaxed">
-                    Ensure all four corners are visible, text is fully readable without glare or flash reflection, and the document is valid and unexpired.
+                    Ensure all four corners are visible, text is legible without glare or flash reflection, and the document is valid and unexpired.
                   </p>
                 </div>
 
@@ -476,27 +760,35 @@ export default function SellerVerificationPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(3)}
+                    onClick={handleNextFromStep2}
                     className="px-6 py-2.5 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                   >
-                    <span>Continue to Face Verification</span>
+                    <span>Continue to Selfie Review</span>
                     <ChevronRight className="size-4" />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* STEP 3: Selfie / Face Verification */}
+            {/* STEP 3: Selfie Verification */}
             {currentStep === 3 && (
               <div className="space-y-5 animate-in fade-in duration-200">
                 <div className="border-b border-white/[0.08] pb-3">
                   <h3 className="text-base font-bold text-[#fffafa]">
-                    Step 3: Biometric Face / Selfie Verification
+                    Step 3: Selfie Photo Review
                   </h3>
                   <p className="text-xs text-[#b9adb6] mt-0.5">
-                    Confirm you are the legitimate owner of the submitted government document.
+                    Attach a clear selfie photo to verify document ownership.
                   </p>
                 </div>
+
+                <input
+                  ref={selfieInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, "selfie")}
+                />
 
                 <div className="max-w-md mx-auto p-6 rounded-2xl bg-white/[0.02] border border-dashed border-white/20 text-center space-y-4">
                   <div className="size-16 rounded-full bg-[#342339] border border-[#e59bc9]/30 flex items-center justify-center mx-auto text-[#e59bc9]">
@@ -504,25 +796,37 @@ export default function SellerVerificationPage() {
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-[#fffafa]">
-                      Take Live Facial Selfie
+                      Selfie Document Photo
                     </h4>
                     <p className="text-xs text-[#b9adb6] mt-1 leading-relaxed">
-                      Position your face inside the frame with neutral lighting. Remove hats, masks, or tinted glasses.
+                      Position your face inside clear neutral lighting without hats, sunglasses, or face masks.
                     </p>
+                    {selfieFile && (
+                      <p className="text-xs text-emerald-400 font-semibold mt-2">
+                        Attached: {selfieFile.name} ({(selfieFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-center gap-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setHasSelfie(true);
-                        toast.success("Selfie captured successfully.");
-                      }}
+                      onClick={() => selfieInputRef.current?.click()}
                       className="px-5 py-2.5 rounded-xl bg-[#65486f] hover:bg-[#7a5985] text-xs font-bold text-white transition-colors cursor-pointer flex items-center gap-1.5"
                     >
-                      <Camera className="size-3.5" />
-                      <span>{hasSelfie ? "Retake Selfie" : "Capture Selfie"}</span>
+                      <Upload className="size-3.5" />
+                      <span>{selfieFile ? "Replace Selfie Photo" : "Upload Selfie Photo"}</span>
                     </button>
+                    {selfieFile && (
+                      <button
+                        type="button"
+                        onClick={() => setSelfieFile(null)}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-rose-950/60 text-rose-300"
+                        title="Remove selfie"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -536,7 +840,7 @@ export default function SellerVerificationPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(4)}
+                    onClick={handleNextFromStep3}
                     className="px-6 py-2.5 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                   >
                     <span>Continue to Contact Details</span>
@@ -551,52 +855,46 @@ export default function SellerVerificationPage() {
               <div className="space-y-5 animate-in fade-in duration-200">
                 <div className="border-b border-white/[0.08] pb-3">
                   <h3 className="text-base font-bold text-[#fffafa]">
-                    Step 4: Contact Authentication
+                    Step 4: Contact Details
                   </h3>
                   <p className="text-xs text-[#b9adb6] mt-0.5">
-                    Ensure your account contact channels are reachable for order notifications and escrow releases.
+                    Provide active contact information for verification notifications and order inquiries.
                   </p>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.08] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="size-9 rounded-lg bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 flex items-center justify-center">
-                        <Mail className="size-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-[#fffafa]">
-                          {verification.email}
-                        </p>
-                        <p className="text-[11px] text-[#b9adb6]">
-                          Primary Seller Email
-                        </p>
-                      </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-[#fffafa] block mb-1.5">
+                      Contact Email <span className="text-[#e59bc9]">*</span>
+                    </label>
+                    <div className="relative">
+                      <Mail className="size-4 text-[#b9adb6] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        required
+                        value={contactEmail}
+                        onChange={(e) => setContactEmail(e.target.value)}
+                        placeholder="seller@example.com"
+                        className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-[#342339]/50 border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9]"
+                      />
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/30">
-                      <Check className="size-3" />
-                      Verified
-                    </span>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.08] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="size-9 rounded-lg bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 flex items-center justify-center">
-                        <Smartphone className="size-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-[#fffafa]">
-                          {verification.phone}
-                        </p>
-                        <p className="text-[11px] text-[#b9adb6]">
-                          Philippine Mobile Number (+63)
-                        </p>
-                      </div>
+                  <div>
+                    <label className="text-xs font-semibold text-[#fffafa] block mb-1.5">
+                      Contact Phone Number (Philippine Mobile) <span className="text-[#e59bc9]">*</span>
+                    </label>
+                    <div className="relative">
+                      <Smartphone className="size-4 text-[#b9adb6] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        required
+                        value={contactPhone}
+                        onChange={(e) => setContactPhone(e.target.value)}
+                        placeholder="0917 123 4567 or +63 917 123 4567"
+                        className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-[#342339]/50 border border-white/10 text-xs sm:text-sm font-medium text-[#fffafa] outline-hidden focus:border-[#e59bc9]"
+                      />
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/30">
-                      <Check className="size-3" />
-                      Verified
-                    </span>
                   </div>
                 </div>
 
@@ -610,7 +908,7 @@ export default function SellerVerificationPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(5)}
+                    onClick={handleNextFromStep4}
                     className="px-6 py-2.5 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                   >
                     <span>Review & Submit</span>
@@ -628,7 +926,7 @@ export default function SellerVerificationPage() {
                     Step 5: Review & Submit for Verification
                   </h3>
                   <p className="text-xs text-[#b9adb6] mt-0.5">
-                    Review your submitted details before sending to CircuitCart compliance.
+                    Review your details before submitting to compliance.
                   </p>
                 </div>
 
@@ -641,7 +939,10 @@ export default function SellerVerificationPage() {
                       <p className="font-bold text-[#fffafa] text-sm mt-0.5">
                         {fullName} ({dob})
                       </p>
-                      <p className="text-[11px] text-[#b9adb6]">{cityAddress}</p>
+                      <p className="text-[11px] text-[#b9adb6]">
+                        {sellerType === "business" ? `Business: ${businessName} · ` : ""}
+                        {cityAddress}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -661,7 +962,7 @@ export default function SellerVerificationPage() {
                         {idType}
                       </p>
                       <p className="text-[11px] text-emerald-400">
-                        Front & Back Photos Attached ✓
+                        Front Photo Attached {backIdFile ? "· Back Photo Attached" : ""}
                       </p>
                     </div>
                     <button
@@ -676,15 +977,33 @@ export default function SellerVerificationPage() {
                   <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
                     <div>
                       <span className="text-[#8f7d8c] block text-[11px]">
-                        Biometric Face Match
+                        Selfie Document
                       </span>
                       <p className="font-bold text-emerald-400 text-sm mt-0.5">
-                        Live Facial Selfie Ready ✓
+                        Selfie Photo Attached: {selfieFile?.name}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setCurrentStep(3)}
+                      className="text-xs font-semibold text-[#e59bc9] hover:underline"
+                    >
+                      Edit
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
+                    <div>
+                      <span className="text-[#8f7d8c] block text-[11px]">
+                        Contact Information
+                      </span>
+                      <p className="font-bold text-[#fffafa] text-sm mt-0.5">
+                        {contactEmail} · {contactPhone}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(4)}
                       className="text-xs font-semibold text-[#e59bc9] hover:underline"
                     >
                       Edit
@@ -723,8 +1042,17 @@ export default function SellerVerificationPage() {
                         : "bg-white/10 text-[#8f7d8c] cursor-not-allowed"
                     }`}
                   >
-                    <ShieldCheck className="size-4 text-[#e59bc9]" />
-                    <span>{isSubmitting ? "Submitting..." : "Submit for Verification"}</span>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin text-white" />
+                        <span>{uploadProgressText || "Submitting..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="size-4 text-[#e59bc9]" />
+                        <span>Submit for Verification</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -732,14 +1060,14 @@ export default function SellerVerificationPage() {
           </div>
         )}
 
-        {/* If Under Review, display return to dashboard button */}
-        {verification.status === "Under Review" && (
+        {/* If Under Review or Verified, provide return navigation */}
+        {displayStatus === "Under Review" && (
           <div className="flex justify-center pt-2">
             <Link
-              href="/seller"
+              href="/marketplace"
               className="px-6 py-3 rounded-xl bg-[#65486f] text-white hover:bg-[#7a5985] text-xs sm:text-sm font-bold shadow-lg transition-all"
             >
-              Return to Seller Dashboard
+              Browse Marketplace
             </Link>
           </div>
         )}

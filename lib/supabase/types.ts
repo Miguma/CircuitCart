@@ -188,4 +188,48 @@ export interface ConversationWithDetails extends DbConversation {
   unread_count?: number;
 }
 
+export type DbSellerVerificationStatus = "pending" | "approved" | "rejected";
+export type DbSellerType = "individual" | "business";
+
+export interface DbSellerVerificationRequest {
+  id: string;
+  user_id: string;
+  status: DbSellerVerificationStatus;
+  seller_type: DbSellerType;
+  full_name: string;
+  date_of_birth: string;
+  city_address: string;
+  business_name: string | null;
+  id_type: string;
+  id_front_path: string;
+  id_back_path: string | null;
+  selfie_path: string;
+  contact_email: string;
+  contact_phone: string;
+  submitted_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SellerVerificationWithProfile extends DbSellerVerificationRequest {
+  profiles?: DbProfile | null;
+}
+
+export interface SubmitSellerVerificationInput {
+  seller_type: DbSellerType;
+  full_name: string;
+  date_of_birth: string;
+  city_address: string;
+  business_name?: string | null;
+  id_type: string;
+  id_front_path: string;
+  id_back_path?: string | null;
+  selfie_path: string;
+  contact_email: string;
+  contact_phone: string;
+}
+
 
