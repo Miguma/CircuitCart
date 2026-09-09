@@ -7,6 +7,8 @@ import {
   Calendar,
   Truck,
   Loader2,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { getAdminOrders } from "@/lib/supabase/admin";
 import type { DbOrder, DbOrderStatus } from "@/lib/supabase/types";
@@ -17,8 +19,23 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<DbOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | DbOrderStatus>("all");
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getAdminOrders();
+      setOrders(data);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to load orders";
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -28,8 +45,11 @@ export default function AdminOrdersPage() {
         if (isMounted) {
           setOrders(data);
         }
-      } catch (err) {
-        console.error("Failed to load orders:", err);
+      } catch (err: unknown) {
+        if (isMounted) {
+          const errorMsg = err instanceof Error ? err.message : "Failed to load orders";
+          setError(errorMsg);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -60,6 +80,17 @@ export default function AdminOrdersPage() {
       <AdminPageHeader
         title="Order Management"
         subtitle="Review marketplace transactions and fulfillment status."
+        actions={
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#342339] hover:bg-[#45304b] border border-white/10 text-xs font-semibold text-[#fffafa] transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`size-3.5 text-[#e59bc9] ${loading ? "animate-spin" : ""}`} />
+            <span>Refresh</span>
+          </button>
+        }
       />
 
       {/* Filters Bar */}
@@ -108,6 +139,20 @@ export default function AdminOrdersPage() {
           <div className="py-24 flex flex-col items-center justify-center gap-3 text-[#b9adb6]">
             <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
             <p className="text-xs">Loading orders...</p>
+          </div>
+        ) : error ? (
+          <div className="p-12 text-center space-y-3">
+            <AlertTriangle className="size-10 text-rose-400 mx-auto" />
+            <h3 className="text-sm font-bold text-rose-200">Database / Authorization Error</h3>
+            <p className="text-xs text-[#b9adb6] max-w-md mx-auto">{error}</p>
+            <button
+              type="button"
+              onClick={loadData}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#65486f] text-white text-xs font-semibold"
+            >
+              <RefreshCw className="size-3" />
+              <span>Retry</span>
+            </button>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="p-12">

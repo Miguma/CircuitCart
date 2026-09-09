@@ -42,16 +42,17 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+  const normalizedPath = pathname.toLowerCase();
 
   // 1. Routes requiring authentication (any valid role)
   const isAuthRequired =
-    pathname.startsWith("/marketplace/profile") ||
-    pathname.startsWith("/marketplace/orders") ||
-    pathname.startsWith("/marketplace/settings") ||
-    pathname === "/sell" ||
-    pathname.startsWith("/sell/") ||
-    pathname.startsWith("/seller") ||
-    pathname.startsWith("/admin");
+    normalizedPath.startsWith("/marketplace/profile") ||
+    normalizedPath.startsWith("/marketplace/orders") ||
+    normalizedPath.startsWith("/marketplace/settings") ||
+    normalizedPath === "/sell" ||
+    normalizedPath.startsWith("/sell/") ||
+    normalizedPath.startsWith("/seller") ||
+    normalizedPath.startsWith("/admin");
 
   // If user is not authenticated and attempts to visit an auth-required route
   if (!user && isAuthRequired) {
@@ -64,12 +65,12 @@ export async function updateSession(request: NextRequest) {
   // 2. Protected seller management routes (excludes /seller/verification)
   // /seller/verification is explicitly whitelisted for authenticated buyers/sellers/admins
   const isSellerManagementRoute =
-    pathname.startsWith("/seller") &&
-    pathname !== "/seller/verification" &&
-    !pathname.startsWith("/seller/verification/");
+    normalizedPath.startsWith("/seller") &&
+    normalizedPath !== "/seller/verification" &&
+    !normalizedPath.startsWith("/seller/verification/");
 
   // 3. Protected admin routes
-  const isAdminRoute = pathname.startsWith("/admin");
+  const isAdminRoute = normalizedPath.startsWith("/admin");
 
   // If user is authenticated and attempts to visit role-restricted routes,
   // verify role STRICTLY from public.profiles table (do NOT trust user_metadata)
@@ -105,11 +106,15 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Redirect authenticated users away from /login and /register if already logged in
-  if (user && (pathname === "/login" || pathname === "/register")) {
-    const redirectTo = request.nextUrl.searchParams.get("redirectTo") || "/marketplace";
+  if (user && (normalizedPath === "/login" || normalizedPath === "/register")) {
+    const redirectTo =
+      request.nextUrl.searchParams.get("redirectTo") ||
+      request.nextUrl.searchParams.get("redirect") ||
+      "/marketplace";
     const url = request.nextUrl.clone();
     url.pathname = redirectTo;
     url.searchParams.delete("redirectTo");
+    url.searchParams.delete("redirect");
     return NextResponse.redirect(url);
   }
 

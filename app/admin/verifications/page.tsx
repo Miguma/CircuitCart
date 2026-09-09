@@ -16,6 +16,7 @@ import {
   Phone,
   MapPin,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import {
   getPendingVerificationRequests,
@@ -33,6 +34,7 @@ export default function AdminVerificationsPage() {
 
   const [requests, setRequests] = useState<SellerVerificationWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<
     "pending" | "approved" | "rejected" | "all"
   >("pending");
@@ -48,8 +50,17 @@ export default function AdminVerificationsPage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   const fetchVerifications = async () => {
-    const data = await getPendingVerificationRequests();
-    setRequests(data);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await getPendingVerificationRequests();
+      setRequests(data);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to load verification requests";
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -60,8 +71,11 @@ export default function AdminVerificationsPage() {
         if (isMounted) {
           setRequests(data);
         }
-      } catch (err) {
-        console.error("Failed to load admin verification data:", err);
+      } catch (err: unknown) {
+        if (isMounted) {
+          const errorMsg = err instanceof Error ? err.message : "Failed to load verification requests";
+          setError(errorMsg);
+        }
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -168,26 +182,37 @@ export default function AdminVerificationsPage() {
         title="Seller Verifications"
         subtitle="Review government IDs and business credentials for seller approval."
         actions={
-          <div className="flex items-center gap-1.5 bg-[#342339] p-1 rounded-xl border border-white/10">
-            {(["pending", "approved", "rejected", "all"] as const).map(
-              (filter) => (
-                <button
-                  key={filter}
-                  type="button"
-                  onClick={() => setSelectedFilter(filter)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
-                    selectedFilter === filter
-                      ? "bg-[#65486f] text-white shadow-xs"
-                      : "text-[#b9adb6] hover:text-white"
-                  }`}
-                >
-                  {filter}{" "}
-                  {filter === "pending"
-                    ? `(${requests.filter((r) => r.status === "pending").length})`
-                    : ""}
-                </button>
-              )
-            )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={fetchVerifications}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#342339] hover:bg-[#45304b] border border-white/10 text-xs font-semibold text-[#fffafa] transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw className={`size-3.5 text-[#e59bc9] ${isLoading ? "animate-spin" : ""}`} />
+              <span>Refresh</span>
+            </button>
+            <div className="flex items-center gap-1.5 bg-[#342339] p-1 rounded-xl border border-white/10">
+              {(["pending", "approved", "rejected", "all"] as const).map(
+                (filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setSelectedFilter(filter)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+                      selectedFilter === filter
+                        ? "bg-[#65486f] text-white shadow-xs"
+                        : "text-[#b9adb6] hover:text-white"
+                    }`}
+                  >
+                    {filter}{" "}
+                    {filter === "pending"
+                      ? `(${requests.filter((r) => r.status === "pending").length})`
+                      : ""}
+                  </button>
+                )
+              )}
+            </div>
           </div>
         }
       />
@@ -196,6 +221,20 @@ export default function AdminVerificationsPage() {
         <div className="py-24 flex flex-col items-center justify-center gap-3 text-[#b9adb6]">
           <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
           <p className="text-xs">Loading verification requests...</p>
+        </div>
+      ) : error ? (
+        <div className="p-12 text-center space-y-3 rounded-2xl bg-[#342339]/30 border border-white/10">
+          <AlertTriangle className="size-10 text-rose-400 mx-auto" />
+          <h3 className="text-sm font-bold text-rose-200">Database / Authorization Error</h3>
+          <p className="text-xs text-[#b9adb6] max-w-md mx-auto">{error}</p>
+          <button
+            type="button"
+            onClick={fetchVerifications}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#65486f] text-white text-xs font-semibold"
+          >
+            <RefreshCw className="size-3" />
+            <span>Retry</span>
+          </button>
         </div>
       ) : filteredRequests.length === 0 ? (
         <AdminEmptyState

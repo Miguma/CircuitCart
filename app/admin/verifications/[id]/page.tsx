@@ -17,6 +17,7 @@ import {
   Phone,
   MapPin,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import {
   getAdminVerificationById,
@@ -40,6 +41,7 @@ export default function AdminVerificationDetailPage({
 
   const [request, setRequest] = useState<SellerVerificationWithProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Rejection modal
   const [rejectingOpen, setRejectingOpen] = useState(false);
@@ -52,8 +54,17 @@ export default function AdminVerificationDetailPage({
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   const fetchDetail = async (requestId: string) => {
-    const data = await getAdminVerificationById(requestId);
-    setRequest(data);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await getAdminVerificationById(requestId);
+      setRequest(data);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to load verification detail";
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -64,8 +75,11 @@ export default function AdminVerificationDetailPage({
         if (isMounted) {
           setRequest(data);
         }
-      } catch (err) {
-        console.error("Failed to load verification detail:", err);
+      } catch (err: unknown) {
+        if (isMounted) {
+          const errorMsg = err instanceof Error ? err.message : "Failed to load verification detail";
+          setError(errorMsg);
+        }
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -160,6 +174,30 @@ export default function AdminVerificationDetailPage({
       <div className="py-24 flex flex-col items-center justify-center gap-3 text-[#b9adb6]">
         <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
         <p className="text-xs">Loading application details...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <AdminPageHeader
+          title="Verification Request"
+          backHref="/admin/verifications"
+        />
+        <div className="p-12 text-center space-y-3 rounded-2xl bg-[#342339]/30 border border-white/10">
+          <AlertTriangle className="size-10 text-rose-400 mx-auto" />
+          <h3 className="text-sm font-bold text-rose-200">Database / Authorization Error</h3>
+          <p className="text-xs text-[#b9adb6] max-w-md mx-auto">{error}</p>
+          <button
+            type="button"
+            onClick={() => fetchDetail(id)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#65486f] text-white text-xs font-semibold"
+          >
+            <RefreshCw className="size-3" />
+            <span>Retry</span>
+          </button>
+        </div>
       </div>
     );
   }

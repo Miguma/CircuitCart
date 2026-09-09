@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Eye,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import {
   getAdminDashboardStats,
@@ -49,40 +50,51 @@ export default function AdminDashboardPage() {
   const [recentProducts, setRecentProducts] = useState<ProductWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [verificationsError, setVerificationsError] = useState<string | null>(null);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [productsError, setProductsError] = useState<string | null>(null);
 
   const fetchDashboardData = async () => {
-    const [statsData, verificationsData, usersData, productsData] =
-      await Promise.all([
+    setVerificationsError(null);
+    setUsersError(null);
+    setProductsError(null);
+
+    const [statsResult, verificationsResult, usersResult, productsResult] =
+      await Promise.allSettled([
         getAdminDashboardStats(),
         getPendingVerificationRequests(),
         getAdminUsers(),
         getAdminProducts(),
       ]);
 
-    setStats(statsData);
-    setRecentVerifications(verificationsData.slice(0, 5));
-    setRecentUsers(usersData.slice(0, 5));
-    setRecentProducts(productsData.slice(0, 5));
+    if (statsResult.status === "fulfilled") {
+      setStats(statsResult.value);
+    }
+
+    if (verificationsResult.status === "fulfilled") {
+      setRecentVerifications(verificationsResult.value.slice(0, 5));
+    } else {
+      setVerificationsError(verificationsResult.reason?.message || "Failed to load verification queue");
+    }
+
+    if (usersResult.status === "fulfilled") {
+      setRecentUsers(usersResult.value.slice(0, 5));
+    } else {
+      setUsersError(usersResult.reason?.message || "Failed to load user directory");
+    }
+
+    if (productsResult.status === "fulfilled") {
+      setRecentProducts(productsResult.value.slice(0, 5));
+    } else {
+      setProductsError(productsResult.reason?.message || "Failed to load marketplace products");
+    }
   };
 
   useEffect(() => {
     let isMounted = true;
     async function init() {
       try {
-        const [statsData, verificationsData, usersData, productsData] =
-          await Promise.all([
-            getAdminDashboardStats(),
-            getPendingVerificationRequests(),
-            getAdminUsers(),
-            getAdminProducts(),
-          ]);
-
-        if (isMounted) {
-          setStats(statsData);
-          setRecentVerifications(verificationsData.slice(0, 5));
-          setRecentUsers(usersData.slice(0, 5));
-          setRecentProducts(productsData.slice(0, 5));
-        }
+        await fetchDashboardData();
       } catch (err) {
         console.error("Failed to load admin dashboard:", err);
       } finally {
@@ -202,6 +214,18 @@ export default function AdminDashboardPage() {
             <div className="py-12 flex justify-center text-xs text-[#b9adb6]">
               Loading verification queue...
             </div>
+          ) : verificationsError ? (
+            <div className="p-6 rounded-xl bg-rose-950/40 border border-rose-500/20 text-center space-y-2">
+              <AlertTriangle className="size-6 text-rose-400 mx-auto" />
+              <p className="text-xs font-semibold text-rose-200">{verificationsError}</p>
+              <button
+                type="button"
+                onClick={handleManualRefresh}
+                className="text-[11px] font-bold text-[#e59bc9] hover:underline"
+              >
+                Retry
+              </button>
+            </div>
           ) : recentVerifications.length === 0 ? (
             <AdminEmptyState
               icon={CheckCircle2}
@@ -274,6 +298,18 @@ export default function AdminDashboardPage() {
             <div className="py-12 flex justify-center text-xs text-[#b9adb6]">
               Loading users...
             </div>
+          ) : usersError ? (
+            <div className="p-6 rounded-xl bg-rose-950/40 border border-rose-500/20 text-center space-y-2">
+              <AlertTriangle className="size-6 text-rose-400 mx-auto" />
+              <p className="text-xs font-semibold text-rose-200">{usersError}</p>
+              <button
+                type="button"
+                onClick={handleManualRefresh}
+                className="text-[11px] font-bold text-[#e59bc9] hover:underline"
+              >
+                Retry
+              </button>
+            </div>
           ) : recentUsers.length === 0 ? (
             <AdminEmptyState
               title="No Users"
@@ -326,6 +362,18 @@ export default function AdminDashboardPage() {
         {loading ? (
           <div className="py-12 flex justify-center text-xs text-[#b9adb6]">
             Loading marketplace products...
+          </div>
+        ) : productsError ? (
+          <div className="p-6 rounded-xl bg-rose-950/40 border border-rose-500/20 text-center space-y-2">
+            <AlertTriangle className="size-6 text-rose-400 mx-auto" />
+            <p className="text-xs font-semibold text-rose-200">{productsError}</p>
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              className="text-[11px] font-bold text-[#e59bc9] hover:underline"
+            >
+              Retry
+            </button>
           </div>
         ) : recentProducts.length === 0 ? (
           <AdminEmptyState

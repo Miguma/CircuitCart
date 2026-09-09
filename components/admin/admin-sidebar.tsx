@@ -122,7 +122,7 @@ export function AdminSidebar({ profile, onNavigate }: AdminSidebarProps) {
             <div className="flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-emerald-400" />
               <span className="text-[10px] text-[#e59bc9] font-bold uppercase">
-                {profile?.role === "admin" ? "Super Admin" : "Staff"}
+                Administrator
               </span>
             </div>
           </div>

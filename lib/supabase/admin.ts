@@ -16,11 +16,12 @@ export function isAdmin(profile: DbProfile | null): boolean {
 }
 
 /**
- * Superadmin permission check
- * Extensible for future role hierarchy without modifying database constraints today
+ * Future placeholder for superadmin role check.
+ * Currently, CircuitCart does not use a distinct superadmin role; 'admin' is the highest role.
+ * Always returns false to avoid granting unverified elevated privileges.
  */
-export function isSuperAdmin(profile: DbProfile | null): boolean {
-  return profile?.role === "admin";
+export function isSuperAdmin(_profile: DbProfile | null): boolean {
+  return false;
 }
 
 export interface AdminDashboardStats {
@@ -34,19 +35,20 @@ export interface AdminDashboardStats {
 
 /**
  * Fetch high-level statistics for the admin dashboard
- * Only returns real counts; returns null for metrics that cannot be safely retrieved
+ * Inspects each individual query's error object explicitly.
+ * Returns null (not 0) for metrics that fail to load or encounter database/RLS errors.
  */
 export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   const supabase = createClient();
 
   try {
     const [
-      { count: usersCount },
-      { count: sellersCount },
-      { count: productsCount },
-      { count: shopsCount },
-      { count: verificationsCount },
-      { count: ordersCount },
+      usersRes,
+      sellersRes,
+      productsRes,
+      shopsRes,
+      verificationsRes,
+      ordersRes,
     ] = await Promise.all([
       supabase.from("profiles").select("*", { count: "exact", head: true }),
       supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "seller"),
@@ -56,16 +58,23 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
       supabase.from("orders").select("*", { count: "exact", head: true }),
     ]);
 
+    if (usersRes.error) console.error("Admin stats: Failed to fetch users count:", usersRes.error.message);
+    if (sellersRes.error) console.error("Admin stats: Failed to fetch sellers count:", sellersRes.error.message);
+    if (productsRes.error) console.error("Admin stats: Failed to fetch products count:", productsRes.error.message);
+    if (shopsRes.error) console.error("Admin stats: Failed to fetch shops count:", shopsRes.error.message);
+    if (verificationsRes.error) console.error("Admin stats: Failed to fetch verifications count:", verificationsRes.error.message);
+    if (ordersRes.error) console.error("Admin stats: Failed to fetch orders count:", ordersRes.error.message);
+
     return {
-      totalUsers: usersCount ?? null,
-      totalSellers: sellersCount ?? null,
-      totalProducts: productsCount ?? null,
-      totalShops: shopsCount ?? null,
-      pendingVerifications: verificationsCount ?? null,
-      totalOrders: ordersCount ?? null,
+      totalUsers: usersRes.error ? null : (usersRes.count ?? null),
+      totalSellers: sellersRes.error ? null : (sellersRes.count ?? null),
+      totalProducts: productsRes.error ? null : (productsRes.count ?? null),
+      totalShops: shopsRes.error ? null : (shopsRes.count ?? null),
+      pendingVerifications: verificationsRes.error ? null : (verificationsRes.count ?? null),
+      totalOrders: ordersRes.error ? null : (ordersRes.count ?? null),
     };
   } catch (err) {
-    console.error("Error fetching admin stats:", err);
+    console.error("Error in getAdminDashboardStats:", err);
     return {
       totalUsers: null,
       totalSellers: null,
@@ -79,25 +88,21 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
 
 /**
  * Fetch all user profiles for the Admin Users workspace
+ * Propagates errors instead of silently swallowing database/RLS failures
  */
 export async function getAdminUsers(): Promise<DbProfile[]> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching admin users:", error);
-      return [];
-    }
-
-    return (data as DbProfile[]) || [];
-  } catch (err) {
-    console.error("Error in getAdminUsers:", err);
-    return [];
+  if (error) {
+    console.error("Error fetching admin users:", error.message);
+    throw new Error("Unable to retrieve user directory. Please verify administrative database permissions.");
   }
+
+  return (data as DbProfile[]) || [];
 }
 
 export interface SellerWithShop extends DbProfile {
@@ -107,49 +112,41 @@ export interface SellerWithShop extends DbProfile {
 
 /**
  * Fetch all registered sellers and their shop data
+ * Propagates errors instead of silently swallowing database/RLS failures
  */
 export async function getAdminSellers(): Promise<SellerWithShop[]> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*, shops(*)")
-      .eq("role", "seller")
-      .order("created_at", { ascending: false });
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*, shops(*)")
+    .eq("role", "seller")
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching admin sellers:", error);
-      return [];
-    }
-
-    return (data as SellerWithShop[]) || [];
-  } catch (err) {
-    console.error("Error in getAdminSellers:", err);
-    return [];
+  if (error) {
+    console.error("Error fetching admin sellers:", error.message);
+    throw new Error("Unable to retrieve seller directory. Please verify administrative database permissions.");
   }
+
+  return (data as SellerWithShop[]) || [];
 }
 
 /**
  * Fetch all products for the Admin Products workspace
+ * Propagates errors instead of silently swallowing database/RLS failures
  */
 export async function getAdminProducts(): Promise<ProductWithRelations[]> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select("*, product_images(*), shops(*), profiles(*)")
-      .order("created_at", { ascending: false });
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*, product_images(*), shops(*), profiles(*)")
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching admin products:", error);
-      return [];
-    }
-
-    return (data as ProductWithRelations[]) || [];
-  } catch (err) {
-    console.error("Error in getAdminProducts:", err);
-    return [];
+  if (error) {
+    console.error("Error fetching admin products:", error.message);
+    throw new Error("Unable to retrieve product catalog. Please verify administrative database permissions.");
   }
+
+  return (data as ProductWithRelations[]) || [];
 }
 
 export interface ShopWithOwner extends DbShop {
@@ -158,72 +155,60 @@ export interface ShopWithOwner extends DbShop {
 
 /**
  * Fetch all shops for the Admin Shops workspace
+ * Propagates errors instead of silently swallowing database/RLS failures
  */
 export async function getAdminShops(): Promise<ShopWithOwner[]> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("shops")
-      .select("*, profiles(*)")
-      .order("created_at", { ascending: false });
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("shops")
+    .select("*, profiles(*)")
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching admin shops:", error);
-      return [];
-    }
-
-    return (data as ShopWithOwner[]) || [];
-  } catch (err) {
-    console.error("Error in getAdminShops:", err);
-    return [];
+  if (error) {
+    console.error("Error fetching admin shops:", error.message);
+    throw new Error("Unable to retrieve shops directory. Please verify administrative database permissions.");
   }
+
+  return (data as ShopWithOwner[]) || [];
 }
 
 /**
  * Fetch all orders for the Admin Orders workspace
+ * Propagates errors instead of silently swallowing database/RLS failures
  */
 export async function getAdminOrders(): Promise<DbOrder[]> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .order("created_at", { ascending: false });
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching admin orders:", error);
-      return [];
-    }
-
-    return (data as DbOrder[]) || [];
-  } catch (err) {
-    console.error("Error in getAdminOrders:", err);
-    return [];
+  if (error) {
+    console.error("Error fetching admin orders:", error.message);
+    throw new Error("Unable to retrieve platform orders. Please verify administrative database permissions.");
   }
+
+  return (data as DbOrder[]) || [];
 }
 
 /**
  * Fetch a single seller verification request by ID for detail page
+ * Propagates errors instead of silently swallowing database/RLS failures
  */
 export async function getAdminVerificationById(
   id: string
 ): Promise<SellerVerificationWithProfile | null> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("seller_verification_requests")
-      .select("*, profiles!seller_verification_requests_user_id_fkey(*)")
-      .eq("id", id)
-      .maybeSingle();
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("seller_verification_requests")
+    .select("*, profiles!seller_verification_requests_user_id_fkey(*)")
+    .eq("id", id)
+    .maybeSingle();
 
-    if (error) {
-      console.error("Error fetching verification request by ID:", error);
-      return null;
-    }
-
-    return (data as SellerVerificationWithProfile) || null;
-  } catch (err) {
-    console.error("Error in getAdminVerificationById:", err);
-    return null;
+  if (error) {
+    console.error("Error fetching verification request by ID:", error.message);
+    throw new Error("Unable to retrieve verification request details.");
   }
+
+  return (data as SellerVerificationWithProfile) || null;
 }
