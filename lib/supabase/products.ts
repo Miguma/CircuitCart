@@ -3,7 +3,11 @@ import { getCurrentUser, getCurrentUserProfile } from "./auth";
 import { ensureSellerShop } from "./shops";
 
 
-import { uploadProductImage, deleteProductImage } from "./storage";
+import {
+  uploadProductImage,
+  deleteProductImage,
+  getProductImageUrl,
+} from "./storage";
 import {
   mapDbProductToMarketplaceProduct,
   mapDbProductToSellerProductItem,
@@ -12,6 +16,7 @@ import type { Product } from "@/components/marketplace/marketplace-data";
 import type { SellerProductItem } from "@/lib/seller/seller-data";
 import type {
   DbProduct,
+  DbProductCondition,
   DbProductStatus,
   ProductWithRelations,
   CreateProductInput,
@@ -104,7 +109,7 @@ export async function getProductById(id: string): Promise<{
 
     const sortedImages = [...(raw.product_images || [])]
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map((img) => img.storage_path);
+      .map((img) => getProductImageUrl(img.storage_path));
 
     return { product, raw, images: sortedImages };
   } catch {
@@ -258,6 +263,157 @@ export async function createProduct(
   }
 
   return { id: productId };
+}
+
+export interface UpdateProductPayload {
+  productId: string;
+  input: {
+    title: string;
+    category: string;
+    condition: DbProductCondition;
+    price: number;
+    original_price?: number | null;
+    stock: number;
+    specs?: string;
+    description?: string;
+    location?: string;
+    status?: DbProductStatus;
+  };
+  keptExistingImages: {
+    id: string;
+    storage_path: string;
+    sort_order: number;
+  }[];
+  newImageFiles: File[];
+  removedStoragePaths: string[];
+}
+
+/**
+ * Updates an existing product listing and synchronizes images
+ */
+export async function updateProduct(payload: UpdateProductPayload): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error("You must be logged in as a seller to update a product.");
+  }
+
+  const supabase = createClient();
+  const { productId, input, keptExistingImages, newImageFiles, removedStoragePaths } = payload;
+
+  // 1. Verify ownership from database
+  const { data: existing, error: fetchErr } = await supabase
+    .from("products")
+    .select("id, seller_id, status, stock")
+    .eq("id", productId)
+    .single();
+
+  if (fetchErr || !existing) {
+    throw new Error("Product not found.");
+  }
+
+  if (existing.seller_id !== user.id) {
+    throw new Error("You do not have permission to edit this product.");
+  }
+
+  // 2. Adjust status if stock reached 0 or replenished
+  let nextStatus: DbProductStatus = input.status || existing.status || "active";
+  if (input.stock === 0 && nextStatus === "active") {
+    nextStatus = "sold_out";
+  } else if (input.stock > 0 && nextStatus === "sold_out") {
+    nextStatus = "active";
+  }
+
+  // 3. Update products row
+  const cleanTitle = input.title.trim();
+  const { error: updateErr } = await supabase
+    .from("products")
+    .update({
+      title: cleanTitle,
+      category: input.category,
+      condition: input.condition,
+      price: input.price,
+      original_price: input.original_price || null,
+      stock: input.stock,
+      specs: input.specs?.trim() || null,
+      description: input.description?.trim() || null,
+      location: input.location?.trim() || null,
+      status: nextStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", productId);
+
+  if (updateErr) {
+    throw new Error(`Failed to update product: ${updateErr.message}`);
+  }
+
+  // 4. Handle new image uploads (if any)
+  const uploadedPaths: string[] = [];
+  const newImageRows: { product_id: string; storage_path: string; sort_order: number }[] = [];
+  const startIndex = keptExistingImages.length;
+
+  for (let i = 0; i < newImageFiles.length; i++) {
+    const file = newImageFiles[i];
+    try {
+      const { storagePath } = await uploadProductImage(user.id, productId, file);
+      uploadedPaths.push(storagePath);
+      newImageRows.push({
+        product_id: productId,
+        storage_path: storagePath,
+        sort_order: startIndex + i,
+      });
+    } catch (uploadErr) {
+      console.error(`Failed to upload image during update:`, uploadErr);
+      // Clean up uploaded files in this session
+      for (const p of uploadedPaths) {
+        await deleteProductImage(p).catch(() => {});
+      }
+      throw new Error(
+        uploadErr instanceof Error
+          ? uploadErr.message
+          : `Failed to upload "${file.name}".`
+      );
+    }
+  }
+
+  // 5. Update existing image sort orders in parallel
+  if (keptExistingImages && keptExistingImages.length > 0) {
+    const updatePromises = keptExistingImages.map((img) =>
+      supabase
+        .from("product_images")
+        .update({ sort_order: img.sort_order })
+        .eq("id", img.id)
+    );
+    await Promise.all(updatePromises);
+  }
+
+  // 6. Insert new image rows
+  if (newImageRows.length > 0) {
+    const { error: insertImgErr } = await supabase
+      .from("product_images")
+      .insert(newImageRows);
+
+    if (insertImgErr) {
+      for (const p of uploadedPaths) {
+        await deleteProductImage(p).catch(() => {});
+      }
+      throw new Error(`Failed to save new images: ${insertImgErr.message}`);
+    }
+  }
+
+  // 7. Delete removed images from product_images table and storage bucket
+  if (removedStoragePaths.length > 0) {
+    await supabase
+      .from("product_images")
+      .delete()
+      .eq("product_id", productId)
+      .in("storage_path", removedStoragePaths);
+
+    for (const storagePath of removedStoragePaths) {
+      await deleteProductImage(storagePath).catch((err) => {
+        console.warn(`Could not delete storage object ${storagePath}:`, err);
+      });
+    }
+  }
 }
 
 /**

@@ -119,8 +119,11 @@ export default function MarketplacePage() {
     return filterAndSortProducts(productsList, catalogFilters);
   }, [productsList, catalogFilters]);
 
-  // Featured deal product
-  const featuredProduct = productsList.find((p) => p.isFeatured) || (productsList.length > 0 ? productsList[0] : null);
+  // The Supabase feed is newest-first, so the banner rotates through the five latest listings.
+  const featuredProducts = useMemo(
+    () => productsList.slice(0, 5),
+    [productsList]
+  );
 
   // Section grouping
   const recommendedProducts = useMemo(
@@ -155,11 +158,11 @@ export default function MarketplacePage() {
 
   // Dynamic grid column class based on filter panel open state
   const gridColsClass = isFilterOpen
-    ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
-    : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4";
+    ? "grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4"
+    : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-6";
 
   return (
-    <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-7">
+    <main className="max-w-[84rem] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5">
       {/* ========================================================= */}
       {/* 1. HORIZONTAL TEXT CATEGORY NAVIGATION (Original Colors)   */}
       {/* ========================================================= */}
@@ -194,9 +197,9 @@ export default function MarketplacePage() {
       {/* ========================================================= */}
       {/* 2. PROMOTIONAL FEATURED BANNER (Shown when no filter active and product exists)*/}
       {/* ========================================================= */}
-      {!hasSearchFilterActive && featuredProduct && !isLoading && !loadError && (
+      {!hasSearchFilterActive && featuredProducts.length > 0 && !isLoading && !loadError && (
         <FeaturedSection
-          product={featuredProduct}
+          products={featuredProducts}
           onAddToCart={handleAddToCart}
         />
       )}
@@ -294,13 +297,13 @@ export default function MarketplacePage() {
             </div>
           ) : hasSearchFilterActive ? (
             /* Filtered Search Grid */
-            <section aria-labelledby="heading-results" className="space-y-4">
+            <section aria-labelledby="heading-results" className="space-y-2.5 sm:space-y-3">
               <div className="flex items-baseline justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold text-[#e59bc9] mb-0.5">
                     Catalogue results
                   </p>
-                  <h2 id="heading-results" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                  <h2 id="heading-results" className="text-lg sm:text-xl font-bold text-[#fffafa]">
                     Products matching your choices
                   </h2>
                 </div>
@@ -313,7 +316,7 @@ export default function MarketplacePage() {
                 </button>
               </div>
 
-              <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
+              <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3.5 transition-all duration-300`}>
                 {filteredProducts.map((prod) => (
                   <ProductCard
                     key={prod.id}
@@ -328,18 +331,18 @@ export default function MarketplacePage() {
             </section>
           ) : (
             /* Categorized Storefront Grid */
-            <div className="space-y-10">
+            <div className="space-y-6 sm:space-y-7">
               {/* SECTION 1: Recommended for you */}
               {recommendedProducts.length > 0 && (
-                <section aria-labelledby="heading-recommended" className="space-y-4">
+                <section aria-labelledby="heading-recommended" className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="size-4.5 text-[#e59bc9]" />
-                    <h2 id="heading-recommended" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                    <Sparkles className="size-4 text-[#e59bc9]" />
+                    <h2 id="heading-recommended" className="text-lg sm:text-xl font-bold text-[#fffafa]">
                       Recommended for you
                     </h2>
                   </div>
 
-                  <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
+                  <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3.5 transition-all duration-300`}>
                     {recommendedProducts.map((prod) => (
                       <ProductCard
                         key={prod.id}
@@ -356,15 +359,15 @@ export default function MarketplacePage() {
 
               {/* SECTION 2: Pre-owned finds */}
               {preOwnedProducts.length > 0 && (
-                <section aria-labelledby="heading-preowned" className="space-y-4">
+                <section aria-labelledby="heading-preowned" className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center gap-2">
-                    <ShoppingBag className="size-4.5 text-[#b78bd7]" />
-                    <h2 id="heading-preowned" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                    <ShoppingBag className="size-4 text-[#b78bd7]" />
+                    <h2 id="heading-preowned" className="text-lg sm:text-xl font-bold text-[#fffafa]">
                       Pre-owned finds
                     </h2>
                   </div>
 
-                  <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
+                  <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3.5 transition-all duration-300`}>
                     {preOwnedProducts.map((prod) => (
                       <ProductCard
                         key={prod.id}
@@ -381,15 +384,15 @@ export default function MarketplacePage() {
 
               {/* SECTION 3: Popular in gaming */}
               {gamingProducts.length > 0 && (
-                <section aria-labelledby="heading-gaming" className="space-y-4">
+                <section aria-labelledby="heading-gaming" className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center gap-2">
-                    <Flame className="size-4.5 text-[#e59bc9]" />
-                    <h2 id="heading-gaming" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                    <Flame className="size-4 text-[#e59bc9]" />
+                    <h2 id="heading-gaming" className="text-lg sm:text-xl font-bold text-[#fffafa]">
                       Popular in gaming
                     </h2>
                   </div>
 
-                  <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
+                  <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3.5 transition-all duration-300`}>
                     {gamingProducts.map((prod) => (
                       <ProductCard
                         key={prod.id}
@@ -406,15 +409,15 @@ export default function MarketplacePage() {
 
               {/* SECTION 4: Trusted sellers */}
               {trustedProducts.length > 0 && (
-                <section aria-labelledby="heading-trusted" className="space-y-4">
+                <section aria-labelledby="heading-trusted" className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="size-4.5 text-emerald-400" />
-                    <h2 id="heading-trusted" className="text-xl sm:text-2xl font-bold text-[#fffafa]">
+                    <ShieldCheck className="size-4 text-emerald-400" />
+                    <h2 id="heading-trusted" className="text-lg sm:text-xl font-bold text-[#fffafa]">
                       Trusted sellers
                     </h2>
                   </div>
 
-                  <div className={`grid ${gridColsClass} gap-5 transition-all duration-300`}>
+                  <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3.5 transition-all duration-300`}>
                     {trustedProducts.map((prod) => (
                       <ProductCard
                         key={prod.id}

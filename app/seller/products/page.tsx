@@ -37,7 +37,7 @@ export default function SellerProductsPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  const fetchProducts = useCallback(async () => {
+  const refreshProducts = useCallback(async () => {
     setIsLoading(true);
     try {
       const user = await getCurrentUser();
@@ -57,26 +57,21 @@ export default function SellerProductsPage() {
 
   useEffect(() => {
     let active = true;
-    getCurrentUser()
-      .then((user) => {
+    async function init() {
+      try {
+        const user = await getCurrentUser();
         if (user && active) {
-          return getSellerProducts(user.id);
+          const dbItems = await getSellerProducts(user.id);
+          if (active) setProducts(dbItems || []);
         }
-        return [];
-      })
-      .then((dbItems) => {
-        if (active) {
-          setProducts(dbItems || []);
-          setIsLoading(false);
-        }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.warn("Could not load Supabase seller products:", err);
-        if (active) {
-          setProducts([]);
-          setIsLoading(false);
-        }
-      });
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+
+    init();
 
     return () => {
       active = false;
@@ -85,7 +80,6 @@ export default function SellerProductsPage() {
 
   // Status counts
   const statusCounts = useMemo(() => {
-
     return {
       All: products.length,
       Active: products.filter((p) => p.status === "Active").length,
@@ -117,7 +111,7 @@ export default function SellerProductsPage() {
     async (prod: SellerProductItem) => {
       try {
         await duplicateProduct(prod.id);
-        await fetchProducts();
+        await refreshProducts();
         setActiveMenuId(null);
         toast.success(`Duplicated "${prod.name}" as a draft.`);
       } catch {
@@ -137,7 +131,7 @@ export default function SellerProductsPage() {
         toast.success(`Duplicated "${prod.name}" as a draft.`);
       }
     },
-    [fetchProducts]
+    [refreshProducts]
   );
 
   const handleArchive = React.useCallback(
@@ -147,7 +141,7 @@ export default function SellerProductsPage() {
 
       try {
         await updateProductStatus(id, dbStatus);
-        await fetchProducts();
+        await refreshProducts();
         setActiveMenuId(null);
         toast.info(`Listing status updated to ${newStatus}.`);
       } catch {
@@ -167,7 +161,7 @@ export default function SellerProductsPage() {
         toast.info(`Listing status updated to ${newStatus}.`);
       }
     },
-    [fetchProducts]
+    [refreshProducts]
   );
 
   const handleDelete = React.useCallback(
@@ -177,7 +171,7 @@ export default function SellerProductsPage() {
 
       try {
         await deleteProduct(id);
-        await fetchProducts();
+        await refreshProducts();
         setActiveMenuId(null);
         toast.success(`Removed "${name}" from your listings.`);
       } catch {
@@ -187,7 +181,7 @@ export default function SellerProductsPage() {
         toast.success(`Removed "${name}" from your listings.`);
       }
     },
-    [fetchProducts]
+    [refreshProducts]
   );
 
   const getStatusBadge = (status: ListingStatus) => {
@@ -365,7 +359,7 @@ export default function SellerProductsPage() {
                                   src={prod.image}
                                   alt={prod.name}
                                   fill
-                                  className="object-cover"
+                                  className="object-contain p-0.5"
                                   unoptimized
                                 />
                               ) : (
@@ -438,14 +432,13 @@ export default function SellerProductsPage() {
                               <ExternalLink className="size-3.5" />
                             </Link>
 
-                            <button
-                              type="button"
-                              onClick={() => toast.info(`Editing "${prod.name}"`)}
+                            <Link
+                              href={`/seller/products/${prod.id}/edit`}
                               className="size-8 rounded-lg bg-white/[0.04] hover:bg-white/10 border border-white/[0.08] flex items-center justify-center text-[#b9adb6] hover:text-white transition-colors"
                               title="Edit listing"
                             >
                               <Edit2 className="size-3.5" />
-                            </button>
+                            </Link>
 
                             <div className="relative">
                               <button
@@ -462,6 +455,14 @@ export default function SellerProductsPage() {
 
                               {activeMenuId === prod.id && (
                                 <div className="absolute right-0 top-9 w-36 bg-[#281827] border border-white/10 rounded-xl shadow-2xl p-1 z-30 animate-in fade-in zoom-in-95 duration-150 text-left">
+                                  <Link
+                                    href={`/seller/products/${prod.id}/edit`}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#d6cbd5] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <Edit2 className="size-3" />
+                                    <span>Edit</span>
+                                  </Link>
+
                                   <button
                                     type="button"
                                     onClick={() => handleDuplicate(prod)}
@@ -515,7 +516,7 @@ export default function SellerProductsPage() {
                               src={prod.image}
                               alt={prod.name}
                               fill
-                              className="object-cover"
+                              className="object-contain p-0.5"
                               unoptimized
                             />
                           ) : (

@@ -6,6 +6,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Heart,
   ShoppingCart,
   CheckCircle2,
@@ -35,11 +37,13 @@ import { toast } from "sonner";
 
 interface ProductDetailClientProps {
   product: Product;
+  images: string[];
   relatedProducts: Product[];
 }
 
 export default function ProductDetailClient({
   product,
+  images,
   relatedProducts,
 }: ProductDetailClientProps) {
   const router = useRouter();
@@ -49,8 +53,61 @@ export default function ProductDetailClient({
   const isOwner = Boolean(userId && product.sellerId === userId);
 
   const [quantity, setQuantity] = useState(1);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isStartingChat, setIsStartingChat] = useState(false);
   const wishlisted = isFavorite(product.id);
+  const productImages = images.length > 0
+    ? images
+    : product.images && product.images.length > 0
+      ? product.images
+      : product.image
+        ? [product.image]
+        : [];
+  const selectedImage = productImages[selectedImageIndex] || product.image;
+
+  const showPreviousImage = React.useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (productImages.length <= 1) return;
+    setSelectedImageIndex((current) =>
+      (current - 1 + productImages.length) % productImages.length
+    );
+  }, [productImages.length]);
+
+  const showNextImage = React.useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (productImages.length <= 1) return;
+    setSelectedImageIndex((current) =>
+      (current + 1) % productImages.length
+    );
+  }, [productImages.length]);
+
+  // Keyboard navigation for lightbox & gallery
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isLightboxOpen) {
+        if (e.key === "Escape") {
+          setIsLightboxOpen(false);
+        } else if (e.key === "ArrowLeft") {
+          showPreviousImage();
+        } else if (e.key === "ArrowRight") {
+          showNextImage();
+        }
+      }
+    };
+
+    if (isLightboxOpen) {
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", handleKeyDown);
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isLightboxOpen, showNextImage, showPreviousImage]);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("en-PH", {
@@ -129,18 +186,23 @@ export default function ProductDetailClient({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Product Artwork Container (5 cols on desktop) */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="bg-[#f8f3f3] border border-[#eadcde] rounded-3xl p-6 sm:p-8 flex items-center justify-center relative overflow-hidden shadow-xl aspect-square">
+          <div
+            onClick={() => selectedImage && setIsLightboxOpen(true)}
+            className={`group/gallery relative flex aspect-[4/3] sm:aspect-square items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-[#171219] shadow-xl ${
+              selectedImage ? "cursor-zoom-in" : ""
+            }`}
+          >
             {/* Condition Badge in Image Box */}
-            <div className="absolute top-4 left-4 z-10">
+            <div className="absolute left-4 top-4 z-30">
               <span
-                className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-lg shadow-xs ${
+                className={`rounded-lg border px-3 py-1 text-xs font-bold uppercase tracking-wider shadow-lg backdrop-blur-md ${
                   product.condition === "New"
-                    ? "bg-emerald-100 text-emerald-900 border border-emerald-200"
+                    ? "border-emerald-400/25 bg-emerald-950/75 text-emerald-300"
                     : product.condition === "Like New"
-                    ? "bg-[#eadcde] text-[#65486f] border border-[#d8c2c8]"
+                    ? "border-white/10 bg-[#342339]/90 text-[#f2acd8]"
                     : product.condition === "Good"
-                    ? "bg-[#e2e8f0] text-[#334155] border border-slate-300"
-                    : "bg-amber-100 text-amber-900 border border-amber-200"
+                    ? "border-sky-300/20 bg-sky-950/75 text-sky-200"
+                    : "border-amber-300/20 bg-amber-950/75 text-amber-200"
                 }`}
               >
                 {product.condition}
@@ -148,41 +210,226 @@ export default function ProductDetailClient({
             </div>
 
             {/* Favorite Button on Image */}
-            {!isOwner && <button
-              type="button"
-              disabled={isLoading}
-              onClick={handleToggleFavorite}
-              className={`absolute top-4 right-4 p-2.5 rounded-full border shadow-sm transition-all z-10 cursor-pointer ${
-                wishlisted
-                  ? "bg-rose-50 border-rose-200 text-rose-600"
-                  : "bg-white/90 border-[#eadcde] text-[#716872] hover:text-[#1d1720]"
-              }`}
-              aria-label={wishlisted ? "Remove from saved items" : "Save product"}
-            >
-              <Heart className={`size-5 ${wishlisted ? "fill-rose-600" : ""}`} />
-            </button>}
+            {!isOwner && (
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleFavorite();
+                }}
+                className={`absolute right-4 top-4 z-30 rounded-full border p-2.5 shadow-lg backdrop-blur-md transition-all cursor-pointer ${
+                  wishlisted
+                    ? "border-rose-400/30 bg-rose-950/80 text-rose-300"
+                    : "border-white/15 bg-[#211a24]/85 text-white/75 hover:bg-[#342339] hover:text-white"
+                }`}
+                aria-label={wishlisted ? "Remove from saved items" : "Save product"}
+              >
+                <Heart className={`size-5 ${wishlisted ? "fill-rose-600" : ""}`} />
+              </button>
+            )}
 
             {/* Main Product Image */}
-            {product.image ? (
-              <div className="relative w-full h-full flex items-center justify-center">
+            {selectedImage ? (
+              <>
                 <Image
-                  src={product.image}
-                  alt={product.name}
+                  src={selectedImage}
+                  alt=""
+                  aria-hidden="true"
                   fill
-                  priority
                   sizes="(max-width: 1024px) 100vw, 480px"
-                  className="object-contain p-4 drop-shadow-md select-none pointer-events-none"
+                  className="pointer-events-none scale-110 select-none object-cover opacity-20 blur-2xl"
                 />
-              </div>
+                <div
+                  key={selectedImage}
+                  className="absolute inset-3 animate-in overflow-hidden rounded-2xl bg-black/15 shadow-inner fade-in duration-200 motion-reduce:animate-none sm:inset-4"
+                >
+                  <Image
+                    src={selectedImage}
+                    alt={`${product.name} — image ${selectedImageIndex + 1} of ${productImages.length}`}
+                    fill
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 480px"
+                    className="pointer-events-none select-none object-contain object-center drop-shadow-xl"
+                  />
+                </div>
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center gap-2 text-center">
                 {getFallbackIcon(product.category)}
-                <span className="text-xs font-bold uppercase tracking-wider text-[#65486f]">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#d6cbd5]">
                   {product.category}
                 </span>
               </div>
             )}
+
+            {/* Navigation Arrows & Counter (Multiple Images Only) */}
+            {productImages.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={showPreviousImage}
+                  aria-label="Show previous product image"
+                  className="absolute left-3 top-1/2 z-30 flex size-9 sm:size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#211a24]/85 text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:bg-[#65486f] hover:scale-105 active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
+                  <ChevronLeft className="size-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={showNextImage}
+                  aria-label="Show next product image"
+                  className="absolute right-3 top-1/2 z-30 flex size-9 sm:size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#211a24]/85 text-white shadow-lg backdrop-blur-md transition-all duration-200 hover:bg-[#65486f] hover:scale-105 active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
+                  <ChevronRight className="size-5" />
+                </button>
+                <span className="absolute bottom-4 right-4 z-30 rounded-full border border-white/10 bg-[#211a24]/85 px-2.5 py-1 text-[11px] font-bold text-white/90 shadow-lg backdrop-blur-md">
+                  {selectedImageIndex + 1} / {productImages.length}
+                </span>
+              </>
+            )}
           </div>
+
+          {/* Thumbnails Row (Multiple Images Only) */}
+          {productImages.length > 1 && (
+            <div
+              className="flex gap-2.5 overflow-x-auto rounded-2xl border border-white/10 bg-[#211a24]/80 p-2.5 shadow-lg scrollbar-thin"
+              aria-label="Product image gallery thumbnails"
+            >
+              {productImages.map((image, index) => {
+                const isSelected = index === selectedImageIndex;
+
+                return (
+                  <button
+                    key={`${image}-${index}`}
+                    type="button"
+                    onClick={() => setSelectedImageIndex(index)}
+                    aria-label={`Show product image ${index + 1}`}
+                    aria-current={isSelected ? "true" : undefined}
+                    className={`relative size-16 sm:size-20 shrink-0 overflow-hidden rounded-xl border-2 bg-[#171219] transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e59bc9] ${
+                      isSelected
+                        ? "border-[#e59bc9] ring-2 ring-[#e59bc9]/30 opacity-100 scale-100 shadow-sm"
+                        : "border-white/10 opacity-60 hover:border-white/40 hover:opacity-100"
+                    }`}
+                  >
+                    <Image
+                      src={image}
+                      alt={`${product.name} thumbnail ${index + 1}`}
+                      fill
+                      sizes="80px"
+                      className="object-contain p-1"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Fullscreen Lightbox Modal */}
+          {isLightboxOpen && selectedImage && (
+            <div
+              className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-black/90 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-150"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Full screen image inspection"
+              onClick={() => setIsLightboxOpen(false)}
+            >
+              {/* Top Bar */}
+              <div
+                className="w-full flex items-center justify-between z-10 max-w-5xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-3 text-white">
+                  <span className="text-sm sm:text-base font-bold truncate max-w-[220px] sm:max-w-md">
+                    {product.name}
+                  </span>
+                  {productImages.length > 1 && (
+                    <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white/90">
+                      {selectedImageIndex + 1} / {productImages.length}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsLightboxOpen(false)}
+                  className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors cursor-pointer"
+                  aria-label="Close full screen inspection"
+                >
+                  <ArrowLeft className="size-5 sm:hidden" />
+                  <span className="hidden sm:inline text-xs font-semibold px-2 py-1 bg-white/10 rounded-lg">
+                    Press ESC or Click to Close
+                  </span>
+                </button>
+              </div>
+
+              {/* Main Lightbox Inspection Image */}
+              <div
+                className="relative flex-1 w-full max-w-5xl my-4 flex items-center justify-center overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Image
+                  src={selectedImage}
+                  alt={`${product.name} full view`}
+                  fill
+                  sizes="100vw"
+                  className="object-contain select-none pointer-events-none drop-shadow-2xl"
+                  priority
+                />
+
+                {/* Lightbox Prev / Next Controls */}
+                {productImages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={showPreviousImage}
+                      aria-label="Previous image"
+                      className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 size-11 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xl"
+                    >
+                      <ChevronLeft className="size-6" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={showNextImage}
+                      aria-label="Next image"
+                      className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 size-11 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xl"
+                    >
+                      <ChevronRight className="size-6" />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Lightbox Thumbnails Strip */}
+              {productImages.length > 1 && (
+                <div
+                  className="flex gap-2 overflow-x-auto max-w-2xl p-2 bg-black/40 rounded-2xl border border-white/10 scrollbar-thin z-10"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {productImages.map((img, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedImageIndex(idx)}
+                      className={`relative size-14 sm:size-16 rounded-xl overflow-hidden shrink-0 border-2 bg-black/50 transition-all cursor-pointer ${
+                        idx === selectedImageIndex
+                          ? "border-[#e59bc9] ring-2 ring-[#e59bc9]/40 scale-105"
+                          : "border-white/15 opacity-60 hover:opacity-100"
+                      }`}
+                    >
+                      <Image
+                        src={img}
+                        alt=""
+                        fill
+                        sizes="64px"
+                        className="object-contain p-1"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Trust Highlights */}
           <div className="bg-[#241c27] border border-white/10 rounded-2xl p-4 space-y-2.5 text-xs text-[#d6cbd5]">

@@ -51,6 +51,10 @@ export function mapDbProductToMarketplaceProduct(dbProduct: ProductWithRelations
   const sellerName = dbProduct.shops?.name || dbProduct.profiles?.full_name || "CircuitCart Seller";
   const location = dbProduct.location || dbProduct.shops?.location || "Location not provided";
 
+  const imageUrls = sortedImages
+    .map((img) => (img.storage_path ? getProductImageUrl(img.storage_path) : null))
+    .filter((url): url is string => Boolean(url));
+
   return {
     id: dbProduct.id,
     name: dbProduct.title,
@@ -73,6 +77,7 @@ export function mapDbProductToMarketplaceProduct(dbProduct: ProductWithRelations
     gradientFrom: "#432c45",
     gradientTo: "#281729",
     image: imageUrl,
+    images: imageUrls.length > 0 ? imageUrls : [imageUrl],
     description: dbProduct.description || "",
   };
 }

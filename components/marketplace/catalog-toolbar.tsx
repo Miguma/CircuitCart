@@ -582,7 +582,7 @@ export function CatalogToolbar({
     PRODUCT_SORTS.find((s) => s.value === sort)?.label || "Recommended";
 
   return (
-    <div className="w-full space-y-3 pt-1">
+    <div className="w-full space-y-2">
       {/* ========================================================= */}
       {/* 1. PRODUCT BROWSING HEADER + SORT AND FILTER BUTTON       */}
       {/* ========================================================= */}

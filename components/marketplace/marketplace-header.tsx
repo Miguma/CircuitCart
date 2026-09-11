@@ -100,7 +100,7 @@ export function MarketplaceHeader({
 
   return (
     <header className="sticky top-0 z-40 w-full glass-marketplace-header">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[84rem] mx-auto px-4 sm:px-6 lg:px-8">
         {/* ROW 1: Logo, Search, Actions */}
         <div className="flex items-center justify-between h-16 gap-4 sm:gap-8">
           {/* Logo / Brand Mark */}

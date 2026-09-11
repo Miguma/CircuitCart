@@ -200,7 +200,7 @@ export default function AdminProductsPage() {
                               <img
                                 src={primaryImage}
                                 alt={prod.title}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain p-0.5"
                               />
                             ) : (
                               <Package className="size-5 text-[#8f7d8c]" />

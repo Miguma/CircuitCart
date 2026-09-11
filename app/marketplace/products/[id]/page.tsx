@@ -16,6 +16,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
   const { id } = await params;
 
   let product: Product | null = null;
+  let productImages: string[] = [];
   let relatedProducts: Product[] = [];
 
   // Attempt to fetch real Supabase product
@@ -23,6 +24,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     const dbResult = await getProductById(id);
     if (dbResult) {
       product = dbResult.product;
+      productImages = dbResult.images;
 
       // Fetch related products from Supabase active listings
       const allActive = await getMarketplaceProducts();
@@ -42,6 +44,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
   return (
     <ProductDetailClient
       product={product}
+      images={productImages}
       relatedProducts={relatedProducts}
     />
   );

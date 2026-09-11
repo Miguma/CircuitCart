@@ -398,7 +398,7 @@ export default function AdminDashboardPage() {
                       <img
                         src={primaryImage}
                         alt={prod.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain p-1.5"
                       />
                     ) : (
                       <Package className="size-6 text-[#8f7d8c]" />

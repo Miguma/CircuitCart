@@ -20,6 +20,7 @@ export interface Product {
   gradientFrom: string;
   gradientTo: string;
   image?: string;
+  images?: string[];
   description?: string;
   specifications?: Record<string, string>;
 }
