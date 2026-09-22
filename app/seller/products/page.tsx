@@ -563,6 +563,13 @@ export default function SellerProductsPage() {
                       >
                         View
                       </Link>
+                      <Link
+                        href={`/seller/products/${prod.id}/edit`}
+                        className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-semibold text-[#d6cbd5] hover:text-white flex items-center gap-1"
+                      >
+                        <Edit2 className="size-3 text-[#e59bc9]" />
+                        <span>Edit</span>
+                      </Link>
                       <button
                         type="button"
                         onClick={() => handleDuplicate(prod)}

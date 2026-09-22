@@ -284,7 +284,10 @@ export interface UpdateProductPayload {
     storage_path: string;
     sort_order: number;
   }[];
-  newImageFiles: File[];
+  newImageFiles: {
+    file: File;
+    sort_order: number;
+  }[];
   removedStoragePaths: string[];
 }
 
@@ -346,73 +349,88 @@ export async function updateProduct(payload: UpdateProductPayload): Promise<void
     throw new Error(`Failed to update product: ${updateErr.message}`);
   }
 
-  // 4. Handle new image uploads (if any)
+  // 4. Handle image synchronization (upload new, update order, insert new rows, delete removed)
   const uploadedPaths: string[] = [];
   const newImageRows: { product_id: string; storage_path: string; sort_order: number }[] = [];
-  const startIndex = keptExistingImages.length;
 
-  for (let i = 0; i < newImageFiles.length; i++) {
-    const file = newImageFiles[i];
-    try {
-      const { storagePath } = await uploadProductImage(user.id, productId, file);
-      uploadedPaths.push(storagePath);
-      newImageRows.push({
-        product_id: productId,
-        storage_path: storagePath,
-        sort_order: startIndex + i,
-      });
-    } catch (uploadErr) {
-      console.error(`Failed to upload image during update:`, uploadErr);
-      // Clean up uploaded files in this session
-      for (const p of uploadedPaths) {
-        await deleteProductImage(p).catch(() => {});
+  try {
+    // 4a. Upload new image files with their explicit UI sort_order
+    for (let i = 0; i < newImageFiles.length; i++) {
+      const item = newImageFiles[i];
+      try {
+        const { storagePath } = await uploadProductImage(user.id, productId, item.file);
+        uploadedPaths.push(storagePath);
+        newImageRows.push({
+          product_id: productId,
+          storage_path: storagePath,
+          sort_order: item.sort_order,
+        });
+      } catch (uploadErr) {
+        console.error(`Failed to upload image during update:`, uploadErr);
+        throw new Error(
+          uploadErr instanceof Error
+            ? uploadErr.message
+            : `Failed to upload "${item.file.name}".`
+        );
       }
-      throw new Error(
-        uploadErr instanceof Error
-          ? uploadErr.message
-          : `Failed to upload "${file.name}".`
+    }
+
+    // 5. Update existing image sort orders in parallel
+    if (keptExistingImages && keptExistingImages.length > 0) {
+      const results = await Promise.all(
+        keptExistingImages.map((img) =>
+          supabase
+            .from("product_images")
+            .update({ sort_order: img.sort_order })
+            .eq("id", img.id)
+        )
       );
-    }
-  }
 
-  // 5. Update existing image sort orders in parallel
-  if (keptExistingImages && keptExistingImages.length > 0) {
-    const updatePromises = keptExistingImages.map((img) =>
-      supabase
-        .from("product_images")
-        .update({ sort_order: img.sort_order })
-        .eq("id", img.id)
-    );
-    await Promise.all(updatePromises);
-  }
-
-  // 6. Insert new image rows
-  if (newImageRows.length > 0) {
-    const { error: insertImgErr } = await supabase
-      .from("product_images")
-      .insert(newImageRows);
-
-    if (insertImgErr) {
-      for (const p of uploadedPaths) {
-        await deleteProductImage(p).catch(() => {});
+      const failed = results.find((res) => res.error);
+      if (failed?.error) {
+        throw new Error(`Failed to update image order: ${failed.error.message}`);
       }
-      throw new Error(`Failed to save new images: ${insertImgErr.message}`);
     }
-  }
 
-  // 7. Delete removed images from product_images table and storage bucket
-  if (removedStoragePaths.length > 0) {
-    await supabase
-      .from("product_images")
-      .delete()
-      .eq("product_id", productId)
-      .in("storage_path", removedStoragePaths);
+    // 6. Insert new image rows
+    if (newImageRows.length > 0) {
+      const { error: insertImgErr } = await supabase
+        .from("product_images")
+        .insert(newImageRows);
 
-    for (const storagePath of removedStoragePaths) {
-      await deleteProductImage(storagePath).catch((err) => {
-        console.warn(`Could not delete storage object ${storagePath}:`, err);
-      });
+      if (insertImgErr) {
+        throw new Error(`Failed to save new images: ${insertImgErr.message}`);
+      }
     }
+
+    // 7. Delete removed images from product_images table and storage bucket
+    if (removedStoragePaths.length > 0) {
+      const { error: deleteImgErr } = await supabase
+        .from("product_images")
+        .delete()
+        .eq("product_id", productId)
+        .in("storage_path", removedStoragePaths);
+
+      if (deleteImgErr) {
+        throw new Error(`Failed to delete removed images: ${deleteImgErr.message}`);
+      }
+
+      for (const storagePath of removedStoragePaths) {
+        await deleteProductImage(storagePath).catch((err) => {
+          console.warn(`Could not delete storage object ${storagePath}:`, err);
+        });
+      }
+    }
+  } catch (imageOpErr) {
+    // If ANY step failed after new Storage objects were uploaded during THIS attempt, clean them up
+    if (uploadedPaths.length > 0) {
+      for (const p of uploadedPaths) {
+        await deleteProductImage(p).catch((cleanupErr) => {
+          console.warn(`Failed to clean up newly uploaded image ${p}:`, cleanupErr);
+        });
+      }
+    }
+    throw imageOpErr;
   }
 }
 
