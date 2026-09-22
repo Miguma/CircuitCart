@@ -54,7 +54,10 @@ export function LoginForm({
   const searchParams = useSearchParams();
   const isConfirmedParam = searchParams.get("confirmed") === "1";
   const isRegisteredParam = searchParams.get("registered") === "true";
-  const isCallbackErrorParam = searchParams.get("error") === "auth_callback_failed";
+  const errorParam = searchParams.get("error");
+  const isCallbackErrorParam = errorParam === "auth_callback_failed";
+  const isConfirmationExpiredParam = errorParam === "confirmation_expired";
+  const isConfirmationInvalidParam = errorParam === "confirmation_invalid";
 
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -254,13 +257,33 @@ export function LoginForm({
         </div>
       )}
 
+      {isConfirmationExpiredParam && (
+        <div
+          role="alert"
+          className="mb-4 p-3 rounded-xl bg-[#cf6679]/10 border border-[#cf6679]/30 flex items-start gap-2.5 text-xs text-[#b3261e] font-medium animate-in fade-in zoom-in-95 duration-140"
+        >
+          <CircleAlert className="size-4 text-[#b3261e] shrink-0 mt-0.5" />
+          <span>Your confirmation link has expired. Please enter your email below to request a new confirmation email.</span>
+        </div>
+      )}
+
+      {isConfirmationInvalidParam && (
+        <div
+          role="alert"
+          className="mb-4 p-3 rounded-xl bg-[#cf6679]/10 border border-[#cf6679]/30 flex items-start gap-2.5 text-xs text-[#b3261e] font-medium animate-in fade-in zoom-in-95 duration-140"
+        >
+          <CircleAlert className="size-4 text-[#b3261e] shrink-0 mt-0.5" />
+          <span>This confirmation link is invalid or has already been used. If your account is already confirmed, try signing in. Otherwise request a new confirmation email.</span>
+        </div>
+      )}
+
       {isCallbackErrorParam && (
         <div
           role="alert"
           className="mb-4 p-3 rounded-xl bg-[#cf6679]/10 border border-[#cf6679]/30 flex items-start gap-2.5 text-xs text-[#b3261e] font-medium animate-in fade-in zoom-in-95 duration-140"
         >
           <CircleAlert className="size-4 text-[#b3261e] shrink-0 mt-0.5" />
-          <span>Confirmation link was invalid or expired. Please sign in or resend a new confirmation email.</span>
+          <span>Authentication confirmation failed due to an unexpected issue. Please sign in or request a new confirmation email.</span>
         </div>
       )}
 
