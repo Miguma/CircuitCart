@@ -280,4 +280,29 @@ export interface SubmitReviewInput {
   comment?: string | null;
 }
 
+// ========================================================
+// PHASE 8: PERSISTENT NOTIFICATIONS TYPES
+// ========================================================
+
+export type NotificationType =
+  | "order_new"
+  | "order_status"
+  | "order_cancelled"
+  | "order_completed"
+  | "message"
+  | "verification_approved"
+  | "verification_rejected";
+
+export interface DbNotification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string | null;
+  entity_id: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
 
