@@ -13,6 +13,7 @@ import {
   Loader2,
   ShieldCheck,
   MessageSquare,
+  Star,
 } from "lucide-react";
 import {
   getBuyerOrders,
@@ -20,7 +21,9 @@ import {
   formatOrderReference,
 } from "@/lib/supabase/orders";
 import { getOrCreateOrderConversation } from "@/lib/supabase/messages";
-import { OrderWithItems } from "@/lib/supabase/types";
+import { getOrderReviews, getOrderItemReview } from "@/lib/supabase/reviews";
+import { ReviewDialog } from "@/components/reviews/review-dialog";
+import { OrderWithItems, DbOrderItem, DbReview } from "@/lib/supabase/types";
 import { getProductImageUrl } from "@/lib/supabase/storage";
 import { toast } from "sonner";
 import { OrdersHeader } from "@/components/orders/orders-header";
@@ -35,6 +38,11 @@ export default function OrdersPage() {
   const [activeFilter, setActiveFilter] = useState<OrderFilter>("All");
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [messagingOrderId, setMessagingOrderId] = useState<string | null>(null);
+  const [itemReviews, setItemReviews] = useState<Record<string, DbReview>>({});
+  const [selectedReviewItem, setSelectedReviewItem] = useState<{
+    item: DbOrderItem;
+    existingReview?: DbReview | null;
+  } | null>(null);
 
   const filters: OrderFilter[] = [
     "All",
@@ -45,6 +53,26 @@ export default function OrdersPage() {
     "Cancelled",
   ];
 
+  const fetchCompletedOrderReviews = async (orderList: OrderWithItems[]) => {
+    const completedOrders = orderList.filter((o) => o.status === "completed");
+    if (completedOrders.length === 0) return;
+
+    try {
+      const results = await Promise.all(
+        completedOrders.map((o) => getOrderReviews(o.id).catch(() => []))
+      );
+      const reviewsMap: Record<string, DbReview> = {};
+      for (const orderReviewList of results) {
+        for (const rev of orderReviewList) {
+          reviewsMap[rev.order_item_id] = rev;
+        }
+      }
+      setItemReviews((prev) => ({ ...prev, ...reviewsMap }));
+    } catch (err) {
+      console.warn("Failed to load reviews for completed orders:", err);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     getBuyerOrders()
@@ -52,6 +80,7 @@ export default function OrdersPage() {
         if (active) {
           setOrders(data);
           setIsLoading(false);
+          fetchCompletedOrderReviews(data);
         }
       })
       .catch((err) => {
@@ -63,6 +92,20 @@ export default function OrdersPage() {
       active = false;
     };
   }, []);
+
+  const handleReviewSuccess = async (orderItemId: string) => {
+    try {
+      const updatedReview = await getOrderItemReview(orderItemId);
+      if (updatedReview) {
+        setItemReviews((prev) => ({
+          ...prev,
+          [orderItemId]: updatedReview,
+        }));
+      }
+    } catch (err) {
+      console.warn("Failed to refresh review status:", err);
+    }
+  };
 
   const handleCancelOrder = async (orderId: string) => {
     if (!confirm("Are you sure you want to cancel this pending order? Product stock will be returned.")) {
@@ -241,43 +284,70 @@ export default function OrdersPage() {
 
                 {/* Items Snapshot Grid */}
                 <div className="space-y-3">
-                  {order.order_items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between gap-4 p-3 bg-[#1e1322]/80 border border-white/[0.06] rounded-2xl"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="size-14 rounded-xl overflow-hidden bg-[#ebe2e5] border border-[#ded0d5] flex items-center justify-center shrink-0 p-1">
-                          {item.product_image_path ? (
-                            <Image
-                              src={getProductImageUrl(item.product_image_path)}
-                              alt={item.product_title}
-                              width={56}
-                              height={56}
-                              className="size-full object-contain"
-                            />
-                          ) : (
-                            <Package className="size-6 text-[#65486f]" />
+                  {order.order_items.map((item) => {
+                    const review = itemReviews[item.id];
+                    const isOrderCompleted = order.status === "completed";
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3.5 bg-[#1e1322]/80 border border-white/[0.06] rounded-2xl"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="size-14 rounded-xl overflow-hidden bg-[#ebe2e5] border border-[#ded0d5] flex items-center justify-center shrink-0 p-1">
+                            {item.product_image_path ? (
+                              <Image
+                                src={getProductImageUrl(item.product_image_path)}
+                                alt={item.product_title}
+                                width={56}
+                                height={56}
+                                className="size-full object-contain"
+                              />
+                            ) : (
+                              <Package className="size-6 text-[#65486f]" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                              {item.product_title}
+                            </h4>
+                            <span className="text-xs text-[#b9adb6]">
+                              Qty: {item.quantity} × {formatPrice(Number(item.unit_price))}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center sm:flex-col sm:items-end justify-between sm:justify-center gap-2 shrink-0 border-t sm:border-t-0 border-white/[0.06] pt-2 sm:pt-0">
+                          <span className="text-xs sm:text-sm font-bold text-[#e59bc9]">
+                            {formatPrice(Number(item.line_total))}
+                          </span>
+
+                          {isOrderCompleted && (
+                            review ? (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedReviewItem({ item, existingReview: review })}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/30 transition-colors cursor-pointer"
+                              >
+                                <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                                <span>Edit Review ({review.rating}★)</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedReviewItem({ item, existingReview: null })}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl bg-white/[0.06] hover:bg-white/10 text-white border border-white/15 transition-colors cursor-pointer hover:border-[#e59bc9]/50"
+                              >
+                                <Star className="size-3.5 text-[#e59bc9]" />
+                                <span>Write Review</span>
+                              </button>
+                            )
                           )}
                         </div>
-
-                        <div className="min-w-0">
-                          <h4 className="text-xs sm:text-sm font-bold text-white truncate">
-                            {item.product_title}
-                          </h4>
-                          <span className="text-xs text-[#b9adb6]">
-                            Qty: {item.quantity} × {formatPrice(Number(item.unit_price))}
-                          </span>
-                        </div>
                       </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="text-xs sm:text-sm font-bold text-[#e59bc9]">
-                          {formatPrice(Number(item.line_total))}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Delivery details & Footer */}
@@ -352,6 +422,15 @@ export default function OrdersPage() {
           CircuitCart verified receipts: Sellers update fulfillment status in real time upon confirmation and dispatch.
         </span>
       </div>
+
+      {/* Write / Edit Review Modal */}
+      <ReviewDialog
+        isOpen={Boolean(selectedReviewItem)}
+        onClose={() => setSelectedReviewItem(null)}
+        orderItem={selectedReviewItem?.item ?? null}
+        existingReview={selectedReviewItem?.existingReview ?? null}
+        onSuccess={handleReviewSuccess}
+      />
     </div>
   );
 }

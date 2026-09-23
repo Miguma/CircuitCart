@@ -45,6 +45,8 @@ export interface DbProduct {
   stock: number;
   status: DbProductStatus;
   location: string | null;
+  rating?: number;
+  review_count?: number;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -244,6 +246,38 @@ export interface SubmitSellerVerificationInput {
   selfie_path: string;
   contact_email: string;
   contact_phone: string;
+}
+
+// ========================================================
+// PHASE 7: REVIEWS & RATINGS TYPES
+// ========================================================
+
+export interface DbReview {
+  id: string;
+  order_item_id: string;
+  order_id: string;
+  product_id: string;
+  buyer_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewAuthor {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
+export interface ReviewWithAuthor extends DbReview {
+  profiles: ReviewAuthor | null;
+}
+
+export interface SubmitReviewInput {
+  orderItemId: string;
+  rating: number;
+  comment?: string | null;
 }
 
 

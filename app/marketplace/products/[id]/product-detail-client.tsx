@@ -32,6 +32,7 @@ import { useMarketplace } from "@/components/marketplace/marketplace-provider";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
 import { ListingOwnerActions } from "@/components/marketplace/listing-owner-actions";
+import { ProductReviewsSection } from "@/components/reviews/product-reviews-section";
 import { getOrCreateProductConversation } from "@/lib/supabase/messages";
 import { toast } from "sonner";
 
@@ -631,6 +632,14 @@ export default function ProductDetailClient({
           </div>
         </div>
       </div>
+
+      {/* Customer Reviews Section */}
+      <ProductReviewsSection
+        key={product.id}
+        productId={product.id}
+        rating={product.rating}
+        reviewCount={product.reviewCount}
+      />
 
       {/* Related Products Section */}
       {relatedProducts.length > 0 && (
