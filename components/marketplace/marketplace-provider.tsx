@@ -21,20 +21,12 @@ import {
   getFavorites,
   toggleFavorite as toggleSupabaseFavorite,
 } from "@/lib/supabase/favorites";
+import { getUnreadNotificationCount } from "@/lib/supabase/notifications";
 import { toast } from "sonner";
 
 export interface CartItem {
   product: Product;
   quantity: number;
-}
-
-export interface NotificationItem {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  read: boolean;
-  type: "price" | "welcome" | "seller";
 }
 
 export interface DemoProfile {
@@ -73,10 +65,9 @@ interface MarketplaceContextType {
   cartSubtotal: number;
 
   // Notifications
-  notifications: NotificationItem[];
-  markNotificationAsRead: (id: string) => void;
-  markAllNotificationsAsRead: () => void;
   unreadNotificationsCount: number;
+  setUnreadNotificationsCount: React.Dispatch<React.SetStateAction<number>>;
+  refreshUnreadNotificationsCount: () => Promise<void>;
 
   // Profile
   demoProfile: DemoProfile;
@@ -86,36 +77,6 @@ interface MarketplaceContextType {
 const MarketplaceContext = createContext<MarketplaceContextType | undefined>(
   undefined
 );
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "notif-1",
-    title: "A saved product has a new price.",
-    description:
-      "Asus ROG Strix G16 Gaming Laptop is now available at ₱42,500.",
-    date: "10m ago",
-    read: false,
-    type: "price",
-  },
-  {
-    id: "notif-2",
-    title: "Welcome to CircuitCart.",
-    description:
-      "Discover trusted tech deals and verified listings across Cebu and Visayas.",
-    date: "2h ago",
-    read: false,
-    type: "welcome",
-  },
-  {
-    id: "notif-3",
-    title: "Seller verification is available when you are ready to sell.",
-    description:
-      "Complete identity checks to unlock listing electronics directly on the marketplace.",
-    date: "1d ago",
-    read: true,
-    type: "seller",
-  },
-];
 
 const INITIAL_PROFILE: DemoProfile = {
   name: "Demo User",
@@ -143,12 +104,20 @@ export function MarketplaceProvider({
   // Cart (Supabase persistent)
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Notifications
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  // Notifications unread count (Supabase persistent)
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState<number>(0);
 
   // Demo Profile
   const [demoProfile, setDemoProfile] = useState<DemoProfile>(INITIAL_PROFILE);
+
+  const refreshUnreadNotificationsCount = useCallback(async () => {
+    try {
+      const count = await getUnreadNotificationCount();
+      setUnreadNotificationsCount(count);
+    } catch (err) {
+      console.warn("Failed to refresh unread notification count:", err);
+    }
+  }, []);
 
   // Load user data on mount and auth state change
   useEffect(() => {
@@ -165,21 +134,24 @@ export function MarketplaceProvider({
           if (isMounted) {
             setCartItems([]);
             setFavorites([]);
+            setUnreadNotificationsCount(0);
           }
           return;
         }
 
-        const [items, favs] = await Promise.all([
+        const [items, favs, notifCount] = await Promise.all([
           getCartItems(),
           getFavorites(),
+          getUnreadNotificationCount(),
         ]);
 
         if (isMounted) {
           setCartItems(items || []);
           setFavorites(favs || []);
+          setUnreadNotificationsCount(notifCount ?? 0);
         }
       } catch (err) {
-        console.warn("Could not load user cart/favorites from Supabase:", err);
+        console.warn("Could not load user data from Supabase:", err);
       }
     }
 
@@ -194,6 +166,7 @@ export function MarketplaceProvider({
         if (isMounted) {
           setCartItems([]);
           setFavorites([]);
+          setUnreadNotificationsCount(0);
         }
       }
     });
@@ -201,6 +174,37 @@ export function MarketplaceProvider({
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+    };
+  }, []);
+
+  // Lightweight lifecycle refresh (window focus & tab visibility)
+  useEffect(() => {
+    let lastFetchTime = 0;
+    const DEBOUNCE_MS = 3000;
+
+    const handleRefresh = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
+      const now = Date.now();
+      if (now - lastFetchTime < DEBOUNCE_MS) {
+        return;
+      }
+      lastFetchTime = now;
+      try {
+        const count = await getUnreadNotificationCount();
+        setUnreadNotificationsCount(count);
+      } catch (err) {
+        console.warn("Could not refresh unread notification count on lifecycle event:", err);
+      }
+    };
+
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
+
+    return () => {
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
     };
   }, []);
 
@@ -366,21 +370,6 @@ export function MarketplaceProvider({
     );
   }, [cartItems]);
 
-  // Notifications handlers
-  const markNotificationAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif))
-    );
-  }, []);
-
-  const markAllNotificationsAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })));
-  }, []);
-
-  const unreadNotificationsCount = useMemo(() => {
-    return notifications.filter((notif) => !notif.read).length;
-  }, [notifications]);
-
   // Profile handler
   const updateProfile = useCallback((data: Partial<DemoProfile>) => {
     setDemoProfile((prev) => ({ ...prev, ...data }));
@@ -406,10 +395,9 @@ export function MarketplaceProvider({
       resetLocalCart,
       totalCartCount,
       cartSubtotal,
-      notifications,
-      markNotificationAsRead,
-      markAllNotificationsAsRead,
       unreadNotificationsCount,
+      setUnreadNotificationsCount,
+      refreshUnreadNotificationsCount,
       demoProfile,
       updateProfile,
     }),
@@ -429,10 +417,8 @@ export function MarketplaceProvider({
       resetLocalCart,
       totalCartCount,
       cartSubtotal,
-      notifications,
-      markNotificationAsRead,
-      markAllNotificationsAsRead,
       unreadNotificationsCount,
+      refreshUnreadNotificationsCount,
       demoProfile,
       updateProfile,
     ]
@@ -451,4 +437,8 @@ export function useMarketplace() {
     throw new Error("useMarketplace must be used within a MarketplaceProvider");
   }
   return context;
+}
+
+export function useOptionalMarketplace() {
+  return useContext(MarketplaceContext);
 }

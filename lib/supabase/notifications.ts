@@ -6,27 +6,22 @@ import type { DbNotification } from "./types";
  * Fetches notifications for the current authenticated user, ordered newest first.
  */
 export async function getNotifications(limit = 50): Promise<DbNotification[]> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return [];
+  const user = await getCurrentUser();
+  if (!user) return [];
 
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
-    if (error) {
-      console.warn("Failed to fetch notifications:", error.message);
-      return [];
-    }
-
-    return (data as DbNotification[]) || [];
-  } catch (err) {
-    console.warn("Error in getNotifications:", err);
-    return [];
+  if (error) {
+    console.warn("Failed to fetch notifications:", error.message);
+    throw new Error(error.message || "Failed to fetch notifications.");
   }
+
+  return (data as DbNotification[]) || [];
 }
 
 /**

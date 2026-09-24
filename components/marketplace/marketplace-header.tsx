@@ -212,7 +212,12 @@ export function MarketplaceHeader({
             >
               <Bell className="size-5" />
               {unreadNotificationsCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 size-2.5 bg-emerald-400 rounded-full ring-2 ring-[#211a24]" />
+                <span
+                  className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-[#e59bc9] text-[#19131b] text-[10px] font-extrabold rounded-full flex items-center justify-center leading-none"
+                  title={`${unreadNotificationsCount} unread notification${unreadNotificationsCount === 1 ? "" : "s"}`}
+                >
+                  {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                </span>
               )}
             </Link>
 

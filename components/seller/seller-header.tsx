@@ -9,7 +9,9 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
+import { useOptionalMarketplace } from "@/components/marketplace/marketplace-provider";
 import { getShopByOwnerId } from "@/lib/supabase/shops";
+import { getUnreadNotificationCount } from "@/lib/supabase/notifications";
 import type { DbShop } from "@/lib/supabase/types";
 
 interface SellerHeaderProps {
@@ -26,7 +28,26 @@ export function SellerHeader({
   showAddProduct = true,
 }: SellerHeaderProps) {
   const { userId, profile } = useMarketplaceAccount();
+  const marketplace = useOptionalMarketplace();
+  const [localUnreadCount, setLocalUnreadCount] = useState<number>(0);
   const [shop, setShop] = useState<DbShop | null>(null);
+
+  useEffect(() => {
+    if (marketplace) return;
+    let active = true;
+    getUnreadNotificationCount()
+      .then((c) => {
+        if (active) setLocalUnreadCount(c);
+      })
+      .catch((err) => console.warn("Error fetching unread notifications in seller header:", err));
+    return () => {
+      active = false;
+    };
+  }, [marketplace]);
+
+  const unreadNotificationsCount = marketplace
+    ? marketplace.unreadNotificationsCount
+    : localUnreadCount;
 
   useEffect(() => {
     if (!userId) return;
@@ -95,12 +116,19 @@ export function SellerHeader({
 
         {/* Notifications */}
         <Link
-          href="/seller/messages"
-          className="relative size-9 rounded-xl bg-white/[0.05] hover:bg-white/10 border border-white/[0.08] flex items-center justify-center text-[#b9adb6] hover:text-white transition-colors"
-          aria-label="Seller notifications and messages"
+          href="/marketplace/notifications"
+          className="relative size-9 rounded-xl bg-white/[0.05] hover:bg-white/10 border border-white/[0.08] flex items-center justify-center text-[#b9adb6] hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+          aria-label={`Seller notifications ${unreadNotificationsCount > 0 ? `(${unreadNotificationsCount} unread)` : ""}`}
         >
           <Bell className="size-4" />
-          <span className="absolute top-2 right-2 size-2 rounded-full bg-[#e59bc9]" />
+          {unreadNotificationsCount > 0 && (
+            <span
+              className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-[#e59bc9] text-[#19131b] text-[10px] font-extrabold rounded-full flex items-center justify-center leading-none"
+              title={`${unreadNotificationsCount} unread notification${unreadNotificationsCount === 1 ? "" : "s"}`}
+            >
+              {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+            </span>
+          )}
         </Link>
 
         {/* Shop Avatar */}

@@ -1,37 +1,192 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   ArrowLeft,
   CheckCheck,
-  Tag,
-  Sparkles,
-  ShieldCheck,
   Check,
+  PackageCheck,
+  PackagePlus,
+  Truck,
+  XCircle,
+  MessageSquare,
+  ShieldCheck,
+  ShieldAlert,
+  Inbox,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "@/lib/supabase/notifications";
+import type { DbNotification, NotificationType } from "@/lib/supabase/types";
 import { toast } from "sonner";
 
-export default function NotificationsPage() {
-  const {
-    notifications,
-    markNotificationAsRead,
-    markAllNotificationsAsRead,
-    unreadNotificationsCount,
-  } = useMarketplace();
+function formatNotificationDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-  const getIcon = (type: string) => {
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+export default function NotificationsPage() {
+  const router = useRouter();
+  const { setUnreadNotificationsCount, refreshUnreadNotificationsCount } =
+    useMarketplace();
+
+  const [notifications, setNotifications] = useState<DbNotification[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isError, setIsError] = useState<boolean>(false);
+  const [isMarkingAll, setIsMarkingAll] = useState<boolean>(false);
+
+  useEffect(() => {
+    let active = true;
+
+    getNotifications(50)
+      .then((data) => {
+        if (!active) return;
+        setNotifications(data);
+        const unread = data.filter((n) => n.read_at === null).length;
+        setUnreadNotificationsCount?.(unread);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.warn("Could not load notifications:", err);
+        if (!active) return;
+        setIsError(true);
+        setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [setUnreadNotificationsCount]);
+
+  const reloadNotifications = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setIsError(false);
+      const data = await getNotifications(50);
+      setNotifications(data);
+      const unread = data.filter((n) => n.read_at === null).length;
+      setUnreadNotificationsCount?.(unread);
+    } catch (err) {
+      console.warn("Could not load notifications:", err);
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setUnreadNotificationsCount]);
+
+  const unreadCount = notifications.filter((n) => n.read_at === null).length;
+
+  const getIcon = (type: NotificationType | string) => {
     switch (type) {
-      case "price":
-        return <Tag className="size-4 text-[#e59bc9]" />;
-      case "welcome":
-        return <Sparkles className="size-4 text-pink-300" />;
-      case "seller":
+      case "order_new":
+        return <PackagePlus className="size-4 text-[#e59bc9]" />;
+      case "order_status":
+        return <Truck className="size-4 text-[#b78bd7]" />;
+      case "order_completed":
+        return <PackageCheck className="size-4 text-emerald-400" />;
+      case "order_cancelled":
+        return <XCircle className="size-4 text-rose-400" />;
+      case "message":
+        return <MessageSquare className="size-4 text-[#e59bc9]" />;
+      case "verification_approved":
         return <ShieldCheck className="size-4 text-emerald-400" />;
+      case "verification_rejected":
+        return <ShieldAlert className="size-4 text-rose-400" />;
       default:
         return <Bell className="size-4 text-[#e59bc9]" />;
+    }
+  };
+
+  const handleNotificationClick = async (notif: DbNotification) => {
+    if (notif.read_at === null) {
+      const nowIso = new Date().toISOString();
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, read_at: nowIso } : n))
+      );
+      setUnreadNotificationsCount?.((prev) => Math.max(0, prev - 1));
+
+      try {
+        await markNotificationRead(notif.id);
+        refreshUnreadNotificationsCount?.();
+      } catch (err) {
+        console.warn("Failed to mark notification as read in background:", err);
+      }
+    }
+
+    if (notif.link) {
+      router.push(notif.link);
+    }
+  };
+
+  const handleMarkSingleRead = async (
+    e: React.MouseEvent,
+    notifId: string
+  ) => {
+    e.stopPropagation();
+    const nowIso = new Date().toISOString();
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notifId ? { ...n, read_at: nowIso } : n))
+    );
+    setUnreadNotificationsCount?.((prev) => Math.max(0, prev - 1));
+    toast.success("Notification marked as read.");
+
+    try {
+      await markNotificationRead(notifId);
+      refreshUnreadNotificationsCount?.();
+    } catch (err) {
+      console.warn("Failed to mark notification as read:", err);
+      toast.error("Failed to mark notification as read.");
+      reloadNotifications();
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (isMarkingAll || unreadCount === 0) return;
+    setIsMarkingAll(true);
+
+    const nowIso = new Date().toISOString();
+    setNotifications((prev) =>
+      prev.map((n) => (n.read_at === null ? { ...n, read_at: nowIso } : n))
+    );
+    setUnreadNotificationsCount?.(0);
+
+    try {
+      await markAllNotificationsRead();
+      refreshUnreadNotificationsCount?.();
+      toast.success("All notifications marked as read.");
+    } catch (err) {
+      console.warn("Failed to mark all notifications as read:", err);
+      toast.error("Failed to mark all notifications as read.");
+      reloadNotifications();
+    } finally {
+      setIsMarkingAll(false);
     }
   };
 
@@ -53,91 +208,158 @@ export default function NotificationsPage() {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Notifications
             </h1>
-            {unreadNotificationsCount > 0 && (
+            {!isLoading && unreadCount > 0 && (
               <span className="px-2 py-0.5 text-xs font-bold bg-[#65486f] text-white rounded-full">
-                {unreadNotificationsCount} unread
+                {unreadCount} unread
               </span>
             )}
           </div>
         </div>
 
-        {unreadNotificationsCount > 0 && (
+        {!isLoading && unreadCount > 0 && (
           <button
             type="button"
-            onClick={() => {
-              markAllNotificationsAsRead();
-              toast.success("All notifications marked as read.");
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-[#342339] hover:bg-[#45304b] text-white border border-white/10 rounded-xl transition-colors cursor-pointer self-start sm:self-auto"
+            disabled={isMarkingAll}
+            onClick={handleMarkAllRead}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-[#342339] hover:bg-[#45304b] disabled:opacity-50 text-white border border-white/10 rounded-xl transition-colors cursor-pointer self-start sm:self-auto"
           >
-            <CheckCheck className="size-3.5 text-[#e59bc9]" />
+            {isMarkingAll ? (
+              <Loader2 className="size-3.5 text-[#e59bc9] animate-spin" />
+            ) : (
+              <CheckCheck className="size-3.5 text-[#e59bc9]" />
+            )}
             <span>Mark all as read</span>
           </button>
         )}
       </div>
 
-      {/* Notifications List */}
-      <div className="space-y-3">
-        {notifications.map((notif) => (
-          <div
-            key={notif.id}
-            className={`p-4 sm:p-5 rounded-2xl border transition-all flex items-start justify-between gap-4 shadow-sm ${
-              notif.read
-                ? "bg-[#241c27] border-white/10"
-                : "bg-[#2d2232] border-[#e59bc9]/30 shadow-md"
-            }`}
-          >
-            <div className="flex items-start gap-3.5">
-              <div
-                className={`size-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                  notif.read
-                    ? "bg-[#342339]/60 text-[#b9adb6]"
-                    : "bg-[#342339] border border-white/10"
-                }`}
-              >
-                {getIcon(notif.type)}
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h2
-                    className={`text-xs sm:text-sm font-bold ${
-                      notif.read ? "text-white/90" : "text-white"
-                    }`}
-                  >
-                    {notif.title}
-                  </h2>
-                  {!notif.read && (
-                    <span className="size-2 bg-emerald-400 rounded-full shrink-0" />
-                  )}
-                </div>
-
-                <p className="text-xs text-[#b9adb6] leading-relaxed">
-                  {notif.description}
-                </p>
-
-                <span className="text-[10px] text-[#937b8b] block pt-0.5">
-                  {notif.date}
-                </span>
+      {/* Loading Skeleton */}
+      {isLoading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="p-4 sm:p-5 rounded-2xl border border-white/10 bg-[#241c27] flex items-start gap-4 animate-pulse"
+            >
+              <div className="size-9 rounded-xl bg-[#342339] shrink-0 mt-0.5" />
+              <div className="space-y-2 flex-1">
+                <div className="h-4 bg-[#342339] rounded-md w-1/3" />
+                <div className="h-3 bg-[#342339] rounded-md w-3/4" />
+                <div className="h-2.5 bg-[#342339] rounded-md w-1/5" />
               </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            {!notif.read && (
-              <button
-                type="button"
-                aria-label="Mark notification as read"
-                onClick={() => {
-                  markNotificationAsRead(notif.id);
-                  toast.success("Notification marked as read.");
-                }}
-                className="p-2 text-[#b9adb6] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors shrink-0 cursor-pointer"
-              >
-                <Check className="size-4" />
-              </button>
-            )}
+      {/* Error State */}
+      {!isLoading && isError && (
+        <div className="p-8 sm:p-12 rounded-2xl border border-white/10 bg-[#241c27] text-center space-y-3 shadow-sm">
+          <Bell className="size-10 text-[#b9adb6] mx-auto opacity-40" />
+          <h3 className="text-base font-semibold text-white">
+            Notifications are temporarily unavailable.
+          </h3>
+          <p className="text-xs text-[#b9adb6] max-w-sm mx-auto">
+            We could not load your notifications right now. Please try again in a moment.
+          </p>
+          <button
+            type="button"
+            onClick={reloadNotifications}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#342339] hover:bg-[#45304b] text-white border border-white/10 rounded-xl transition-colors cursor-pointer"
+          >
+            <RefreshCw className="size-3.5 text-[#e59bc9]" />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !isError && notifications.length === 0 && (
+        <div className="p-12 rounded-2xl border border-white/10 bg-[#241c27] text-center space-y-3 shadow-sm">
+          <div className="size-12 rounded-2xl bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#b9adb6]">
+            <Inbox className="size-6 text-[#e59bc9]" />
           </div>
-        ))}
-      </div>
+          <h3 className="text-base font-bold text-white">No notifications yet.</h3>
+          <p className="text-xs text-[#b9adb6] max-w-md mx-auto leading-relaxed">
+            You are all caught up! Updates regarding your orders, seller applications, and customer messages will appear here.
+          </p>
+        </div>
+      )}
+
+      {/* Notifications List */}
+      {!isLoading && !isError && notifications.length > 0 && (
+        <div className="space-y-3">
+          {notifications.map((notif) => {
+            const isUnread = notif.read_at === null;
+
+            return (
+              <div
+                key={notif.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleNotificationClick(notif)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleNotificationClick(notif);
+                  }
+                }}
+                className={`p-4 sm:p-5 rounded-2xl border transition-all flex items-start justify-between gap-4 shadow-sm cursor-pointer hover:border-[#e59bc9]/50 ${
+                  isUnread
+                    ? "bg-[#2d2232] border-[#e59bc9]/30 shadow-md"
+                    : "bg-[#241c27] border-white/10"
+                }`}
+              >
+                <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                  <div
+                    className={`size-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                      isUnread
+                        ? "bg-[#342339] border border-white/10"
+                        : "bg-[#342339]/60 text-[#b9adb6]"
+                    }`}
+                  >
+                    {getIcon(notif.type)}
+                  </div>
+
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h2
+                        className={`text-xs sm:text-sm font-bold truncate ${
+                          isUnread ? "text-white" : "text-white/90"
+                        }`}
+                      >
+                        {notif.title}
+                      </h2>
+                      {isUnread && (
+                        <span className="size-2 bg-emerald-400 rounded-full shrink-0" />
+                      )}
+                    </div>
+
+                    <p className="text-xs text-[#b9adb6] leading-relaxed break-words">
+                      {notif.message}
+                    </p>
+
+                    <span className="text-[10px] text-[#937b8b] block pt-0.5">
+                      {formatNotificationDate(notif.created_at)}
+                    </span>
+                  </div>
+                </div>
+
+                {isUnread && (
+                  <button
+                    type="button"
+                    aria-label="Mark notification as read"
+                    onClick={(e) => handleMarkSingleRead(e, notif.id)}
+                    className="p-2 text-[#b9adb6] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors shrink-0 cursor-pointer"
+                  >
+                    <Check className="size-4" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
