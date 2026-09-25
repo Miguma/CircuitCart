@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Settings,
   ArrowLeft,
@@ -11,7 +12,9 @@ import {
   Palette,
   Info,
   Check,
+  Loader2,
 } from "lucide-react";
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
 import { toast } from "sonner";
 
 interface SwitchControlProps {
@@ -72,6 +75,15 @@ function SwitchControl({
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const { userId, isLoading: isAccountLoading } = useMarketplaceAccount();
+
+  React.useEffect(() => {
+    if (!isAccountLoading && !userId) {
+      router.replace("/login?redirectTo=/marketplace/settings");
+    }
+  }, [isAccountLoading, userId, router]);
+
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [priceDrops, setPriceDrops] = useState(true);
   const [securityNotices, setSecurityNotices] = useState(true);
@@ -83,6 +95,15 @@ export default function SettingsPage() {
     e.preventDefault();
     toast.success("Preferences updated for this browser session.");
   };
+
+  if (isAccountLoading || !userId) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
+        <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
+        <p className="text-sm text-[#b9adb6]">Redirecting to login...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -102,15 +123,15 @@ export default function SettingsPage() {
           <span>Account Settings</span>
         </h1>
         <p className="text-xs text-[#b9adb6] mt-1">
-          Manage your interface preferences, alerts, and demo profile visibility.
+          Manage your interface preferences, alerts, and profile visibility.
         </p>
       </div>
 
-      {/* Demo Notice Banner */}
+      {/* Notice Banner */}
       <div className="flex items-start gap-3 p-4 bg-[#241c27] border border-[#e59bc9]/30 rounded-2xl text-xs text-[#b9adb6] leading-relaxed shadow-sm">
         <Info className="size-4 text-[#e59bc9] shrink-0 mt-0.5" />
         <span>
-          Settings configured here are saved locally for this demonstration session. Permanent profile settings will be synchronized when Supabase database tables are attached.
+          Interface preferences and alert settings are stored for your browser session. To update your public profile and account details, visit your Profile page.
         </span>
       </div>
 

@@ -118,6 +118,18 @@ export type DbOrderStatus =
 
 export type DbDeliveryMethod = "delivery" | "meetup";
 
+export type DbPaymentMethod =
+  | "cash_on_delivery"
+  | "cash_on_meetup"
+  | "manual_gcash"
+  | "manual_maya";
+
+export type DbPaymentStatus =
+  | "pending"
+  | "paid"
+  | "failed"
+  | "refunded";
+
 export interface DbOrder {
   id: string;
   buyer_id: string;
@@ -128,6 +140,11 @@ export interface DbOrder {
   shipping_fee: number;
   total: number;
   delivery_method: DbDeliveryMethod;
+  payment_method: DbPaymentMethod;
+  payment_status: DbPaymentStatus;
+  payment_reference: string | null;
+  courier_name: string | null;
+  tracking_number: string | null;
   shipping_name: string | null;
   shipping_phone: string | null;
   shipping_address: string | null;

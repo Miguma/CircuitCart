@@ -22,16 +22,97 @@ import {
   Loader2,
   X,
   Store,
+  Banknote,
+  CreditCard,
+  Info,
+  CheckCircle2,
+  Package,
 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
-import { checkoutCart } from "@/lib/supabase/orders";
-import { DbDeliveryMethod } from "@/lib/supabase/types";
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
+import {
+  checkoutCart,
+  formatPaymentMethodLabel,
+  formatPaymentStatusLabel,
+} from "@/lib/supabase/orders";
+import { DbDeliveryMethod, DbPaymentMethod } from "@/lib/supabase/types";
 import { toast } from "sonner";
+
+function CartItemSkeleton() {
+  return (
+    <div className="bg-[#241c27] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md animate-pulse">
+      {/* Product Thumbnail placeholder */}
+      <div className="size-20 sm:size-24 rounded-xl bg-[#342339]/60 shrink-0" />
+
+      {/* Details placeholder */}
+      <div className="flex-1 min-w-0 space-y-2 w-full sm:w-auto">
+        {/* Category & Condition tags */}
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-16 bg-[#342339] rounded-md" />
+          <div className="h-3 w-20 bg-white/5 rounded" />
+        </div>
+
+        {/* Product title */}
+        <div className="h-4 w-3/4 sm:w-2/3 bg-white/10 rounded" />
+
+        {/* Seller info */}
+        <div className="h-3 w-1/2 sm:w-1/3 bg-white/5 rounded" />
+
+        {/* Price */}
+        <div className="h-4 w-24 bg-white/10 rounded pt-0.5" />
+      </div>
+
+      {/* Quantity & Action area */}
+      <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+        <div className="h-9 w-24 bg-[#342339] border border-white/10 rounded-xl" />
+        <div className="size-8 bg-white/5 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+function CartSummarySkeleton() {
+  return (
+    <div className="bg-[#241c27] border border-white/10 rounded-3xl p-6 space-y-5 shadow-xl animate-pulse">
+      <div className="h-5 w-32 bg-white/10 rounded pb-3 border-b border-white/10" />
+
+      <div className="space-y-3 pt-1">
+        <div className="flex items-center justify-between">
+          <div className="h-3.5 w-28 bg-white/5 rounded" />
+          <div className="h-3.5 w-16 bg-white/10 rounded" />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="h-3.5 w-36 bg-white/5 rounded" />
+          <div className="h-3.5 w-14 bg-white/10 rounded" />
+        </div>
+
+        <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+          <div className="h-4 w-24 bg-white/10 rounded" />
+          <div className="h-5 w-20 bg-[#e59bc9]/30 rounded" />
+        </div>
+      </div>
+
+      {/* Checkout button placeholder */}
+      <div className="pt-2">
+        <div className="h-11 w-full bg-[#65486f]/40 rounded-xl" />
+      </div>
+
+      {/* Guarantees placeholder */}
+      <div className="pt-4 border-t border-white/10 space-y-2">
+        <div className="h-3 w-3/4 bg-white/5 rounded" />
+        <div className="h-3 w-2/3 bg-white/5 rounded" />
+      </div>
+    </div>
+  );
+}
 
 export default function CartPage() {
   const router = useRouter();
+  const { userId, isLoading: isAccountLoading } = useMarketplaceAccount();
   const {
     cartItems,
+    isCartLoading,
     updateQuantity,
     removeFromCart,
     clearCart,
@@ -41,13 +122,83 @@ export default function CartPage() {
     cartSubtotal,
   } = useMarketplace();
 
+  React.useEffect(() => {
+    if (!isAccountLoading && !userId) {
+      router.replace("/login?redirectTo=/marketplace/cart");
+    }
+  }, [isAccountLoading, userId, router]);
+
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<DbDeliveryMethod>("delivery");
+  const [paymentMethod, setPaymentMethod] = useState<DbPaymentMethod>("cash_on_delivery");
   const [shippingName, setShippingName] = useState("");
   const [shippingPhone, setShippingPhone] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
   const [buyerNote, setBuyerNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmation, setConfirmation] = useState<{
+    orderIds: string[];
+    sellerCount: number;
+    deliveryMethod: DbDeliveryMethod;
+    paymentMethod: DbPaymentMethod;
+    grandTotal: number;
+    shippingName?: string;
+    shippingAddress?: string;
+  } | null>(null);
+
+  const handleDeliveryMethodChange = (newMethod: DbDeliveryMethod) => {
+    setDeliveryMethod(newMethod);
+    if (newMethod === "delivery" && paymentMethod === "cash_on_meetup") {
+      setPaymentMethod("cash_on_delivery");
+    } else if (newMethod === "meetup" && paymentMethod === "cash_on_delivery") {
+      setPaymentMethod("cash_on_meetup");
+    }
+  };
+
+  const paymentOptions = React.useMemo(() => {
+    if (deliveryMethod === "delivery") {
+      return [
+        {
+          id: "cash_on_delivery" as DbPaymentMethod,
+          title: "Cash on Delivery (COD)",
+          subtitle: "Pay in cash directly to courier upon delivery",
+          icon: <Banknote className="size-4 text-[#e59bc9]" />,
+        },
+        {
+          id: "manual_gcash" as DbPaymentMethod,
+          title: "GCash (Manual Transfer)",
+          subtitle: "Direct e-wallet transfer; verify receipt via chat",
+          icon: <Smartphone className="size-4 text-[#e59bc9]" />,
+        },
+        {
+          id: "manual_maya" as DbPaymentMethod,
+          title: "Maya (Manual Transfer)",
+          subtitle: "Direct e-wallet transfer; verify receipt via chat",
+          icon: <CreditCard className="size-4 text-[#e59bc9]" />,
+        },
+      ];
+    }
+    return [
+      {
+        id: "cash_on_meetup" as DbPaymentMethod,
+        title: "Cash on Meetup",
+        subtitle: "Pay in cash in-person upon meeting the seller",
+        icon: <Banknote className="size-4 text-[#e59bc9]" />,
+      },
+      {
+        id: "manual_gcash" as DbPaymentMethod,
+        title: "GCash (Manual Transfer)",
+        subtitle: "Direct e-wallet transfer; verify receipt via chat",
+        icon: <Smartphone className="size-4 text-[#e59bc9]" />,
+      },
+      {
+        id: "manual_maya" as DbPaymentMethod,
+        title: "Maya (Manual Transfer)",
+        subtitle: "Direct e-wallet transfer; verify receipt via chat",
+        icon: <CreditCard className="size-4 text-[#e59bc9]" />,
+      },
+    ];
+  }, [deliveryMethod]);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("en-PH", {
@@ -146,11 +297,22 @@ export default function CartPage() {
     try {
       const orderIds = await checkoutCart({
         deliveryMethod,
+        paymentMethod,
         shippingName,
         shippingPhone,
         shippingAddress,
         buyerNote,
       });
+
+      const confirmationData = {
+        orderIds,
+        sellerCount,
+        deliveryMethod,
+        paymentMethod,
+        grandTotal: overallGrandTotal,
+        shippingName: shippingName.trim() || undefined,
+        shippingAddress: shippingAddress.trim() || undefined,
+      };
 
       // Synchronize client cart state without sending an unnecessary second DELETE request
       resetLocalCart();
@@ -158,18 +320,30 @@ export default function CartPage() {
 
       toast.success(
         orderIds.length > 1
-          ? `Successfully placed ${orderIds.length} orders across different shops!`
+          ? `Successfully placed ${orderIds.length} orders across ${sellerCount} shops!`
           : "Order placed successfully!"
       );
 
+      setIsSubmitting(false);
       setIsCheckoutOpen(false);
-      router.push("/marketplace/orders");
+      setConfirmation(confirmationData);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Checkout failed. Please try again.";
       toast.error(msg);
       setIsSubmitting(false);
     }
   };
+
+  if (!isAccountLoading && !userId) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
+        <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
+        <p className="text-sm text-[#b9adb6]">Redirecting to login...</p>
+      </div>
+    );
+  }
+
+  const isPageLoading = isAccountLoading || isCartLoading;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -189,15 +363,17 @@ export default function CartPage() {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Shopping Cart
             </h1>
-            {totalCartCount > 0 && (
+            {isPageLoading ? (
+              <span className="w-14 h-5 rounded-full bg-white/10 animate-pulse inline-block" />
+            ) : totalCartCount > 0 ? (
               <span className="px-2.5 py-0.5 text-xs font-bold bg-[#65486f] text-white rounded-full">
                 {totalCartCount} items
               </span>
-            )}
+            ) : null}
           </div>
         </div>
 
-        {cartItems.length > 0 && (
+        {!isPageLoading && cartItems.length > 0 && (
           <button
             type="button"
             onClick={() => {
@@ -211,8 +387,26 @@ export default function CartPage() {
         )}
       </div>
 
-      {/* Cart Items vs Empty State */}
-      {cartItems.length === 0 ? (
+      {/* Cart Items vs Skeleton vs Empty State */}
+      {isPageLoading ? (
+        <div
+          className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+          aria-busy="true"
+          aria-label="Loading shopping cart"
+        >
+          {/* Left Column: Cart Items Skeleton (8 cols) */}
+          <div className="lg:col-span-8 space-y-4">
+            <CartItemSkeleton />
+            <CartItemSkeleton />
+            <CartItemSkeleton />
+          </div>
+
+          {/* Right Column: Order Summary Skeleton (4 cols) */}
+          <div className="lg:col-span-4 space-y-4">
+            <CartSummarySkeleton />
+          </div>
+        </div>
+      ) : cartItems.length === 0 ? (
         <div className="w-full bg-[#241c27] border border-white/10 rounded-3xl p-8 sm:p-10 text-center space-y-3 shadow-xl my-4 min-h-[230px] sm:min-h-[280px] flex flex-col items-center justify-center">
           <div className="size-12 sm:size-14 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
             <ShoppingCart className="size-6 sm:size-7 stroke-[1.5]" />
@@ -448,8 +642,8 @@ export default function CartPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setDeliveryMethod("delivery")}
-                    className={`p-3.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                    onClick={() => handleDeliveryMethodChange("delivery")}
+                    className={`p-3.5 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                       deliveryMethod === "delivery"
                         ? "bg-[#342339] border-[#e59bc9] text-white"
                         : "bg-[#241c27] border-white/10 text-[#b9adb6] hover:border-white/20"
@@ -466,8 +660,8 @@ export default function CartPage() {
 
                   <button
                     type="button"
-                    onClick={() => setDeliveryMethod("meetup")}
-                    className={`p-3.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                    onClick={() => handleDeliveryMethodChange("meetup")}
+                    className={`p-3.5 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                       deliveryMethod === "meetup"
                         ? "bg-[#342339] border-[#e59bc9] text-white"
                         : "bg-[#241c27] border-white/10 text-[#b9adb6] hover:border-white/20"
@@ -541,6 +735,75 @@ export default function CartPage() {
                 </div>
               )}
 
+              {/* Payment Method Selector */}
+              <div className="space-y-2 pt-1">
+                <label className="text-xs font-bold text-white uppercase tracking-wider block">
+                  Payment Method
+                </label>
+                <div
+                  role="radiogroup"
+                  aria-label="Payment method selection"
+                  className="space-y-2"
+                >
+                  {paymentOptions.map((opt) => {
+                    const isSelected = paymentMethod === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        onClick={() => setPaymentMethod(opt.id)}
+                        className={`w-full p-3 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-[#342339] border-[#e59bc9] ring-1 ring-[#e59bc9]/30"
+                            : "bg-[#241c27] border-white/10 hover:border-white/20 hover:bg-[#2a202e]"
+                        }`}
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          <div
+                            className={`size-4 rounded-full border flex items-center justify-center transition-all ${
+                              isSelected
+                                ? "border-[#e59bc9] bg-[#e59bc9]"
+                                : "border-white/30 bg-transparent"
+                            }`}
+                          >
+                            {isSelected && (
+                              <div className="size-1.5 rounded-full bg-[#1e1322]" />
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            {opt.icon}
+                            <span className="text-xs font-bold text-white">
+                              {opt.title}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#b9adb6] mt-0.5">
+                            {opt.subtitle}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Manual E-Wallet Notice */}
+                {(paymentMethod === "manual_gcash" || paymentMethod === "manual_maya") && (
+                  <div className="mt-2.5 p-3 bg-[#342339]/60 border border-[#e59bc9]/30 rounded-xl text-xs space-y-1 animate-in fade-in duration-150">
+                    <div className="font-semibold text-white flex items-center gap-1.5">
+                      <Info className="size-3.5 text-[#e59bc9] shrink-0" />
+                      <span>Manual Payment Verification Required</span>
+                    </div>
+                    <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
+                      Manual payment verification will be required. You and the seller will coordinate payment confirmation and receipt verification via CircuitCart chat. Your order will be placed with payment status <strong>pending</strong>.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Optional Buyer Notes */}
               <div>
                 <label className="text-xs font-semibold text-[#d6cbd5] block mb-1">
@@ -580,6 +843,144 @@ export default function CartPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Post-Checkout Order Confirmation Modal */}
+      {confirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-[#1e1322] border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 sm:p-7 border-b border-white/10 text-center space-y-3 bg-[#241728]/50">
+              <div className="size-14 rounded-full bg-emerald-950/60 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+                <CheckCircle2 className="size-7 stroke-[2]" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                  Order Placed Successfully
+                </h2>
+                <p className="text-xs text-[#b9adb6] mt-1 max-w-sm mx-auto">
+                  {confirmation.orderIds.length > 1
+                    ? `Your checkout created ${confirmation.orderIds.length} orders across ${confirmation.sellerCount} verified shops.`
+                    : "Your order has been submitted to the seller for fulfillment."}
+                </p>
+              </div>
+            </div>
+
+            {/* Content Details */}
+            <div className="p-6 sm:p-7 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Summary Card */}
+              <div className="p-4 bg-[#241c27] border border-white/10 rounded-2xl space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#b9adb6]">Orders Created:</span>
+                  <span className="font-bold text-white">
+                    {confirmation.orderIds.length}{" "}
+                    {confirmation.orderIds.length === 1 ? "Order" : "Orders"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#b9adb6]">Fulfillment Method:</span>
+                  <span className="font-semibold text-white capitalize flex items-center gap-1.5">
+                    {confirmation.deliveryMethod === "delivery" ? (
+                      <>
+                        <Truck className="size-3.5 text-[#e59bc9]" />
+                        <span>Delivery (Direct Courier)</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="size-3.5 text-[#e59bc9]" />
+                        <span>Local Meetup (Cebu)</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#b9adb6]">Payment Method:</span>
+                  <span className="font-semibold text-white">
+                    {formatPaymentMethodLabel(confirmation.paymentMethod)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#b9adb6]">Payment Status:</span>
+                  <span
+                    className={`font-semibold ${
+                      confirmation.paymentMethod === "manual_gcash" ||
+                      confirmation.paymentMethod === "manual_maya"
+                        ? "text-amber-400"
+                        : "text-amber-300"
+                    }`}
+                  >
+                    {formatPaymentStatusLabel("pending", confirmation.paymentMethod)}
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between font-bold">
+                  <span className="text-white">Total Amount Due:</span>
+                  <span className="text-base text-[#e59bc9]">
+                    {formatPrice(confirmation.grandTotal)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Contextual Payment Explanation Box */}
+              <div className="p-3.5 bg-[#342339]/60 border border-white/10 rounded-2xl text-xs space-y-1.5">
+                <div className="font-semibold text-white flex items-center gap-1.5">
+                  <Info className="size-4 text-[#e59bc9] shrink-0" />
+                  <span>Next Steps & Payment Guidance</span>
+                </div>
+                <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
+                  {confirmation.paymentMethod === "cash_on_delivery" && (
+                    <>
+                      Payment will be collected in cash when your order is delivered to your address. Please prepare exact payment for the courier.
+                    </>
+                  )}
+                  {confirmation.paymentMethod === "cash_on_meetup" && (
+                    <>
+                      Payment will be completed in cash in-person when you meet the seller. You can test and inspect the item before finalizing payment.
+                    </>
+                  )}
+                  {(confirmation.paymentMethod === "manual_gcash" ||
+                    confirmation.paymentMethod === "manual_maya") && (
+                    <>
+                      Please coordinate payment transfer and receipt verification directly with the seller via CircuitCart chat. Your order will be fulfilled once the seller verifies your transaction receipt.
+                    </>
+                  )}
+                </p>
+                <p className="text-[10px] text-[#8f7d8c] pt-1">
+                  * Successful order placement does not mean payment is complete. Order status and payment status are tracked independently.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmation(null);
+                    router.push("/marketplace/orders");
+                  }}
+                  className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Package className="size-4" />
+                  <span>View My Orders</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmation(null);
+                    router.push("/marketplace");
+                  }}
+                  className="w-full py-2.5 bg-white/[0.05] hover:bg-white/10 text-[#d6cbd5] hover:text-white border border-white/10 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Continue Shopping</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

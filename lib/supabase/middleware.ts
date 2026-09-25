@@ -49,6 +49,12 @@ export async function updateSession(request: NextRequest) {
     normalizedPath.startsWith("/marketplace/profile") ||
     normalizedPath.startsWith("/marketplace/orders") ||
     normalizedPath.startsWith("/marketplace/settings") ||
+    normalizedPath.startsWith("/marketplace/cart") ||
+    normalizedPath.startsWith("/marketplace/favorites") ||
+    normalizedPath.startsWith("/marketplace/notifications") ||
+    normalizedPath.startsWith("/marketplace/messages") ||
+    normalizedPath === "/marketplace/sell" ||
+    normalizedPath.startsWith("/marketplace/sell/") ||
     normalizedPath === "/sell" ||
     normalizedPath.startsWith("/sell/") ||
     normalizedPath.startsWith("/seller") ||
@@ -107,10 +113,16 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect authenticated users away from /login and /register if already logged in
   if (user && (normalizedPath === "/login" || normalizedPath === "/register")) {
-    const redirectTo =
+    const rawRedirect =
       request.nextUrl.searchParams.get("redirectTo") ||
       request.nextUrl.searchParams.get("redirect") ||
       "/marketplace";
+    const isSafe =
+      rawRedirect.startsWith("/") &&
+      !rawRedirect.startsWith("//") &&
+      !rawRedirect.startsWith("/\\");
+    const redirectTo = isSafe ? rawRedirect : "/marketplace";
+
     const url = request.nextUrl.clone();
     url.pathname = redirectTo;
     url.searchParams.delete("redirectTo");

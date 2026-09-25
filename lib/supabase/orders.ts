@@ -3,17 +3,100 @@ import { getCurrentUser } from "./auth";
 import {
   DbDeliveryMethod,
   DbOrderStatus,
+  DbPaymentMethod,
+  DbPaymentStatus,
   OrderWithItems,
 } from "./types";
-import { SellerOrder, OrderStatus, FulfillmentMethod } from "@/lib/seller/seller-data";
+import { SellerOrder, OrderStatus, FulfillmentMethod, PaymentStatus } from "@/lib/seller/seller-data";
 import { getProductImageUrl } from "./storage";
 
 export interface CheckoutInput {
   deliveryMethod: DbDeliveryMethod;
+  paymentMethod?: DbPaymentMethod;
   shippingName?: string;
   shippingPhone?: string;
   shippingAddress?: string;
   buyerNote?: string;
+}
+
+/**
+ * Maps database payment method code to human-readable UI label
+ */
+export function formatPaymentMethodLabel(
+  method?: DbPaymentMethod | null,
+  short?: boolean
+): string {
+  switch (method) {
+    case "cash_on_delivery":
+      return short ? "COD" : "Cash on Delivery";
+    case "cash_on_meetup":
+      return "Cash on Meetup";
+    case "manual_gcash":
+      return short ? "GCash" : "GCash (Manual Transfer)";
+    case "manual_maya":
+      return short ? "Maya" : "Maya (Manual Transfer)";
+    default:
+      return "Cash on Delivery";
+  }
+}
+
+/**
+ * Maps database payment status to user-facing display label
+ * Supports specialized display wording (e.g. "Pending Verification" for manual transfers)
+ * without altering underlying database enum values.
+ */
+export function formatPaymentStatusLabel(
+  status?: DbPaymentStatus | null,
+  method?: DbPaymentMethod | null
+): string {
+  if (status === "paid") return "Paid";
+  if (status === "failed") return "Failed";
+  if (status === "refunded") return "Refunded";
+  if ((method === "manual_gcash" || method === "manual_maya") && status === "pending") {
+    return "Pending Verification";
+  }
+  return "Pending";
+}
+
+/**
+ * Returns a concise contextual explanation for an order's payment state
+ */
+export function getPaymentExplanation(
+  method?: DbPaymentMethod | null,
+  status?: DbPaymentStatus | null
+): string {
+  if (status === "paid") return "Payment confirmed.";
+  if (status === "failed") return "Payment was not completed.";
+  if (status === "refunded") return "Payment refunded.";
+
+  switch (method) {
+    case "cash_on_delivery":
+      return "Payment due upon delivery.";
+    case "cash_on_meetup":
+      return "Payment due during meetup.";
+    case "manual_gcash":
+    case "manual_maya":
+      return "Awaiting manual payment verification via chat.";
+    default:
+      return "Payment pending.";
+  }
+}
+
+/**
+ * Maps database payment status to frontend seller payment status
+ */
+export function mapDbPaymentStatusToSeller(status?: DbPaymentStatus | null): PaymentStatus {
+  switch (status) {
+    case "paid":
+      return "Paid";
+    case "failed":
+      return "Failed";
+    case "refunded":
+      return "Refunded";
+    case "pending":
+    default:
+      return "Pending";
+  }
 }
 
 /**
@@ -93,6 +176,7 @@ export async function checkoutCart(input: CheckoutInput): Promise<string[]> {
     p_shipping_phone: input.shippingPhone?.trim() || null,
     p_shipping_address: input.shippingAddress?.trim() || null,
     p_buyer_note: input.buyerNote?.trim() || null,
+    p_payment_method: input.paymentMethod || null,
   });
 
   if (error) {
@@ -260,7 +344,8 @@ export async function getSellerOrders(): Promise<SellerOrder[]> {
                 recipient: raw.shipping_name || buyerName,
                 phone: raw.shipping_phone || "+63 900 000 0000",
                 address: raw.shipping_address || "Cebu City, Central Visayas",
-                courier: "J&T Express / Lalamove",
+                courier: raw.courier_name || undefined,
+                trackingNumber: raw.tracking_number || undefined,
                 estimatedDelivery: "1-2 Business Days",
               }
             : undefined,
@@ -273,8 +358,8 @@ export async function getSellerOrders(): Promise<SellerOrder[]> {
                 buyerNotes: raw.buyer_note || undefined,
               }
             : undefined,
-        paymentMethod: "Cash on Delivery / Meetup",
-        paymentStatus: raw.status === "completed" ? "Paid" : "Pending",
+        paymentMethod: formatPaymentMethodLabel(raw.payment_method),
+        paymentStatus: mapDbPaymentStatusToSeller(raw.payment_status),
         status: mapDbStatusToSellerStatus(raw.status, raw.delivery_method),
         placedAt: dateStr,
       };
@@ -306,11 +391,13 @@ export async function cancelBuyerOrder(orderId: string, reason?: string): Promis
 }
 
 /**
- * Updates a seller's order status with server-side validation
+ * Updates a seller's order status with server-side validation and optional tracking info
  */
 export async function updateSellerOrderStatus(
   orderId: string,
-  newStatus: DbOrderStatus
+  newStatus: DbOrderStatus,
+  trackingNumber?: string,
+  courierName?: string
 ): Promise<void> {
   const user = await getCurrentUser();
   if (!user) {
@@ -321,6 +408,8 @@ export async function updateSellerOrderStatus(
   const { error } = await supabase.rpc("update_seller_order_status", {
     p_order_id: orderId,
     p_new_status: newStatus,
+    p_tracking_number: trackingNumber?.trim() || null,
+    p_courier_name: courierName?.trim() || null,
   });
 
   if (error) {

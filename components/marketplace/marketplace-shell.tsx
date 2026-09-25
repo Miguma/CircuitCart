@@ -33,7 +33,12 @@ function MarketplaceShellContent({ children }: { children: React.ReactNode }) {
       <MarketplaceMobileNav />
       <QuickViewDialog product={quickViewProduct} isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)}
         isWishlisted={quickViewProduct ? isFavorite(quickViewProduct.id) : false} onToggleWishlist={toggleFavorite}
-        onAddToCart={(product) => { addToCart(product); toast.success(`Added "${product.name}" to your cart!`); }} />
+        onAddToCart={async (product) => {
+          const success = await addToCart(product);
+          if (success) {
+            toast.success(`Added "${product.name}" to your cart!`);
+          }
+        }} />
       <Toaster position="top-center" toastOptions={{ className: "glass-toast font-sans text-xs font-medium" }} />
     </div>
   );

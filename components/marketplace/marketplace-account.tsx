@@ -7,18 +7,30 @@ import { createClient } from "@/lib/supabase/client";
 interface MarketplaceAccount {
   userId: string | null;
   profile: UserProfile | null;
+  email: string | null;
   isSeller: boolean;
   isLoading: boolean;
+  refreshAccount: () => Promise<void>;
 }
 
 const AccountContext = createContext<MarketplaceAccount>({
-  userId: null, profile: null, isSeller: false, isLoading: true,
+  userId: null,
+  profile: null,
+  email: null,
+  isSeller: false,
+  isLoading: true,
+  refreshAccount: async () => {},
 });
 
 // Read-only presentation state. Authorization remains in the existing backend.
 export function MarketplaceAccountProvider({ children }: { children: React.ReactNode }) {
   const [account, setAccount] = useState<MarketplaceAccount>({
-    userId: null, profile: null, isSeller: false, isLoading: true,
+    userId: null,
+    profile: null,
+    email: null,
+    isSeller: false,
+    isLoading: true,
+    refreshAccount: async () => {},
   });
 
   useEffect(() => {
@@ -35,8 +47,10 @@ export function MarketplaceAccountProvider({ children }: { children: React.React
       setAccount({
         userId: user?.id ?? null,
         profile: verifiedProfile,
+        email: user?.email ?? null,
         isSeller: verifiedProfile?.role === "seller" || verifiedProfile?.role === "admin",
         isLoading: false,
+        refreshAccount: loadAccount,
       });
     }
 
@@ -45,9 +59,27 @@ export function MarketplaceAccountProvider({ children }: { children: React.React
       if (event === "INITIAL_SESSION") return;
       ++revision;
       clearTimeout(pending);
-      setAccount({ userId: session?.user.id ?? null, profile: null, isSeller: false, isLoading: !!session });
-      // Keep async profile reads outside the auth callback's lock.
-      if (session) pending = setTimeout(() => void loadAccount(), 0);
+      if (!session) {
+        setAccount({
+          userId: null,
+          profile: null,
+          email: null,
+          isSeller: false,
+          isLoading: false,
+          refreshAccount: loadAccount,
+        });
+      } else {
+        setAccount({
+          userId: session.user.id,
+          profile: null,
+          email: session.user.email ?? null,
+          isSeller: false,
+          isLoading: true,
+          refreshAccount: loadAccount,
+        });
+        // Keep async profile reads outside the auth callback's lock.
+        pending = setTimeout(() => void loadAccount(), 0);
+      }
     });
 
     return () => { active = false; clearTimeout(pending); subscription.unsubscribe(); };

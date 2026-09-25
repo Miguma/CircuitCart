@@ -14,11 +14,16 @@ import {
   ShieldCheck,
   MessageSquare,
   Star,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   getBuyerOrders,
   cancelBuyerOrder,
   formatOrderReference,
+  formatPaymentMethodLabel,
+  formatPaymentStatusLabel,
+  getPaymentExplanation,
 } from "@/lib/supabase/orders";
 import { getOrCreateOrderConversation } from "@/lib/supabase/messages";
 import { getOrderReviews, getOrderItemReview } from "@/lib/supabase/reviews";
@@ -28,13 +33,21 @@ import { getProductImageUrl } from "@/lib/supabase/storage";
 import { toast } from "sonner";
 import { OrdersHeader } from "@/components/orders/orders-header";
 import { OrderStatusBadge } from "@/components/orders/order-status-badge";
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
 
 type OrderFilter = "All" | "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled";
 
 export default function OrdersPage() {
   const router = useRouter();
+  const { userId, isLoading: isAccountLoading } = useMarketplaceAccount();
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (!isAccountLoading && !userId) {
+      router.replace("/login?redirectTo=/marketplace/orders");
+    }
+  }, [isAccountLoading, userId, router]);
   const [activeFilter, setActiveFilter] = useState<OrderFilter>("All");
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [messagingOrderId, setMessagingOrderId] = useState<string | null>(null);
@@ -43,6 +56,14 @@ export default function OrdersPage() {
     item: DbOrderItem;
     existingReview?: DbReview | null;
   } | null>(null);
+  const [copiedTrackingId, setCopiedTrackingId] = useState<string | null>(null);
+
+  const handleCopyTracking = (trackingNo: string) => {
+    navigator.clipboard.writeText(trackingNo);
+    setCopiedTrackingId(trackingNo);
+    toast.success(`Tracking number "${trackingNo}" copied!`);
+    setTimeout(() => setCopiedTrackingId(null), 2500);
+  };
 
   const filters: OrderFilter[] = [
     "All",
@@ -74,6 +95,7 @@ export default function OrdersPage() {
   };
 
   useEffect(() => {
+    if (!userId) return;
     let active = true;
     getBuyerOrders()
       .then((data) => {
@@ -91,7 +113,7 @@ export default function OrdersPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [userId]);
 
   const handleReviewSuccess = async (orderItemId: string) => {
     try {
@@ -162,6 +184,15 @@ export default function OrdersPage() {
       return true;
     });
   }, [orders, activeFilter]);
+
+  if (isAccountLoading || !userId) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
+        <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
+        <p className="text-sm text-[#b9adb6]">Redirecting to login...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -263,7 +294,7 @@ export default function OrdersPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
                     <OrderStatusBadge status={order.status} />
 
                     <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-[#342339] text-[#e59bc9] border border-white/10 flex items-center gap-1">
@@ -278,6 +309,24 @@ export default function OrdersPage() {
                           <span>Meetup</span>
                         </>
                       )}
+                    </span>
+
+                    <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-[#241c27] text-[#d6cbd5] border border-white/10 flex items-center gap-1.5">
+                      <span>{formatPaymentMethodLabel(order.payment_method, true)}</span>
+                      <span className="text-[#8f7d8c]">&bull;</span>
+                      <span
+                        className={`font-semibold ${
+                          order.payment_status === "paid"
+                            ? "text-emerald-400"
+                            : order.payment_status === "failed"
+                            ? "text-rose-400"
+                            : order.payment_status === "refunded"
+                            ? "text-purple-400"
+                            : "text-amber-400"
+                        }`}
+                      >
+                        {formatPaymentStatusLabel(order.payment_status, order.payment_method)}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -352,19 +401,86 @@ export default function OrdersPage() {
 
                 {/* Delivery details & Footer */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3 border-t border-white/10">
-                  <div className="text-xs text-[#b9adb6] space-y-0.5">
-                    {order.delivery_method === "delivery" && order.shipping_address && (
-                      <p>
-                        Deliver to: <span className="text-white">{order.shipping_name}</span> ({order.shipping_address})
-                      </p>
+                  <div className="text-xs text-[#b9adb6] space-y-2 max-w-md">
+                    {/* Fulfillment Details */}
+                    {order.delivery_method === "delivery" ? (
+                      <div className="space-y-1">
+                        {order.shipping_address && (
+                          <p>
+                            Deliver to: <span className="text-white font-medium">{order.shipping_name}</span>{" "}
+                            ({order.shipping_address})
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          {order.courier_name ? (
+                            <span className="text-[#d6cbd5]">
+                              Courier: <strong className="text-white font-medium">{order.courier_name}</strong>
+                            </span>
+                          ) : (
+                            <span className="text-[#8f7d8c] italic">Courier not assigned yet.</span>
+                          )}
+
+                          {order.tracking_number && (
+                            <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/[0.04] border border-white/10 px-2 py-0.5 rounded-lg text-[#e59bc9]">
+                              <span>Tracking: {order.tracking_number}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyTracking(order.tracking_number!)}
+                                className="p-0.5 hover:text-white transition-colors cursor-pointer"
+                                title="Copy tracking number"
+                              >
+                                {copiedTrackingId === order.tracking_number ? (
+                                  <Check className="size-3 text-emerald-400" />
+                                ) : (
+                                  <Copy className="size-3" />
+                                )}
+                              </button>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-0.5">
+                        <p>
+                          Meetup Location:{" "}
+                          <span className="text-white font-medium">
+                            {order.shipping_address || "Cebu City"}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-[#8f7d8c]">
+                          Coordinate exact meetup time and spot with seller via chat.
+                        </p>
+                      </div>
                     )}
-                    {order.delivery_method === "meetup" && (
+
+                    {/* Payment Details & Explanation */}
+                    <div className="pt-1.5 border-t border-white/[0.06] space-y-0.5">
                       <p>
-                        Meetup Location: <span className="text-white">{order.shipping_address || "Cebu City"}</span>
+                        Payment:{" "}
+                        <span className="text-white font-medium">
+                          {formatPaymentMethodLabel(order.payment_method)}
+                        </span>
+                        <span
+                          className={`ml-1.5 font-semibold ${
+                            order.payment_status === "paid"
+                              ? "text-emerald-400"
+                              : order.payment_status === "failed"
+                              ? "text-rose-400"
+                              : order.payment_status === "refunded"
+                              ? "text-purple-400"
+                              : "text-amber-400"
+                          }`}
+                        >
+                          ({formatPaymentStatusLabel(order.payment_status, order.payment_method)})
+                        </span>
                       </p>
-                    )}
+                      <p className="text-[11px] text-[#8f7d8c]">
+                        {getPaymentExplanation(order.payment_method, order.payment_status)}
+                      </p>
+                    </div>
+
                     {order.buyer_note && (
-                      <p className="italic text-[#d6cbd5]">Note: &ldquo;{order.buyer_note}&rdquo;</p>
+                      <p className="italic text-[#d6cbd5] pt-0.5">Note: &ldquo;{order.buyer_note}&rdquo;</p>
                     )}
                   </div>
 

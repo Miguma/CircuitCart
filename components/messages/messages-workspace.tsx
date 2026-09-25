@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   MessageSquare,
   Send,
@@ -45,11 +45,18 @@ import { mapDbProductToMarketplaceProduct } from "@/lib/marketplace/product-adap
 import { toast } from "sonner";
 
 function MessagesContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialConvId = searchParams.get("conversationId");
 
   const { setQuickViewProduct } = useMarketplace();
   const { userId, isLoading: isLoadingAccount } = useMarketplaceAccount();
+
+  useEffect(() => {
+    if (!isLoadingAccount && !userId) {
+      router.replace("/login?redirectTo=/marketplace/messages");
+    }
+  }, [isLoadingAccount, userId, router]);
 
   const [conversations, setConversations] = useState<ConversationWithDetails[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(initialConvId);
@@ -62,8 +69,9 @@ function MessagesContent() {
   const [isSending, setIsSending] = useState(false);
   const [showMobileContext, setShowMobileContext] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previousChatIdRef = useRef<string | null>(null);
 
   // Both routes use the same participant-scoped conversation list.
   useEffect(() => {
@@ -156,10 +164,31 @@ function MessagesContent() {
     };
   }, [selectedChatId]);
 
-  // Scroll to bottom on messages change
+  // Scroll ONLY the internal messages container without moving the browser/document window
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const isConversationSwitch = previousChatIdRef.current !== selectedChatId;
+    previousChatIdRef.current = selectedChatId;
+
+    const scrollToTarget = () => {
+      const el = messagesContainerRef.current;
+      if (!el) return;
+
+      if (isConversationSwitch) {
+        // Instant scroll to bottom on conversation switch / initial open
+        el.scrollTop = el.scrollHeight;
+      } else {
+        // Smooth scroll for newly sent/received messages in the active thread
+        el.scrollTo({
+          top: el.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    };
+
+    scrollToTarget();
+    const rafId = requestAnimationFrame(scrollToTarget);
+    return () => cancelAnimationFrame(rafId);
+  }, [messages, selectedChatId]);
 
   // Select conversation handler
   const handleSelectConversation = (convId: string) => {
@@ -233,7 +262,7 @@ function MessagesContent() {
     } finally {
       setIsSending(false);
       if (textareaRef.current) {
-        textareaRef.current.focus();
+        textareaRef.current.focus({ preventScroll: true });
       }
     }
   };
@@ -363,6 +392,15 @@ function MessagesContent() {
       ? getProductImageUrl(activeConversation.products.product_images[0].storage_path)
       : null;
 
+  if (isLoadingAccount || !userId) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
+        <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
+        <p className="text-sm text-[#b9adb6]">Redirecting to login...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Top Header Bar */}
@@ -391,7 +429,7 @@ function MessagesContent() {
         {/* COLUMN 1: CONVERSATION LIST (~290px)                      */}
         {/* ========================================================= */}
         <div
-          className={`w-full md:w-[290px] shrink-0 border-r border-white/[0.06] flex flex-col bg-[#170c1a]/95 ${
+          className={`w-full md:w-[290px] shrink-0 border-r border-white/[0.06] flex flex-col min-h-0 bg-[#170c1a]/95 ${
             selectedChatId ? "hidden md:flex" : "flex"
           }`}
         >
@@ -476,7 +514,7 @@ function MessagesContent() {
           </div>
 
           {/* Conversations Scrollable List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-white/[0.03]">
+          <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-white/[0.03]">
             {isLoadingList || isLoadingAccount ? (
               <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
                 <Loader2 className="size-5 text-[#e59bc9] animate-spin" />
@@ -590,7 +628,7 @@ function MessagesContent() {
         {/* ========================================================= */}
         {activeConversation ? (
           <div
-            className={`flex-1 flex flex-col min-w-0 bg-[#140a17]/50 ${
+            className={`flex-1 flex flex-col min-w-0 min-h-0 bg-[#140a17]/50 ${
               !selectedChatId ? "hidden md:flex" : "flex"
             }`}
           >
@@ -677,7 +715,10 @@ function MessagesContent() {
             </div>
 
             {/* Chat Message Stream */}
-            <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-3">
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 p-4 sm:p-5 overflow-y-auto min-h-0 space-y-3"
+            >
               {isLoadingMessages ? (
                 <div className="h-full flex items-center justify-center">
                   <Loader2 className="size-6 text-[#e59bc9] animate-spin" />
@@ -739,7 +780,6 @@ function MessagesContent() {
                   );
                 })
               )}
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Quick Replies Row */}
@@ -754,7 +794,7 @@ function MessagesContent() {
                   type="button"
                   onClick={() => {
                     setInputText(reply.text);
-                    textareaRef.current?.focus();
+                    textareaRef.current?.focus({ preventScroll: true });
                   }}
                   className="px-2.5 py-1 rounded-md bg-white/[0.03] hover:bg-[#3d2743] hover:text-[#fffafa] text-[11px] font-medium text-[#b9adb6] border border-white/[0.05] transition-all shrink-0 cursor-pointer whitespace-nowrap active:scale-95"
                   title={reply.text}
@@ -829,7 +869,7 @@ function MessagesContent() {
         {/* COLUMN 3: PRODUCT & SELLER CONTEXT PANEL (~270px)        */}
         {/* ========================================================= */}
         {activeConversation && (
-          <div className="w-[270px] shrink-0 border-l border-white/[0.06] hidden xl:flex flex-col bg-[#170c1a]/90 p-4 overflow-y-auto space-y-4">
+          <div className="w-[270px] shrink-0 border-l border-white/[0.06] hidden xl:flex flex-col min-h-0 bg-[#170c1a]/90 p-4 overflow-y-auto space-y-4">
             {/* ABOUT THIS ITEM */}
             {activeConversation.products && (
               <div className="space-y-2.5">

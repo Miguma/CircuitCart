@@ -87,9 +87,11 @@ export default function MarketplacePage() {
   }, []);
 
   // Add to cart handler with toast
-  const handleAddToCart = (product: Product) => {
-    addToCart(product);
-    toast.success(`Added "${product.name}" to your cart!`);
+  const handleAddToCart = async (product: Product) => {
+    const success = await addToCart(product);
+    if (success) {
+      toast.success(`Added "${product.name}" to your cart!`);
+    }
   };
 
   const catalogFilters = useMemo(

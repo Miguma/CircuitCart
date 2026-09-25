@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   User,
@@ -32,8 +32,8 @@ import { toast } from "sonner";
 type ProfileTab = "overview" | "purchases" | "listings" | "reviews";
 
 export default function ProfilePage() {
-  const { demoProfile, favorites } = useMarketplace();
-  const { userId, profile, isSeller } = useMarketplaceAccount();
+  const { favorites } = useMarketplace();
+  const { userId, profile, email, isSeller, isLoading, refreshAccount } = useMarketplaceAccount();
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const editButtonRef = useRef<HTMLButtonElement>(null);
@@ -75,14 +75,20 @@ export default function ProfilePage() {
     (p) => p.status === "Active"
   ).length;
 
-
-
-  const displayName = profile?.full_name || demoProfile.name;
+  const displayName = profile?.full_name
+    ? profile.full_name
+    : profile?.username
+    ? `@${profile.username}`
+    : email
+    ? email.split("@")[0]
+    : "Account";
   const displayUsername = profile?.username
     ? `@${profile.username}`
-    : demoProfile.username;
-  const displayLocation = profile?.location || demoProfile.location;
-  const displayBio = profile?.bio || demoProfile.bio;
+    : email
+    ? `@${email.split("@")[0]}`
+    : "@user";
+  const displayLocation = profile?.location || "Not specified";
+  const displayBio = profile?.bio || "No bio added yet.";
   const displayRole = profile?.role
     ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1)
     : isSeller
@@ -93,7 +99,38 @@ export default function ProfilePage() {
         month: "long",
         year: "numeric",
       })
-    : demoProfile.joinedDate;
+    : "Recently joined";
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
+        <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
+        <p className="text-sm text-[#b9adb6]">Loading account profile...</p>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-24 text-center space-y-5">
+        <div className="size-16 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center mx-auto text-[#e59bc9]">
+          <User className="size-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-white">Sign In to View Profile</h2>
+          <p className="text-xs text-[#b9adb6]">
+            Please sign in with your CircuitCart account to access your profile details, purchases, and listings.
+          </p>
+        </div>
+        <Link
+          href="/login?redirect=/marketplace/profile"
+          className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+        >
+          Sign In
+        </Link>
+      </div>
+    );
+  }
 
   const tabs: { key: ProfileTab; label: string; count?: number }[] = [
     { key: "overview", label: "Overview" },
@@ -334,7 +371,7 @@ export default function ProfilePage() {
                     <span className="text-[#b9adb6] block mb-1">Email Address</span>
                     <span className="font-semibold text-white flex items-center gap-1.5">
                       <Mail className="size-3.5 text-[#b9adb6]" />
-                      <span>{demoProfile.email}</span>
+                      <span>{email || "Not specified"}</span>
                     </span>
                   </div>
 
@@ -569,7 +606,10 @@ export default function ProfilePage() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         triggerRef={editButtonRef}
-        onProfileUpdated={() => setRefreshKey((k) => k + 1)}
+        onProfileUpdated={() => {
+          setRefreshKey((k) => k + 1);
+          refreshAccount();
+        }}
       />
     </div>
   );

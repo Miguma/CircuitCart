@@ -41,13 +41,20 @@ export function MarketplaceHeader({
     favorites,
     totalCartCount,
     unreadNotificationsCount,
-    demoProfile,
   } = useMarketplace();
-  const { profile, isSeller } = useMarketplaceAccount();
+  const { userId, profile, email, isSeller, isLoading } = useMarketplaceAccount();
 
-  const displayName = profile?.full_name || demoProfile.name;
-  const displayEmail = profile?.username ? `@${profile.username}` : demoProfile.email;
-  const displayInitial = displayName.charAt(0) || "U";
+  const displayName = profile?.full_name
+    ? profile.full_name
+    : profile?.username
+    ? `@${profile.username}`
+    : email
+    ? email.split("@")[0]
+    : "Account";
+  const displayEmail = profile?.username
+    ? `@${profile.username}`
+    : email || "";
+  const displayInitial = displayName.charAt(0).toUpperCase() || "A";
 
 
   const searchQuery = propSearchQuery ?? ctxSearchQuery;
@@ -222,24 +229,40 @@ export function MarketplaceHeader({
             </Link>
 
             {/* User Profile Avatar / Accessible Dropdown Menu */}
-            <div className="pl-1 border-l border-white/10 relative" ref={userMenuRef}>
-              <button
-                ref={userButtonRef}
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={showUserMenu}
-                onClick={() => setShowUserMenu((prev) => !prev)}
-                className="flex items-center gap-2 p-1.5 text-[#fffafa] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer"
-                aria-label="User account menu"
-              >
-                <div className="size-7 rounded-full bg-[#65486f] border border-white/10 flex items-center justify-center text-xs font-bold text-[#fffafa]">
-                  {displayInitial}
-                </div>
-                <span className="hidden lg:inline text-xs font-semibold max-w-[90px] truncate text-[#fffafa]">
-                  {displayName}
-                </span>
-                <ChevronDown className="size-3.5 text-[#b9adb6] hidden sm:block" />
-              </button>
+            {isLoading ? (
+              <div className="pl-1 border-l border-white/10 flex items-center gap-2 p-1.5 animate-pulse" aria-hidden="true">
+                <div className="size-7 rounded-full bg-white/10" />
+                <div className="hidden lg:block h-3.5 w-16 bg-white/10 rounded-md" />
+              </div>
+            ) : !userId ? (
+              <div className="pl-1 border-l border-white/10 flex items-center">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                >
+                  <User className="size-3.5" />
+                  <span>Log in</span>
+                </Link>
+              </div>
+            ) : (
+              <div className="pl-1 border-l border-white/10 relative" ref={userMenuRef}>
+                <button
+                  ref={userButtonRef}
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={showUserMenu}
+                  onClick={() => setShowUserMenu((prev) => !prev)}
+                  className="flex items-center gap-2 p-1.5 text-[#fffafa] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer"
+                  aria-label="User account menu"
+                >
+                  <div className="size-7 rounded-full bg-[#65486f] border border-white/10 flex items-center justify-center text-xs font-bold text-[#fffafa]">
+                    {displayInitial}
+                  </div>
+                  <span className="hidden lg:inline text-xs font-semibold max-w-[90px] truncate text-[#fffafa]">
+                    {displayName}
+                  </span>
+                  <ChevronDown className="size-3.5 text-[#b9adb6] hidden sm:block" />
+                </button>
 
               {/* User Dropdown Menu */}
               {showUserMenu && (
@@ -324,8 +347,9 @@ export function MarketplaceHeader({
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
+      </div>
 
         {/* ROW 2: Mobile Search Bar */}
         <div className="flex md:hidden items-center pb-3 pt-1">

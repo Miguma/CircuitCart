@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, User, MapPin, AtSign, FileText } from "lucide-react";
-import { useMarketplace } from "./marketplace-provider";
 import { toast } from "sonner";
 import { updateCurrentUserProfile } from "@/lib/supabase/auth";
 import { useMarketplaceAccount } from "./marketplace-account";
@@ -23,13 +22,14 @@ function EditProfileForm({
   triggerRef?: React.RefObject<HTMLButtonElement | null>;
   onProfileUpdated?: () => void;
 }) {
-  const { demoProfile, updateProfile } = useMarketplace();
-  const { profile } = useMarketplaceAccount();
+  const { profile, refreshAccount } = useMarketplaceAccount();
 
-  const [name, setName] = useState(profile?.full_name || demoProfile.name);
-  const [username, setUsername] = useState(profile?.username || demoProfile.username);
-  const [location, setLocation] = useState(profile?.location || demoProfile.location);
-  const [bio, setBio] = useState(profile?.bio || demoProfile.bio);
+  const [name, setName] = useState(profile?.full_name || "");
+  const [username, setUsername] = useState(
+    profile?.username ? `@${profile.username}` : ""
+  );
+  const [location, setLocation] = useState(profile?.location || "");
+  const [bio, setBio] = useState(profile?.bio || "");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +70,7 @@ function EditProfileForm({
 
     const cleanUsername = username.trim().replace(/^@/, "");
 
-    // Update in Supabase if logged in
+    // Update in Supabase
     const res = await updateCurrentUserProfile({
       full_name: name.trim(),
       username: cleanUsername,
@@ -85,14 +85,7 @@ function EditProfileForm({
       return;
     }
 
-    // Update local state
-    updateProfile({
-      name: name.trim(),
-      username: `@${cleanUsername}`,
-      location: location.trim(),
-      bio: bio.trim(),
-    });
-
+    await refreshAccount();
     toast.success("Profile updated successfully.");
     onProfileUpdated?.();
     handleClose();
@@ -118,7 +111,7 @@ function EditProfileForm({
               Edit Profile
             </h2>
             <p className="text-xs text-[#b9adb6] mt-0.5">
-              Update your demo profile details for this browser session.
+              Update your public profile details and bio.
             </p>
           </div>
           <button
@@ -155,7 +148,7 @@ function EditProfileForm({
               }}
               required
               className="w-full h-10 px-3.5 bg-[#342339] border border-white/10 rounded-xl text-xs text-white placeholder-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 transition-all"
-              placeholder="e.g. Demo User"
+              placeholder="e.g. Alex Santos"
             />
           </div>
 
@@ -174,7 +167,7 @@ function EditProfileForm({
               }}
               required
               className="w-full h-10 px-3.5 bg-[#342339] border border-white/10 rounded-xl text-xs text-white placeholder-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 transition-all"
-              placeholder="e.g. @demouser"
+              placeholder="e.g. @alexsantos"
             />
           </div>
 

@@ -185,7 +185,12 @@ export function LoginForm({
         setIsSuccessState(true);
         setTimeout(() => {
           const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-          const redirectTo = params?.get("redirectTo") || "/marketplace";
+          const rawRedirect = params?.get("redirectTo") || params?.get("redirect") || "/marketplace";
+          const isSafe =
+            rawRedirect.startsWith("/") &&
+            !rawRedirect.startsWith("//") &&
+            !rawRedirect.startsWith("/\\");
+          const redirectTo = isSafe ? rawRedirect : "/marketplace";
           router.push(redirectTo);
           router.refresh();
         }, 600);

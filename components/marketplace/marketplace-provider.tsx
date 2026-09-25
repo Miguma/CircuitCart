@@ -8,7 +8,9 @@ import React, {
   useCallback,
   useEffect,
 } from "react";
+import { useRouter } from "next/navigation";
 import { Product, CategoryFilter } from "./marketplace-data";
+import { useMarketplaceAccount } from "./marketplace-account";
 import { createClient } from "@/lib/supabase/client";
 import {
   getCartItems,
@@ -29,16 +31,6 @@ export interface CartItem {
   quantity: number;
 }
 
-export interface DemoProfile {
-  name: string;
-  username: string;
-  email: string;
-  location: string;
-  bio: string;
-  accountType: string;
-  joinedDate: string;
-}
-
 interface MarketplaceContextType {
   // Search & Categories
   searchQuery: string;
@@ -50,12 +42,13 @@ interface MarketplaceContextType {
 
   // Favorites
   favorites: string[];
-  toggleFavorite: (productId: string) => void;
+  toggleFavorite: (productId: string) => Promise<boolean>;
   isFavorite: (productId: string) => boolean;
 
   // Cart
   cartItems: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
+  isCartLoading: boolean;
+  addToCart: (product: Product, quantity?: number) => Promise<boolean>;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -68,31 +61,20 @@ interface MarketplaceContextType {
   unreadNotificationsCount: number;
   setUnreadNotificationsCount: React.Dispatch<React.SetStateAction<number>>;
   refreshUnreadNotificationsCount: () => Promise<void>;
-
-  // Profile
-  demoProfile: DemoProfile;
-  updateProfile: (data: Partial<DemoProfile>) => void;
 }
 
 const MarketplaceContext = createContext<MarketplaceContextType | undefined>(
   undefined
 );
 
-const INITIAL_PROFILE: DemoProfile = {
-  name: "Demo User",
-  username: "@demouser",
-  email: "demo@circuitcart.test",
-  location: "Cebu City, Central Visayas",
-  bio: "Interested in reliable new and pre-owned technology across Cebu.",
-  accountType: "Buyer",
-  joinedDate: "August 2026",
-};
-
 export function MarketplaceProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const { userId } = useMarketplaceAccount();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryFilter>("All");
@@ -103,12 +85,11 @@ export function MarketplaceProvider({
 
   // Cart (Supabase persistent)
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isCartLoading, setIsCartLoading] = useState<boolean>(true);
 
   // Notifications unread count (Supabase persistent)
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState<number>(0);
 
-  // Demo Profile
-  const [demoProfile, setDemoProfile] = useState<DemoProfile>(INITIAL_PROFILE);
 
   const refreshUnreadNotificationsCount = useCallback(async () => {
     try {
@@ -126,6 +107,7 @@ export function MarketplaceProvider({
 
     async function loadUserData() {
       try {
+        setIsCartLoading(true);
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -135,6 +117,7 @@ export function MarketplaceProvider({
             setCartItems([]);
             setFavorites([]);
             setUnreadNotificationsCount(0);
+            setIsCartLoading(false);
           }
           return;
         }
@@ -149,9 +132,13 @@ export function MarketplaceProvider({
           setCartItems(items || []);
           setFavorites(favs || []);
           setUnreadNotificationsCount(notifCount ?? 0);
+          setIsCartLoading(false);
         }
       } catch (err) {
         console.warn("Could not load user data from Supabase:", err);
+        if (isMounted) {
+          setIsCartLoading(false);
+        }
       }
     }
 
@@ -167,6 +154,7 @@ export function MarketplaceProvider({
           setCartItems([]);
           setFavorites([]);
           setUnreadNotificationsCount(0);
+          setIsCartLoading(false);
         }
       }
     });
@@ -210,7 +198,22 @@ export function MarketplaceProvider({
 
   // Favorites handlers
   const toggleFavorite = useCallback(
-    async (productId: string) => {
+    async (productId: string): Promise<boolean> => {
+      if (!userId) {
+        const returnUrl =
+          typeof window !== "undefined"
+            ? window.location.pathname + window.location.search
+            : "/marketplace";
+        const safeUrl =
+          returnUrl.startsWith("/") &&
+          !returnUrl.startsWith("//") &&
+          !returnUrl.startsWith("/\\")
+            ? returnUrl
+            : "/marketplace";
+        router.push(`/login?redirectTo=${encodeURIComponent(safeUrl)}`);
+        return false;
+      }
+
       const prevFavorites = favorites;
       const isCurrentlyFavorited = prevFavorites.includes(productId);
 
@@ -223,15 +226,17 @@ export function MarketplaceProvider({
 
       try {
         await toggleSupabaseFavorite(productId);
+        return true;
       } catch (err: unknown) {
         // Rollback
         setFavorites(prevFavorites);
         const msg =
           err instanceof Error ? err.message : "Failed to update favorites.";
         toast.error(msg);
+        return false;
       }
     },
-    [favorites]
+    [favorites, userId, router]
   );
 
   const isFavorite = useCallback(
@@ -241,7 +246,22 @@ export function MarketplaceProvider({
 
   // Cart handlers
   const addToCart = useCallback(
-    async (product: Product, quantity = 1) => {
+    async (product: Product, quantity = 1): Promise<boolean> => {
+      if (!userId) {
+        const returnUrl =
+          typeof window !== "undefined"
+            ? window.location.pathname + window.location.search
+            : "/marketplace";
+        const safeUrl =
+          returnUrl.startsWith("/") &&
+          !returnUrl.startsWith("//") &&
+          !returnUrl.startsWith("/\\")
+            ? returnUrl
+            : "/marketplace";
+        router.push(`/login?redirectTo=${encodeURIComponent(safeUrl)}`);
+        return false;
+      }
+
       const prevCart = cartItems;
 
       // Optimistic update
@@ -264,15 +284,17 @@ export function MarketplaceProvider({
 
       try {
         await addCartItem(product.id, quantity);
+        return true;
       } catch (err: unknown) {
         // Rollback
         setCartItems(prevCart);
         const msg =
           err instanceof Error ? err.message : "Failed to add item to cart.";
         toast.error(msg);
+        return false;
       }
     },
-    [cartItems]
+    [cartItems, userId, router]
   );
 
   const removeFromCart = useCallback(
@@ -352,6 +374,8 @@ export function MarketplaceProvider({
     } catch (err) {
       console.warn("Could not refresh cart from Supabase:", err);
       setCartItems([]);
+    } finally {
+      setIsCartLoading(false);
     }
   }, []);
 
@@ -370,11 +394,6 @@ export function MarketplaceProvider({
     );
   }, [cartItems]);
 
-  // Profile handler
-  const updateProfile = useCallback((data: Partial<DemoProfile>) => {
-    setDemoProfile((prev) => ({ ...prev, ...data }));
-  }, []);
-
   const value = useMemo(
     () => ({
       searchQuery,
@@ -387,6 +406,7 @@ export function MarketplaceProvider({
       toggleFavorite,
       isFavorite,
       cartItems,
+      isCartLoading,
       addToCart,
       removeFromCart,
       updateQuantity,
@@ -398,8 +418,6 @@ export function MarketplaceProvider({
       unreadNotificationsCount,
       setUnreadNotificationsCount,
       refreshUnreadNotificationsCount,
-      demoProfile,
-      updateProfile,
     }),
     [
       searchQuery,
@@ -409,6 +427,7 @@ export function MarketplaceProvider({
       toggleFavorite,
       isFavorite,
       cartItems,
+      isCartLoading,
       addToCart,
       removeFromCart,
       updateQuantity,
@@ -419,8 +438,6 @@ export function MarketplaceProvider({
       cartSubtotal,
       unreadNotificationsCount,
       refreshUnreadNotificationsCount,
-      demoProfile,
-      updateProfile,
     ]
   );
 

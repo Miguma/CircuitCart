@@ -20,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
 import {
   getNotifications,
   markNotificationRead,
@@ -54,6 +55,7 @@ function formatNotificationDate(dateStr: string): string {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const { userId, isLoading: isAccountLoading } = useMarketplaceAccount();
   const { setUnreadNotificationsCount, refreshUnreadNotificationsCount } =
     useMarketplace();
 
@@ -63,6 +65,13 @@ export default function NotificationsPage() {
   const [isMarkingAll, setIsMarkingAll] = useState<boolean>(false);
 
   useEffect(() => {
+    if (!isAccountLoading && !userId) {
+      router.replace("/login?redirectTo=/marketplace/notifications");
+    }
+  }, [isAccountLoading, userId, router]);
+
+  useEffect(() => {
+    if (!userId) return;
     let active = true;
 
     getNotifications(50)
@@ -83,7 +92,7 @@ export default function NotificationsPage() {
     return () => {
       active = false;
     };
-  }, [setUnreadNotificationsCount]);
+  }, [userId, setUnreadNotificationsCount]);
 
   const reloadNotifications = useCallback(async () => {
     try {
@@ -189,6 +198,15 @@ export default function NotificationsPage() {
       setIsMarkingAll(false);
     }
   };
+
+  if (isAccountLoading || !userId) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
+        <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
+        <p className="text-sm text-[#b9adb6]">Redirecting to login...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">

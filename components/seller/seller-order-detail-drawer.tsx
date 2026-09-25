@@ -35,7 +35,12 @@ interface SellerOrderDetailDrawerProps {
   order: SellerOrder | null;
   isOpen: boolean;
   onClose: () => void;
-  onUpdateStatus: (orderId: string, newStatus: OrderStatus, trackingNo?: string) => void;
+  onUpdateStatus: (
+    orderId: string,
+    newStatus: OrderStatus,
+    trackingNo?: string,
+    courierName?: string
+  ) => void;
   onCancelOrder: (orderId: string, reason: string) => void;
 }
 
@@ -448,28 +453,30 @@ export function SellerOrderDetailDrawer({
                   </p>
                 </div>
 
-                {order.deliveryDetails.courier && (
-                  <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
-                    <div>
+                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
+                  <div>
+                    <span className="text-[#8f7d8c] block text-[11px]">
+                      Courier
+                    </span>
+                    <p className="font-bold text-[#fffafa]">
+                      {order.deliveryDetails.courier || (
+                        <span className="text-[#8f7d8c] font-normal italic">
+                          Courier not assigned yet.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {order.deliveryDetails.trackingNumber && (
+                    <div className="text-right">
                       <span className="text-[#8f7d8c] block text-[11px]">
-                        Courier
+                        Tracking #
                       </span>
-                      <p className="font-bold text-[#fffafa]">
-                        {order.deliveryDetails.courier}
+                      <p className="font-mono font-bold text-[#e59bc9]">
+                        {order.deliveryDetails.trackingNumber}
                       </p>
                     </div>
-                    {order.deliveryDetails.trackingNumber && (
-                      <div className="text-right">
-                        <span className="text-[#8f7d8c] block text-[11px]">
-                          Tracking #
-                        </span>
-                        <p className="font-mono font-bold text-[#e59bc9]">
-                          {order.deliveryDetails.trackingNumber}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
 
@@ -550,6 +557,10 @@ export function SellerOrderDetailDrawer({
                 className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
                   order.paymentStatus === "Paid"
                     ? "bg-emerald-950/60 text-emerald-300 border border-emerald-500/20"
+                    : order.paymentStatus === "Failed"
+                    ? "bg-rose-950/60 text-rose-300 border border-rose-500/20"
+                    : order.paymentStatus === "Refunded"
+                    ? "bg-purple-950/60 text-purple-300 border border-purple-500/20"
                     : "bg-amber-950/60 text-amber-300 border border-amber-500/20"
                 }`}
               >
@@ -578,7 +589,7 @@ export function SellerOrderDetailDrawer({
                 </h3>
               </div>
               <p className="text-xs text-[#b9adb6] leading-relaxed">
-                Cancelling this order will immediately notify the buyer and initiate an escrow refund.
+                Cancelling this order will immediately notify the buyer and update the order fulfillment status to cancelled.
               </p>
 
               <div>
@@ -684,11 +695,12 @@ export function SellerOrderDetailDrawer({
                     onUpdateStatus(
                       order.id,
                       "Shipped",
-                      trackingNumber || `${courierName.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`
+                      trackingNumber.trim() || undefined,
+                      courierName.trim() || undefined
                     );
                     setShowTrackingModal(false);
                   }}
-                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors"
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer"
                 >
                   Mark as Shipped
                 </button>

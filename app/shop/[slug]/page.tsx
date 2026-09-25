@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { MarketplaceHeader } from "@/components/marketplace/marketplace-header";
 import { MarketplaceFooter } from "@/components/marketplace/marketplace-footer";
 import { MarketplaceProvider } from "@/components/marketplace/marketplace-provider";
+import { MarketplaceAccountProvider } from "@/components/marketplace/marketplace-account";
 import { type SellerShopProfile } from "@/lib/seller/seller-data";
 import { Product } from "@/components/marketplace/marketplace-data";
 import { getShopBySlug } from "@/lib/supabase/shops";
@@ -69,19 +70,21 @@ export default async function PublicShopPage({ params }: PageProps) {
 
 
   return (
-    <MarketplaceProvider>
-      <div className="min-h-screen w-full bg-gradient-to-b from-[#8f7375] via-[#3a283e] to-[#19131b] text-[#fffafa] flex flex-col font-sans">
-        <MarketplaceHeader />
+    <MarketplaceAccountProvider>
+      <MarketplaceProvider>
+        <div className="min-h-screen w-full bg-gradient-to-b from-[#8f7375] via-[#3a283e] to-[#19131b] text-[#fffafa] flex flex-col font-sans">
+          <MarketplaceHeader />
 
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-          <PublicShopClientView
-            profile={profile}
-            products={shopProducts}
-          />
-        </main>
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+            <PublicShopClientView
+              profile={profile}
+              products={shopProducts}
+            />
+          </main>
 
-        <MarketplaceFooter />
-      </div>
-    </MarketplaceProvider>
+          <MarketplaceFooter />
+        </div>
+      </MarketplaceProvider>
+    </MarketplaceAccountProvider>
   );
 }

@@ -42,7 +42,7 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
     };
   }, [userId]);
 
-  const shopName = shop?.name || profile?.full_name ? `${profile?.full_name}'s Shop` : "Seller Studio";
+  const shopName = shop?.name || (profile?.full_name ? `${profile.full_name}'s Shop` : "Seller Studio");
   const shopHandle = shop?.slug ? `@${shop.slug}` : profile?.username ? `@${profile.username}` : "@seller";
   const isVerified = shop?.is_verified ?? false;
 

@@ -117,24 +117,40 @@ export default function ProductDetailClient({
       maximumFractionDigits: 0,
     }).format(price);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (isOwner || isLoading) return;
-    addToCart(product, quantity);
-    toast.success(`Added ${quantity} × "${product.name}" to cart!`);
+    if (!userId) {
+      router.push(`/login?redirectTo=${encodeURIComponent(`/marketplace/products/${product.id}`)}`);
+      return;
+    }
+    const success = await addToCart(product, quantity);
+    if (success) {
+      toast.success(`Added ${quantity} × "${product.name}" to cart!`);
+    }
   };
 
-  const handleToggleFavorite = () => {
+  const handleToggleFavorite = async () => {
     if (isOwner || isLoading) return;
-    toggleFavorite(product.id);
-    if (!wishlisted) {
-      toast.success(`Saved "${product.name}" to favorites.`);
-    } else {
-      toast.info(`Removed "${product.name}" from favorites.`);
+    if (!userId) {
+      router.push(`/login?redirectTo=${encodeURIComponent(`/marketplace/products/${product.id}`)}`);
+      return;
+    }
+    const success = await toggleFavorite(product.id);
+    if (success) {
+      if (!wishlisted) {
+        toast.success(`Saved "${product.name}" to favorites.`);
+      } else {
+        toast.info(`Removed "${product.name}" from favorites.`);
+      }
     }
   };
 
   const handleMessageSeller = async () => {
     if (isStartingChat || isOwner || isLoading) return;
+    if (!userId) {
+      router.push(`/login?redirectTo=${encodeURIComponent(`/marketplace/products/${product.id}`)}`);
+      return;
+    }
     setIsStartingChat(true);
 
     try {
@@ -664,9 +680,11 @@ export default function ProductDetailClient({
                 isWishlisted={isFavorite(prod.id)}
                 onToggleWishlist={toggleFavorite}
                 onQuickView={setQuickViewProduct}
-                onAddToCart={(p) => {
-                  addToCart(p);
-                  toast.success(`Added "${p.name}" to cart!`);
+                onAddToCart={async (p) => {
+                  const success = await addToCart(p);
+                  if (success) {
+                    toast.success(`Added "${p.name}" to cart!`);
+                  }
                 }}
               />
             ))}

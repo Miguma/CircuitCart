@@ -26,6 +26,8 @@ import {
   type Product,
   CATEGORIES,
 } from "@/components/marketplace/marketplace-data";
+import { useMarketplace } from "@/components/marketplace/marketplace-provider";
+import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
 import { type SellerShopProfile } from "@/lib/seller/seller-data";
 import { getOrCreateShopConversation } from "@/lib/supabase/messages";
 import { toast } from "sonner";
@@ -40,14 +42,20 @@ export function PublicShopClientView({
   products,
 }: PublicShopClientViewProps) {
   const router = useRouter();
+  const { userId } = useMarketplaceAccount();
+  const { addToCart, toggleFavorite, isFavorite } = useMarketplace();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [favorites, setFavorites] = useState<string[]>([]);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [isMessaging, setIsMessaging] = useState(false);
 
   const handleMessageShop = async () => {
     if (isMessaging) return;
+    if (!userId) {
+      const returnUrl = typeof window !== "undefined" ? window.location.pathname + window.location.search : `/shop/${profile.slug}`;
+      router.push(`/login?redirectTo=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
     setIsMessaging(true);
 
     try {
@@ -58,12 +66,6 @@ export function PublicShopClientView({
       toast.error(msg);
       setIsMessaging(false);
     }
-  };
-
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
   };
 
   const filteredProducts = products.filter((p) => {
@@ -280,10 +282,15 @@ export function PublicShopClientView({
               <ProductCard
                 key={prod.id}
                 product={prod}
-                isWishlisted={favorites.includes(prod.id)}
+                isWishlisted={isFavorite(prod.id)}
                 onToggleWishlist={toggleFavorite}
                 onQuickView={setQuickViewProduct}
-                onAddToCart={(p) => toast.success(`Added "${p.name}" to cart!`)}
+                onAddToCart={async (p) => {
+                  const success = await addToCart(p);
+                  if (success) {
+                    toast.success(`Added "${p.name}" to cart!`);
+                  }
+                }}
               />
             ))}
           </div>
@@ -295,10 +302,15 @@ export function PublicShopClientView({
         isOpen={!!quickViewProduct}
         onClose={() => setQuickViewProduct(null)}
         isWishlisted={
-          quickViewProduct ? favorites.includes(quickViewProduct.id) : false
+          quickViewProduct ? isFavorite(quickViewProduct.id) : false
         }
         onToggleWishlist={toggleFavorite}
-        onAddToCart={(prod) => toast.success(`Added "${prod.name}" to cart!`)}
+        onAddToCart={async (prod) => {
+          const success = await addToCart(prod);
+          if (success) {
+            toast.success(`Added "${prod.name}" to cart!`);
+          }
+        }}
       />
     </div>
   );

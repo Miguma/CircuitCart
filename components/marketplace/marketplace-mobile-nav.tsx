@@ -10,17 +10,21 @@ import {
   User,
 } from "lucide-react";
 import { useMarketplace } from "./marketplace-provider";
-
-const NAV_ITEMS = [
-  { href: "/marketplace", label: "Home", icon: Home },
-  { href: "/marketplace/favorites", label: "Saved", icon: Heart },
-  { href: "/marketplace/cart", label: "Cart", icon: ShoppingCart },
-  { href: "/marketplace/profile", label: "Profile", icon: User },
-] as const;
+import { useMarketplaceAccount } from "./marketplace-account";
 
 export function MarketplaceMobileNav() {
   const pathname = usePathname();
   const { favorites, totalCartCount } = useMarketplace();
+  const { userId } = useMarketplaceAccount();
+
+  const navItems = [
+    { href: "/marketplace", label: "Home", icon: Home },
+    { href: "/marketplace/favorites", label: "Saved", icon: Heart },
+    { href: "/marketplace/cart", label: "Cart", icon: ShoppingCart },
+    userId
+      ? { href: "/marketplace/profile", label: "Profile", icon: User }
+      : { href: "/login", label: "Log in", icon: User },
+  ];
 
   const isActive = (href: string) =>
     href === "/marketplace" ? pathname === href : pathname.startsWith(href);
@@ -31,7 +35,7 @@ export function MarketplaceMobileNav() {
       className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 md:hidden"
     >
       <div className="relative mx-auto grid h-16 max-w-md grid-cols-5 items-center rounded-2xl border border-white/15 bg-[#211724]/95 px-2 shadow-[0_18px_50px_rgba(15,9,17,0.45)] backdrop-blur-xl">
-        {NAV_ITEMS.slice(0, 2).map((item) => {
+        {navItems.slice(0, 2).map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
 
@@ -69,7 +73,7 @@ export function MarketplaceMobileNav() {
           <span>Sell</span>
         </Link>
 
-        {NAV_ITEMS.slice(2).map((item) => {
+        {navItems.slice(2).map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
 

@@ -106,11 +106,12 @@ function SellerOrdersContent() {
   const handleUpdateStatus = async (
     orderId: string,
     newStatus: OrderStatus,
-    trackingNo?: string
+    trackingNo?: string,
+    courier?: string
   ) => {
     const dbStatus = mapSellerStatusToDbStatus(newStatus);
     try {
-      await updateSellerOrderStatus(orderId, dbStatus);
+      await updateSellerOrderStatus(orderId, dbStatus, trackingNo, courier);
 
       const now = new Date().toLocaleTimeString([], {
         hour: "2-digit",
@@ -134,10 +135,11 @@ function SellerOrdersContent() {
             completedAt: newStatus === "Completed" ? todayStr : o.completedAt,
           };
 
-          if (trackingNo && updated.deliveryDetails) {
+          if (updated.deliveryDetails) {
             updated.deliveryDetails = {
               ...updated.deliveryDetails,
-              trackingNumber: trackingNo,
+              trackingNumber: trackingNo || updated.deliveryDetails.trackingNumber,
+              courier: courier || updated.deliveryDetails.courier,
             };
           }
 
@@ -170,7 +172,6 @@ function SellerOrdersContent() {
                 status: "Cancelled",
                 cancelledAt: todayStr,
                 cancelReason: reason,
-                paymentStatus: "Refunded",
               }
             : o
         )
