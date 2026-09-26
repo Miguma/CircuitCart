@@ -170,6 +170,7 @@ function SellerOrdersContent() {
             ? {
                 ...o,
                 status: "Cancelled",
+                awaitingOnlinePayment: false,
                 cancelledAt: todayStr,
                 cancelReason: reason,
               }
@@ -436,6 +437,7 @@ function SellerOrdersContent() {
                           </td>
                           <td className="py-4 px-4">
                             <OrderStatusBadge status={ord.status} />
+                            {ord.awaitingOnlinePayment && <span className="block mt-1 text-xs text-amber-200">Awaiting Payment</span>}
                           </td>
                           <td className="py-4 px-4 text-xs text-[#b9adb6] whitespace-nowrap">
                             {ord.placedAt}
@@ -482,6 +484,7 @@ function SellerOrdersContent() {
                         </h4>
                       </div>
                       <OrderStatusBadge status={ord.status} />
+                      {ord.awaitingOnlinePayment && <span className="text-xs text-amber-200">Awaiting Payment</span>}
                     </div>
 
                     <p className="text-xs text-[#d6cbd5] truncate">

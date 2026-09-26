@@ -4,6 +4,7 @@ import {
   DbDeliveryMethod,
   DbOrderStatus,
   DbPaymentMethod,
+  DbLegacyPaymentMethod,
   DbPaymentStatus,
   OrderWithItems,
 } from "./types";
@@ -12,7 +13,7 @@ import { getProductImageUrl } from "./storage";
 
 export interface CheckoutInput {
   deliveryMethod: DbDeliveryMethod;
-  paymentMethod?: DbPaymentMethod;
+  paymentMethod?: DbLegacyPaymentMethod;
   shippingName?: string;
   shippingPhone?: string;
   shippingAddress?: string;
@@ -35,6 +36,8 @@ export function formatPaymentMethodLabel(
       return short ? "GCash" : "GCash (Manual Transfer)";
     case "manual_maya":
       return short ? "Maya" : "Maya (Manual Transfer)";
+    case "maya_online":
+      return "Maya Online";
     default:
       return "Cash on Delivery";
   }
@@ -52,6 +55,7 @@ export function formatPaymentStatusLabel(
   if (status === "paid") return "Paid";
   if (status === "failed") return "Failed";
   if (status === "refunded") return "Refunded";
+  if (method === "maya_online") return "Awaiting Payment";
   if ((method === "manual_gcash" || method === "manual_maya") && status === "pending") {
     return "Pending Verification";
   }
@@ -70,6 +74,8 @@ export function getPaymentExplanation(
   if (status === "refunded") return "Payment refunded.";
 
   switch (method) {
+    case "maya_online":
+      return "Awaiting verified online payment. Do not fulfill this order yet.";
     case "cash_on_delivery":
       return "Payment due upon delivery.";
     case "cash_on_meetup":
@@ -164,6 +170,9 @@ export function mapSellerStatusToDbStatus(status: OrderStatus): DbOrderStatus {
  * Executes secure, atomic checkout via PostgreSQL RPC function
  */
 export async function checkoutCart(input: CheckoutInput): Promise<string[]> {
+  if (input.paymentMethod && !["cash_on_delivery", "cash_on_meetup", "manual_gcash", "manual_maya"].includes(input.paymentMethod)) {
+    throw new Error("Online payments must use the separate payment checkout.");
+  }
   const user = await getCurrentUser();
   if (!user) {
     throw new Error("You must be logged in to complete checkout.");
@@ -359,6 +368,7 @@ export async function getSellerOrders(): Promise<SellerOrder[]> {
               }
             : undefined,
         paymentMethod: formatPaymentMethodLabel(raw.payment_method),
+        awaitingOnlinePayment: raw.payment_method === "maya_online" && raw.payment_status !== "paid" && raw.status !== "cancelled",
         paymentStatus: mapDbPaymentStatusToSeller(raw.payment_status),
         status: mapDbStatusToSellerStatus(raw.status, raw.delivery_method),
         placedAt: dateStr,

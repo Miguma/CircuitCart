@@ -7,10 +7,13 @@ import { CartItemWithProduct } from "./types";
 /**
  * Fetches all persistent cart items for the authenticated user
  */
-export async function getCartItems(): Promise<CartItem[]> {
+export async function getCartItems(options?: { throwOnError?: boolean }): Promise<CartItem[]> {
   try {
     const user = await getCurrentUser();
-    if (!user) return [];
+    if (!user) {
+      if (options?.throwOnError) throw new Error("Your session expired. Sign in to refresh your cart.");
+      return [];
+    }
 
     const supabase = createClient();
     const { data, error } = await supabase
@@ -51,6 +54,7 @@ export async function getCartItems(): Promise<CartItem[]> {
 
     if (error || !data) {
       console.warn("Failed to fetch cart items:", error?.message);
+      if (options?.throwOnError) throw new Error("Unable to refresh your cart. Your displayed items have been kept.");
       return [];
     }
 
@@ -71,6 +75,7 @@ export async function getCartItems(): Promise<CartItem[]> {
     return items;
   } catch (err) {
     console.warn("Error in getCartItems:", err);
+    if (options?.throwOnError) throw err;
     return [];
   }
 }

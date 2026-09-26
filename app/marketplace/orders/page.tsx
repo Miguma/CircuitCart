@@ -130,7 +130,11 @@ export default function OrdersPage() {
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!confirm("Are you sure you want to cancel this pending order? Product stock will be returned.")) {
+    const order = orders.find((entry) => entry.id === orderId);
+    const onlineTransactionId = order?.payment_method === "maya_online" ? order.payment_transaction_id : null;
+    if (!confirm(onlineTransactionId
+      ? "Cancel the entire unpaid online checkout, including all seller orders, and release reserved stock?"
+      : "Are you sure you want to cancel this pending order? Product stock will be returned.")) {
       return;
     }
 
@@ -139,7 +143,7 @@ export default function OrdersPage() {
       await cancelBuyerOrder(orderId, "Cancelled by buyer");
       toast.success("Order cancelled successfully.");
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: "cancelled" } : o))
+        prev.map((o) => (o.id === orderId || (onlineTransactionId && o.payment_transaction_id === onlineTransactionId) ? { ...o, status: "cancelled" } : o))
       );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to cancel order.";
@@ -475,7 +479,9 @@ export default function OrdersPage() {
                         </span>
                       </p>
                       <p className="text-[11px] text-[#8f7d8c]">
-                        {getPaymentExplanation(order.payment_method, order.payment_status)}
+                        {order.payment_method === "maya_online" && order.status === "cancelled" && order.payment_status === "pending"
+                          ? "This unpaid online checkout is closed. Its stock reservation has been released."
+                          : getPaymentExplanation(order.payment_method, order.payment_status)}
                       </p>
                     </div>
 

@@ -118,11 +118,13 @@ export type DbOrderStatus =
 
 export type DbDeliveryMethod = "delivery" | "meetup";
 
-export type DbPaymentMethod =
+export type DbLegacyPaymentMethod =
   | "cash_on_delivery"
   | "cash_on_meetup"
   | "manual_gcash"
   | "manual_maya";
+
+export type DbPaymentMethod = DbLegacyPaymentMethod | "maya_online";
 
 export type DbPaymentStatus =
   | "pending"
@@ -143,12 +145,68 @@ export interface DbOrder {
   payment_method: DbPaymentMethod;
   payment_status: DbPaymentStatus;
   payment_reference: string | null;
+  payment_transaction_id: string | null;
   courier_name: string | null;
   tracking_number: string | null;
   shipping_name: string | null;
   shipping_phone: string | null;
   shipping_address: string | null;
   buyer_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DbPaymentTransactionProvider = "maya";
+
+export type DbPaymentTransactionStatus =
+  | "created"
+  | "pending"
+  | "authorized"
+  | "paid"
+  | "failed"
+  | "cancelled"
+  | "expired"
+  | "refunded";
+
+export interface DbPaymentTransaction {
+  id: string;
+  checkout_attempt_id: string | null;
+  expires_at: string | null;
+  inventory_released_at: string | null;
+  buyer_id: string;
+  provider: DbPaymentTransactionProvider;
+  currency: "PHP";
+  amount: number;
+  status: DbPaymentTransactionStatus;
+  provider_checkout_id: string | null;
+  provider_payment_id: string | null;
+  authorized_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DbSellerPayoutStatus =
+  | "pending"
+  | "eligible"
+  | "processing"
+  | "released"
+  | "held"
+  | "failed"
+  | "cancelled"
+  | "refunded";
+
+export interface DbSellerPayout {
+  id: string;
+  order_id: string;
+  seller_id: string;
+  payment_transaction_id: string | null;
+  gross_amount: number;
+  platform_fee: number;
+  net_amount: number;
+  status: DbSellerPayoutStatus;
+  eligible_at: string | null;
+  released_at: string | null;
   created_at: string;
   updated_at: string;
 }

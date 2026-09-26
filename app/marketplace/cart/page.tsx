@@ -35,8 +35,13 @@ import {
   formatPaymentMethodLabel,
   formatPaymentStatusLabel,
 } from "@/lib/supabase/orders";
-import { DbDeliveryMethod, DbPaymentMethod } from "@/lib/supabase/types";
+import { DbDeliveryMethod, DbPaymentMethod, DbLegacyPaymentMethod } from "@/lib/supabase/types";
+import { cancelOnlineCheckout, createOnlineCheckout, readOnlineCheckout } from "@/lib/checkout/online-client";
+import type { OnlineCheckout } from "@/lib/checkout/online-contract";
+import { OnlinePaymentStage } from "@/components/marketplace/online-payment-stage";
 import { toast } from "sonner";
+
+const onlinePreviewEnabled = process.env.NEXT_PUBLIC_ONLINE_CHECKOUT_FOUNDATION_ENABLED === "true";
 
 function CartItemSkeleton() {
   return (
@@ -136,11 +141,71 @@ export default function CartPage() {
   const [shippingAddress, setShippingAddress] = useState("");
   const [buyerNote, setBuyerNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLock = React.useRef(false);
+  const attemptId = React.useRef<string | null>(null);
+  const [onlineCheckout, setOnlineCheckout] = useState<OnlineCheckout | null>(null);
+  const [recoveryState, setRecoveryState] = useState<"idle" | "loading" | "error">("idle");
+  const recoveryLock = React.useRef(false);
+  const attemptStorageKey = `circuitcart:online-checkout:${userId}`;
+
+  const recoverCheckout = React.useCallback(async () => {
+    if (!userId || recoveryLock.current) return;
+    recoveryLock.current = true;
+    setRecoveryState("loading");
+    try {
+      // Active checkout first: this also recovers across tabs or lost local storage.
+      const active = await readOnlineCheckout();
+      const recovered = active || (attemptId.current ? await readOnlineCheckout(attemptId.current) : null);
+      setOnlineCheckout(recovered);
+      if (recovered && ["created", "pending", "authorized"].includes(recovered.paymentStatus)) {
+        attemptId.current = recovered.attemptId;
+      } else {
+        attemptId.current = null;
+        try { localStorage.removeItem(attemptStorageKey); } catch { /* Server recovery remains available. */ }
+      }
+      await refreshCart({ preserveOnError: true });
+      setRecoveryState("idle");
+    } catch {
+      setRecoveryState("error");
+    } finally {
+      recoveryLock.current = false;
+    }
+  }, [userId, attemptStorageKey, refreshCart]);
+
+  React.useEffect(() => {
+    if (!userId) return;
+    try { attemptId.current = localStorage.getItem(attemptStorageKey); } catch { attemptId.current = null; }
+    if (onlinePreviewEnabled || attemptId.current) void recoverCheckout();
+  }, [userId, attemptStorageKey, recoverCheckout]);
+
+  React.useEffect(() => {
+    if (onlineCheckout?.paymentStatus !== "created") return;
+    const timeout = window.setTimeout(() => void recoverCheckout(), Math.max(0, Date.parse(onlineCheckout.expiresAt) - Date.now()) + 250);
+    return () => window.clearTimeout(timeout);
+  }, [onlineCheckout?.paymentStatus, onlineCheckout?.expiresAt, recoverCheckout]);
+
+  const handleCancelOnlineCheckout = async () => {
+    if (!onlineCheckout || recoveryLock.current || submitLock.current) return;
+    if (!confirm("Cancel this entire unpaid checkout, including all seller orders, and release its reserved stock?")) return;
+    recoveryLock.current = true;
+    setRecoveryState("loading");
+    try {
+      const cancelled = await cancelOnlineCheckout(onlineCheckout.attemptId);
+      setOnlineCheckout(cancelled);
+      attemptId.current = null;
+      try { localStorage.removeItem(attemptStorageKey); } catch { /* Authenticated recovery remains available. */ }
+      await refreshCart({ preserveOnError: true });
+      setRecoveryState("idle");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to cancel checkout.");
+      setRecoveryState("error");
+    } finally { recoveryLock.current = false; }
+  };
   const [confirmation, setConfirmation] = useState<{
     orderIds: string[];
     sellerCount: number;
     deliveryMethod: DbDeliveryMethod;
-    paymentMethod: DbPaymentMethod;
+    paymentMethod: DbLegacyPaymentMethod;
     grandTotal: number;
     shippingName?: string;
     shippingAddress?: string;
@@ -156,8 +221,15 @@ export default function CartPage() {
   };
 
   const paymentOptions = React.useMemo(() => {
+    const onlineOption = onlinePreviewEnabled ? [{
+      id: "maya_online" as DbPaymentMethod,
+      title: "Maya Online (Foundation Preview)",
+      subtitle: "Creates an unpaid checkout; online payment is not connected yet",
+      icon: <CreditCard className="size-4 text-[#e59bc9]" />,
+    }] : [];
     if (deliveryMethod === "delivery") {
       return [
+        ...onlineOption,
         {
           id: "cash_on_delivery" as DbPaymentMethod,
           title: "Cash on Delivery (COD)",
@@ -179,6 +251,7 @@ export default function CartPage() {
       ];
     }
     return [
+      ...onlineOption,
       {
         id: "cash_on_meetup" as DbPaymentMethod,
         title: "Cash on Meetup",
@@ -276,6 +349,7 @@ export default function CartPage() {
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current || recoveryState !== "idle") return;
     if (cartItems.length === 0) return;
 
     if (deliveryMethod === "delivery") {
@@ -293,8 +367,29 @@ export default function CartPage() {
       }
     }
 
+    submitLock.current = true;
     setIsSubmitting(true);
     try {
+      if (paymentMethod === "maya_online") {
+        if (!onlinePreviewEnabled) throw new Error("Online checkout is not available yet.");
+        attemptId.current ||= crypto.randomUUID();
+        try { localStorage.setItem(attemptStorageKey, attemptId.current); } catch { /* Recover by authenticated buyer on refresh. */ }
+        const checkout = await createOnlineCheckout({
+          attemptId: attemptId.current, paymentMethod: "maya_online", deliveryMethod,
+          shippingName, shippingPhone, shippingAddress, buyerNote,
+        });
+        const stillActive = ["created", "pending", "authorized"].includes(checkout.paymentStatus);
+        attemptId.current = stillActive ? checkout.attemptId : null;
+        try {
+          if (stillActive) localStorage.setItem(attemptStorageKey, checkout.attemptId);
+          else localStorage.removeItem(attemptStorageKey);
+        } catch { /* No financial data stored locally. */ }
+        setOnlineCheckout(checkout);
+        setIsCheckoutOpen(false);
+        // A retry may return an older checkout: never blindly erase the current cart.
+        await refreshCart({ preserveOnError: true }).catch(() => toast.error("Payment status recovered. Refresh to update your cart."));
+        return; // Online checkout never reaches the legacy success modal or toast.
+      }
       const orderIds = await checkoutCart({
         deliveryMethod,
         paymentMethod,
@@ -330,6 +425,13 @@ export default function CartPage() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Checkout failed. Please try again.";
       toast.error(msg);
+      if (paymentMethod === "maya_online") {
+        // A response can fail after the DB committed. Resolve that ambiguity before any new checkout.
+        setRecoveryState("error");
+        setIsCheckoutOpen(false);
+      }
+    } finally {
+      submitLock.current = false;
       setIsSubmitting(false);
     }
   };
@@ -347,6 +449,13 @@ export default function CartPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {recoveryState !== "idle" && (
+        <div role="status" className="rounded-2xl border border-amber-400/30 bg-[#241c27] p-4 text-sm text-amber-200">
+          {recoveryState === "loading" ? "Checking your previous online checkout…" : "Payment status could not be verified. Check it before placing another order."}
+          {recoveryState === "error" && <button type="button" onClick={() => void recoverCheckout()} className="ml-3 underline font-bold">Recover payment status</button>}
+        </div>
+      )}
+      {onlineCheckout && <OnlinePaymentStage checkout={onlineCheckout} onCancel={() => void handleCancelOnlineCheckout()} onRefresh={() => void recoverCheckout()} busy={recoveryState !== "idle" || isSubmitting} />}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -829,16 +938,16 @@ export default function CartPage() {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || recoveryState !== "idle"}
                   className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
-                      <span>Processing Order...</span>
+                      <span>{paymentMethod === "maya_online" ? "Preparing Payment..." : "Processing Order..."}</span>
                     </>
                   ) : (
-                    <span>Place Order ({formatPrice(overallGrandTotal)})</span>
+                    <span>{paymentMethod === "maya_online" ? "Prepare Payment" : "Place Order"} ({formatPrice(overallGrandTotal)})</span>
                   )}
                 </button>
               </div>
@@ -987,4 +1096,3 @@ export default function CartPage() {
     </div>
   );
 }
-

@@ -63,6 +63,7 @@ export interface SellerOrder {
     buyerNotes?: string;
   };
   paymentMethod: string;
+  awaitingOnlinePayment?: boolean;
   paymentStatus: PaymentStatus;
   status: OrderStatus;
   placedAt: string;

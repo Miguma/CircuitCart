@@ -161,6 +161,10 @@ export function SellerOrderDetailDrawer({
             </div>
 
             {/* CONTEXTUAL NEXT ACTION BUTTONS */}
+            {order.awaitingOnlinePayment && (
+              <p role="status" className="text-sm text-amber-200">Awaiting Payment — do not prepare, ship or hand over this order before verified payment.</p>
+            )}
+            <fieldset disabled={order.awaitingOnlinePayment} className="space-y-3 disabled:opacity-50">
             {order.status === "Pending" && (
               <div className="flex items-center gap-3 pt-1">
                 <button
@@ -264,11 +268,15 @@ export function SellerOrderDetailDrawer({
               </div>
             )}
 
+            </fieldset>
+            {order.awaitingOnlinePayment && order.status === "Pending" && (
+              <button type="button" onClick={() => setShowCancelModal(true)} className="rounded-xl border border-rose-500/30 px-4 py-2.5 text-xs font-bold text-rose-300">Cancel unpaid order</button>
+            )}
             {order.status === "Completed" && (
               <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/20 text-xs text-emerald-300 flex items-center gap-2">
                 <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
                 <span>
-                  This order is fulfilled. Funds have been released to your shop wallet.
+                  This order is fulfilled. Order completion does not confirm payment or payout release.
                 </span>
               </div>
             )}
@@ -564,7 +572,7 @@ export function SellerOrderDetailDrawer({
                     : "bg-amber-950/60 text-amber-300 border border-amber-500/20"
                 }`}
               >
-                {order.paymentStatus}
+                {order.awaitingOnlinePayment ? "Awaiting Payment" : order.paymentStatus}
               </span>
             </div>
           </div>
@@ -589,7 +597,9 @@ export function SellerOrderDetailDrawer({
                 </h3>
               </div>
               <p className="text-xs text-[#b9adb6] leading-relaxed">
-                Cancelling this order will immediately notify the buyer and update the order fulfillment status to cancelled.
+                {order.awaitingOnlinePayment
+                  ? "Cancelling this unpaid online order cancels the entire checkout, including other sellers' orders, and releases reserved stock. The buyer must create a new checkout."
+                  : "Cancelling this order will immediately notify the buyer and update the order fulfillment status to cancelled."}
               </p>
 
               <div>
