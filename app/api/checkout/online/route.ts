@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { onlineCheckoutAction, onlineCheckoutResult } from "@/lib/checkout/online-contract";
+import { isValidOrigin } from "@/lib/payments/origin";
 
 // Bound bytes while streaming, including requests without Content-Length.
 const MAX_BODY_BYTES = 16 * 1024;
@@ -69,9 +70,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // This deployment-controlled origin can be set for a trusted reverse proxy.
-  const expectedOrigin = process.env.CHECKOUT_TRUSTED_ORIGIN || request.nextUrl.origin;
-  if (request.headers.get("origin") !== expectedOrigin || request.headers.get("sec-fetch-site") === "cross-site") {
+  if (!isValidOrigin(request)) {
     return respond({ error: "Invalid request origin." }, 403);
   }
   if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") {

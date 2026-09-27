@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { matchesFinancialReceipt } from "@/lib/finance/contracts";
+import { isValidOrigin } from "@/lib/payments/origin";
 
 /**
  * CircuitCart — Demo Card Sandbox Payment (ACADEMIC DEFENSE ONLY)
@@ -57,7 +58,7 @@ function rpcError(code: string, message: string) {
 }
 
 export async function POST(request: NextRequest) {
-  if (request.headers.get("origin") !== new URL(request.url).origin || request.headers.get("sec-fetch-site") === "cross-site") {
+  if (!isValidOrigin(request)) {
     return jsonResponse({ error: "Invalid request origin." }, 403);
   }
   // Demo method must be explicitly enabled; otherwise it does not exist.

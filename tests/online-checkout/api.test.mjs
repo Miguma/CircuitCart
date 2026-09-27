@@ -20,6 +20,7 @@ function loadTs(file, mocks = {}) {
 }
 
 const contract = loadTs("lib/checkout/online-contract.ts");
+const originModule = loadTs("lib/payments/origin.ts");
 const input = { attemptId: "40000000-0000-4000-8000-000000000001", paymentMethod: "maya_online", deliveryMethod: "meetup" };
 const checkout = {
   paymentTransactionId: "50000000-0000-4000-8000-000000000001", attemptId: input.attemptId,
@@ -33,6 +34,7 @@ const calls = [];
 const handlers = loadTs("app/api/checkout/online/route.ts", {
   "next/server": { NextResponse: { json: (body, init) => Response.json(body, init) } },
   "@/lib/checkout/online-contract": contract,
+  "@/lib/payments/origin": originModule,
   "@/lib/supabase/server": { createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: signedIn ? { id: "buyer-from-session" } : null }, error: null }) },
     rpc: async (name, args) => { calls.push({ name, args }); return { data: checkout, error: rpcError }; },
