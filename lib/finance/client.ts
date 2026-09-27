@@ -54,3 +54,10 @@ export async function savePayoutAccount(input: unknown): Promise<void> {
   // Never display raw Postgres errors: a constraint failure can contain full account details.
   if (error) throw new Error("Unable to save payout account. Check your details and seller access.");
 }
+
+export async function requestSellerPayout(payoutId: string): Promise<void> {
+  const { data, error } = await createClient().rpc("seller_request_payout", { p_payout_id: payoutId });
+  if (error || data !== true) {
+    throw new Error("Payout request failed. Confirm the order is completed, the payment is paid, and a payout account is saved.");
+  }
+}
