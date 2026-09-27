@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { Landmark, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { financeUnavailable, loadFinanceSummary, loadPayouts, money, type FinanceSummary, type PayoutRow } from "@/lib/finance/client";
@@ -10,24 +10,42 @@ export const financePanel = "rounded-2xl border border-white/10 bg-[#211826] p-5
 export const financeButton = "rounded-xl border border-white/15 bg-[#65486f] px-4 py-2 text-sm font-semibold text-white hover:bg-[#7a5985] disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-[#e59bc9]";
 export const financeInput = "mt-2 w-full rounded-xl border border-white/20 bg-[#302435] p-3 text-white focus:outline-2 focus:outline-[#e59bc9]";
 
+type FetchState =
+  | { phase: "loading" }
+  | { phase: "error"; message: string }
+  | { phase: "ready"; summary: FinanceSummary; rows: PayoutRow[] };
+
+function fetchReducer(_: FetchState, action: FetchState): FetchState { return action; }
+
 export function FinanceDashboard({ admin = false, history = true }: { admin?: boolean; history?: boolean }) {
-  const [summary, setSummary] = useState<FinanceSummary | null>(null);
-  const [rows, setRows] = useState<PayoutRow[]>([]);
+  const [state, dispatch] = useReducer(fetchReducer, { phase: "loading" });
   const [offset, setOffset] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [rate, setRate] = useState("");
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try {
-      const [stats, payouts] = await Promise.all([loadFinanceSummary(), history ? loadPayouts(offset) : Promise.resolve([])]);
-      setSummary(stats); setRows(payouts); setRate((stats.commissionRateBps / 100).toFixed(2));
-    } catch { setError(financeUnavailable); setSummary(null); }
-    finally { setLoading(false); }
-  }, [history, offset]);
-  useEffect(() => { void load(); }, [load]);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const load = useCallback(() => setRefreshTick((t) => t + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    dispatch({ phase: "loading" });
+    Promise.all([loadFinanceSummary(), history ? loadPayouts(offset) : Promise.resolve([])])
+      .then(([summary, rows]) => {
+        if (!cancelled) {
+          setRate((summary.commissionRateBps / 100).toFixed(2));
+          dispatch({ phase: "ready", summary, rows });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) dispatch({ phase: "error", message: financeUnavailable });
+      });
+    return () => { cancelled = true; };
+  }, [history, offset, refreshTick]);
+
+  const loading = state.phase === "loading";
+  const summary = state.phase === "ready" ? state.summary : null;
+  const rows = state.phase === "ready" ? state.rows : [];
+  const error = state.phase === "error" ? state.message : "";
 
   async function changeStatus(row: PayoutRow, status: string) {
     if (status === "released" && !window.confirm("Record a simulated payout release? No bank transfer occurs. This status cannot be undone.")) return;
@@ -35,7 +53,7 @@ export function FinanceDashboard({ admin = false, history = true }: { admin?: bo
     try {
       const { data, error } = await createClient().rpc("admin_update_payout_status", { p_payout_id: row.id, p_status: status });
       if (error || data !== true) throw new Error();
-      await load(); setNotice("Payout status updated. No real money was transferred.");
+      load(); setNotice("Payout status updated. No real money was transferred.");
     } catch { setNotice("Payout not updated. Check the current status, completed order, and saved payout account, then refresh."); }
     finally { setBusy(false); }
   }
@@ -47,8 +65,9 @@ export function FinanceDashboard({ admin = false, history = true }: { admin?: bo
     try {
       const { data, error } = await createClient().rpc("admin_set_commission_rate", { p_rate_bps: bps });
       if (error || data !== bps) throw new Error();
-      await load(); setNotice("Commission updated for future financial records only.");
+      load(); setNotice("Commission updated for future financial records only.");
     } catch { setNotice("Commission was not updated. Verify administrator access and try again."); }
+
     finally { setBusy(false); }
   }
   const metrics: [string, number, string][] = summary ? [

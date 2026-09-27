@@ -6,8 +6,6 @@ import {
   ShoppingBag,
   Package,
   Layers,
-  CheckCircle2,
-  Clock,
   Loader2,
 } from "lucide-react";
 import { SellerLayout } from "@/components/seller/seller-layout";

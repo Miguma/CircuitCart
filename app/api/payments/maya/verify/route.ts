@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getMayaSandboxCheckoutDetails } from "@/lib/payments/maya";
 import { formatOrderReference } from "@/lib/supabase/orders";
 
+/**
+ * Service-role client for confirm_online_payment / fail_online_payment.
+ * These RPCs are revoked from authenticated after the finance migration.
+ * Returns null if SUPABASE_SERVICE_ROLE_KEY is not configured.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createServiceRoleClient(): SupabaseClient<any, any, any> | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    // Cookie-based user client: validates buyer session and enforces ownership on order queries.
+    const supabase = await createServerClient();
     const {
       data: { user },
       error: authError,
@@ -89,10 +104,14 @@ export async function GET(request: NextRequest) {
         mayaStatus = mayaDetails.paymentStatus;
         receiptNumber = mayaDetails.receiptNumber || mayaDetails.id;
 
+        // confirm_online_payment / fail_online_payment are revoked from authenticated after the
+        // finance migration — they require service_role. Use a dedicated server client.
+        const srClient = createServiceRoleClient();
+
         if (mayaDetails.paymentStatus === "PAYMENT_SUCCESS" || mayaDetails.status === "COMPLETED") {
           // Authoritatively confirm payment in Supabase
-          if (parentTxId) {
-            await supabase.rpc("confirm_online_payment", {
+          if (parentTxId && srClient) {
+            await srClient.rpc("confirm_online_payment", {
               p_payment_transaction_id: parentTxId,
               p_provider_payment_id: String(mayaDetails.id || mayaCheckoutId),
               p_provider_checkout_id: String(mayaCheckoutId),
@@ -101,15 +120,15 @@ export async function GET(request: NextRequest) {
             isPaid = true;
           }
         } else if (mayaDetails.paymentStatus === "PAYMENT_FAILED" || mayaDetails.status === "FAILED") {
-          if (parentTxId) {
-            await supabase.rpc("fail_online_payment", {
+          if (parentTxId && srClient) {
+            await srClient.rpc("fail_online_payment", {
               p_payment_transaction_id: parentTxId,
               p_status: "failed",
             });
           }
         } else if (mayaDetails.paymentStatus === "PAYMENT_CANCELLED" || mayaDetails.status === "CANCELLED") {
-          if (parentTxId) {
-            await supabase.rpc("fail_online_payment", {
+          if (parentTxId && srClient) {
+            await srClient.rpc("fail_online_payment", {
               p_payment_transaction_id: parentTxId,
               p_status: "cancelled",
             });

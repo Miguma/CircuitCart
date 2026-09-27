@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Creates an authoritative server client for webhook processing
+ * Returns a service-role Supabase client for authoritative webhook mutations.
+ * confirm_online_payment and fail_online_payment are revoked from anon/authenticated
+ * after the finance migration — service_role is required.
+ * Returns null when the key is not configured so the caller can return a safe error.
  */
-function getWebhookSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  // Use service role key if configured; otherwise anon key (functions are security definer)
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getServiceRoleClient(): SupabaseClient<any, any, any> | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
   return createClient(url, key, {
     auth: {
       persistSession: false,
@@ -32,7 +36,11 @@ export async function POST(request: NextRequest) {
     const status = (payload.paymentStatus || payload.status || "").toUpperCase();
     const isPaid = payload.isPaid === true || status === "PAYMENT_SUCCESS" || status === "COMPLETED";
 
-    const supabase = getWebhookSupabaseClient();
+    const supabase = getServiceRoleClient();
+    if (!supabase) {
+      console.error("Maya Webhook: SUPABASE_SERVICE_ROLE_KEY is not configured. Cannot process payment mutations.");
+      return NextResponse.json({ error: "Server payment configuration error." }, { status: 500 });
+    }
 
     // Look up parent payment_transaction by checkout ID or payment ID
     let paymentTransactionId: string | null = null;

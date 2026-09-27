@@ -107,7 +107,7 @@ begin
     raise exception 'Administrator required.' using errcode='42501';
   end if;
   if p_rate_bps is null or p_rate_bps not between 0 and 3000 then raise exception 'Rate must be between 0 and 3000 basis points.'; end if;
-  update public.platform_settings set commission_rate_bps=p_rate_bps, updated_at=clock_timestamp(),updated_by=auth.uid() where id;
+  update public.platform_settings set commission_rate_bps=p_rate_bps, updated_at=clock_timestamp(),updated_by=auth.uid() where id = true;
   return p_rate_bps;
 end $$;
 revoke all on function public.admin_set_commission_rate(integer) from public,anon;
@@ -131,7 +131,7 @@ begin
       raise exception 'Verified parent payment required.';
     end if;
     if not exists(select 1 from public.seller_payouts where order_id=new.id) then
-      select commission_rate_bps into strict v_rate from public.platform_settings where id;
+      select commission_rate_bps into strict v_rate from public.platform_settings where id = true;
       v_fee := round(new.subtotal*v_rate/10000,2);
       insert into public.platform_commissions(order_id,seller_id,shop_id,payment_transaction_id,payment_method,
         gross_amount,commission_base,commission_rate_bps,commission_amount,settlement_mode,collection_status,is_sandbox)
@@ -148,7 +148,7 @@ begin
   elsif new.payment_method in ('cash_on_delivery','cash_on_meetup','manual_gcash','manual_maya')
       and new.status='completed' then
     -- Completion of seller-direct cash fulfillment is the authoritative collection event.
-    select commission_rate_bps into strict v_rate from public.platform_settings where id;
+    select commission_rate_bps into strict v_rate from public.platform_settings where id = true;
     insert into public.platform_commissions(order_id,seller_id,shop_id,payment_method,gross_amount,
       commission_base,commission_rate_bps,commission_amount,settlement_mode,collection_status,is_sandbox)
     values(new.id,new.seller_id,new.shop_id,new.payment_method,new.total,new.subtotal,v_rate,
