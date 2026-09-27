@@ -11,7 +11,7 @@ export default function RegisterPage() {
   const [passwordLength, setPasswordLength] = useState(0);
 
   return (
-    <main className="min-h-screen lg:h-[100svh] lg:max-h-[100svh] w-full bg-[#faf6f7] text-[#1d1720] flex flex-col md:flex-row overflow-x-hidden box-border">
+    <main className="cc-auth min-h-screen lg:h-[100svh] lg:max-h-[100svh] w-full bg-[#faf6f7] text-[#1d1720] flex flex-col md:flex-row overflow-x-hidden box-border">
       {/* LEFT PANEL: Mascot Illustration & Background System */}
       <section
         aria-label="Illustration"
@@ -39,8 +39,8 @@ export default function RegisterPage() {
         </div>
       </section>
 
-      {/* MOBILE COMPACT ILLUSTRATION (Visible on Mobile only, above form) */}
-      <div className="flex md:hidden w-full bg-[#e5d5d8] p-5 items-center justify-center border-b border-[#d4c3c6] relative overflow-hidden select-none">
+      {/* MOBILE COMPACT ILLUSTRATION (Hidden on mobile/web-app layout to save vertical space; desktop uses the full panel above) */}
+      <div className="hidden w-full bg-[#e5d5d8] p-5 items-center justify-center border-b border-[#d4c3c6] relative overflow-hidden select-none">
         <TechCharacters 
           authPhase={authPhase}
           focusedField={focusedField}

@@ -124,7 +124,7 @@ export type DbLegacyPaymentMethod =
   | "manual_gcash"
   | "manual_maya";
 
-export type DbPaymentMethod = DbLegacyPaymentMethod | "maya_online";
+export type DbPaymentMethod = DbLegacyPaymentMethod | "maya_online" | "demo_card";
 
 export type DbPaymentStatus =
   | "pending"
@@ -156,7 +156,7 @@ export interface DbOrder {
   updated_at: string;
 }
 
-export type DbPaymentTransactionProvider = "maya";
+export type DbPaymentTransactionProvider = "maya" | "circuitcart_sandbox";
 
 export type DbPaymentTransactionStatus =
   | "created"
@@ -182,6 +182,10 @@ export interface DbPaymentTransaction {
   provider_payment_id: string | null;
   authorized_at: string | null;
   paid_at: string | null;
+  sandbox: boolean;
+  payment_method: "demo_card" | null;
+  card_last4: string | null;
+  transaction_reference: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -39,6 +39,7 @@ export function ProductCard({
 }: ProductCardProps) {
   const { userId, isLoading } = useMarketplaceAccount();
   const isOwner = Boolean(userId && product.sellerId === userId);
+  const compactLocation = product.location.split(",")[0]?.trim() || product.location;
 
   const getFallbackIcon = (category: string) => {
     switch (category) {
@@ -58,9 +59,9 @@ export function ProductCard({
   };
 
   return (
-    <div className="group bg-[#f8f3f3] border border-[#eadcde] hover:border-[#65486f]/50 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-150 ease-out hover:-translate-y-0.5 active:translate-y-0 motion-reduce:transform-none hover:shadow-lg relative h-full">
-      {/* 1. Large Top-Flush Product Image Area */}
-      <div className="relative w-full aspect-square bg-[#ebe2e5] overflow-hidden">
+    <div className="group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-[#eadcde] bg-[#f8f3f3] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:border-[#65486f]/50 hover:shadow-lg active:translate-y-0 motion-reduce:transform-none dark:border-white/10 dark:bg-[#211a24]">
+      {/* 1. Compact discovery media on mobile; rich square media returns at desktop. */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#ebe2e5] lg:aspect-square dark:bg-[#342339]">
         <Link
           href={`/marketplace/products/${product.id}`}
           className="relative flex size-full items-center justify-center focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#65486f]"
@@ -85,14 +86,14 @@ export function ProductCard({
         </Link>
 
         {/* Floating Top Badges & Wishlist Trigger */}
-        <div className="absolute top-2 inset-x-2 z-10 flex items-center justify-between gap-1 pointer-events-none">
+        <div className="pointer-events-none absolute inset-x-1.5 top-1.5 z-10 flex items-center justify-between gap-1 lg:inset-x-2 lg:top-2">
           {isOwner ? (
             <span className="rounded-md bg-[#19131b]/85 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-[#e59bc9] shadow-xs">
               Your listing
             </span>
           ) : (
             <span
-              className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md shadow-xs backdrop-blur-xs ${
+              className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-xs backdrop-blur-xs lg:px-2 lg:text-[10px] lg:tracking-wider ${
                 product.condition === "New"
                   ? "bg-emerald-700/90 text-white"
                   : product.condition === "Like New"
@@ -115,7 +116,7 @@ export function ProductCard({
                 e.stopPropagation();
                 onToggleWishlist(product.id);
               }}
-              className={`p-1.5 rounded-full transition-colors cursor-pointer pointer-events-auto shadow-xs backdrop-blur-xs ${
+              className={`flex size-9 items-center justify-center rounded-full transition-colors cursor-pointer pointer-events-auto shadow-xs backdrop-blur-xs ${
                 isWishlisted
                   ? "text-rose-600 bg-white/95 hover:bg-white"
                   : "text-[#1d1720] bg-white/80 hover:bg-white"
@@ -131,7 +132,7 @@ export function ProductCard({
         <button
           type="button"
           onClick={() => onQuickView(product)}
-          className="absolute inset-x-2 bottom-2 z-10 flex items-center justify-center gap-1 rounded-lg bg-[#19131b]/88 py-1.5 text-[11px] font-semibold text-white shadow-md backdrop-blur-sm transition-all duration-150 hover:bg-[#19131b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#65486f] sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 cursor-pointer"
+          className="absolute inset-x-2 bottom-2 z-10 hidden cursor-pointer items-center justify-center gap-1 rounded-lg bg-[#19131b]/88 py-1.5 text-[11px] font-semibold text-white shadow-md backdrop-blur-sm transition-all duration-150 hover:bg-[#19131b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#65486f] lg:flex lg:translate-y-1 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100"
           aria-label={`Quick view ${product.name}`}
         >
           <Eye className="size-3 text-[#e59bc9]" />
@@ -140,10 +141,10 @@ export function ProductCard({
       </div>
 
       {/* 2. Compact Card Body Content */}
-      <div className="p-2.5 sm:p-3 flex flex-col justify-between flex-1 gap-1.5">
-        <div className="space-y-0.5">
+      <div className="flex flex-1 flex-col justify-between gap-1 p-2 lg:gap-1.5 lg:p-3">
+        <div className="space-y-1 lg:space-y-0.5">
           {/* Product Title (Max 2 lines) */}
-          <h3 className="text-xs sm:text-[13px] font-bold text-[#1d1720] line-clamp-2 leading-tight group-hover:text-[#65486f] transition-colors">
+          <h3 className="line-clamp-2 min-h-7 text-[11px] font-bold leading-tight text-[#1d1720] transition-colors group-hover:text-[#65486f] sm:text-xs lg:min-h-0 lg:text-[13px] dark:text-[#fffafa] dark:group-hover:text-[#e59bc9]">
             <Link
               href={`/marketplace/products/${product.id}`}
               className="hover:underline focus-visible:outline-2 focus-visible:outline-[#65486f] rounded-xs"
@@ -154,13 +155,13 @@ export function ProductCard({
           </h3>
 
           {/* Short description / spec preview (Max 1 line) */}
-          <p className="text-[11px] text-[#716872] line-clamp-1 leading-normal">
+          <p className="hidden text-[11px] leading-normal text-[#716872] lg:line-clamp-1 dark:text-[#b9adb6]">
             {product.specs}
           </p>
 
           {/* Seller / Verification Line & Location */}
-          <div className="flex items-center justify-between gap-1 text-[11px] text-[#716872] pt-0.5">
-            <div className="flex items-center gap-1 font-medium text-[#65486f] min-w-0">
+          <div className="hidden items-center justify-between gap-1 pt-0.5 text-[11px] text-[#716872] lg:flex dark:text-[#b9adb6]">
+            <div className="flex min-w-0 items-center gap-1 font-medium text-[#65486f] dark:text-[#e59bc9]">
               <span className="truncate max-w-[95px] sm:max-w-[115px]">{product.sellerName}</span>
               {product.isVerifiedSeller && (
                 <CheckCircle2 className="size-3 text-emerald-600 fill-emerald-100 shrink-0" />
@@ -173,27 +174,38 @@ export function ProductCard({
           </div>
 
           {/* Rating / Reviews */}
-          <div className="flex items-center gap-1 text-[11px] text-[#716872]">
+          <div className="hidden items-center gap-1 text-[11px] text-[#716872] lg:flex dark:text-[#b9adb6]">
             {product.reviewCount > 0 ? (
               <>
                 <Star className="size-3 fill-amber-400 text-amber-400" />
-                <span className="font-semibold text-[#1d1720]">{product.rating}</span>
+                <span className="font-semibold text-[#1d1720] dark:text-[#fffafa]">{product.rating}</span>
                 <span className="text-[10px] text-[#716872]">({product.reviewCount})</span>
               </>
             ) : (
               <span className="text-[10px] text-[#716872]/80">No reviews</span>
             )}
           </div>
+
+          {/* One concise discovery signal replaces three verbose metadata rows on mobile. */}
+          <div className="flex min-w-0 items-center gap-1 text-[10px] leading-none text-[#716872] lg:hidden dark:text-[#b9adb6]">
+            <Star className={`size-3 shrink-0 ${product.reviewCount > 0 ? "fill-amber-400 text-amber-400" : "text-[#9b9099]"}`} />
+            <span className="shrink-0 font-semibold text-[#1d1720] dark:text-[#fffafa]">
+              {product.reviewCount > 0 ? product.rating : "New"}
+            </span>
+            <span className="shrink-0 text-[#b7abb3] dark:text-[#756b73]">·</span>
+            <MapPin className="size-2.5 shrink-0" />
+            <span className="truncate" title={product.location}>{compactLocation}</span>
+          </div>
         </div>
 
         {/* Bottom Action Row: Price + Cart/Manage */}
-        <div className="pt-1.5 border-t border-[#eadcde]/80 flex items-center justify-between gap-1.5">
+        <div className="flex items-center justify-between gap-1.5 border-t border-[#eadcde]/80 pt-1.5 lg:pt-1.5 dark:border-white/10">
           <div className="min-w-0">
-            <div className="text-sm sm:text-base font-black text-[#1d1720] tracking-tight leading-none">
+            <div className="text-[13px] font-black leading-none tracking-tight text-[#1d1720] sm:text-sm lg:text-base dark:text-[#fffafa]">
               ₱{product.price.toLocaleString()}
             </div>
             {product.originalPrice && (
-              <div className="text-[10px] text-[#716872] line-through leading-tight mt-0.5">
+              <div className="mt-0.5 hidden text-[10px] leading-tight text-[#716872] line-through sm:block dark:text-[#b9adb6]">
                 ₱{product.originalPrice.toLocaleString()}
               </div>
             )}
@@ -202,11 +214,11 @@ export function ProductCard({
           {isOwner ? (
             <Link
               href={`/seller/products?listing=${encodeURIComponent(product.id)}`}
-              className="inline-flex items-center gap-1 rounded-lg bg-[#65486f] px-2 py-1.5 text-[11px] font-semibold text-[#fffafa] transition-colors hover:bg-[#7a5985] focus-visible:outline-2 focus-visible:outline-[#e59bc9] shrink-0"
+              className="inline-flex size-9 shrink-0 items-center justify-center gap-1 rounded-lg bg-[#65486f] p-0 text-[11px] font-semibold text-[#fffafa] transition-colors hover:bg-[#7a5985] focus-visible:outline-2 focus-visible:outline-[#e59bc9] lg:h-auto lg:min-h-9 lg:w-auto lg:px-2 lg:py-1.5"
               aria-label={`Manage listing for ${product.name}`}
             >
               <Package className="size-3" />
-              <span>Manage</span>
+              <span className="hidden lg:inline">Manage</span>
             </Link>
           ) : (
             <button
@@ -217,7 +229,7 @@ export function ProductCard({
                 e.stopPropagation();
                 onAddToCart(product);
               }}
-              className="p-1.5 text-[#fffafa] bg-[#65486f] hover:bg-[#7a5985] rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer disabled:cursor-wait disabled:opacity-50 shrink-0"
+              className="inline-flex size-9 items-center justify-center text-[#fffafa] bg-[#65486f] hover:bg-[#7a5985] rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] cursor-pointer disabled:cursor-wait disabled:opacity-50 shrink-0"
               aria-label={isLoading ? "Loading listing actions" : `Add ${product.name} to cart`}
             >
               {isLoading ? <Loader2 className="size-3.5 animate-spin" /> : <ShoppingCart className="size-3.5" />}
@@ -228,4 +240,3 @@ export function ProductCard({
     </div>
   );
 }
-

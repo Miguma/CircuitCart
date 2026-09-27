@@ -24,11 +24,11 @@ function SearchNavigationSync() {
 function MarketplaceShellContent({ children }: { children: React.ReactNode }) {
   const { quickViewProduct, setQuickViewProduct, isFavorite, toggleFavorite, addToCart } = useMarketplace();
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-[#8f7375] via-[#3a283e] to-[#19131b] text-[#fffafa] flex flex-col font-sans">
+    <div className="min-h-screen w-full overflow-x-clip cc-shell flex flex-col font-sans transition-colors duration-200">
       <Suspense fallback={null}><SearchNavigationSync /></Suspense>
       <a href="#marketplace-content" className="fixed left-4 top-3 z-[70] -translate-y-20 rounded-xl bg-[#f8f3f3] px-4 py-2 text-sm font-bold text-[#1d1720] shadow-xl transition-transform focus:translate-y-0 motion-reduce:transition-none">Skip to marketplace content</a>
       <MarketplaceHeader />
-      <div id="marketplace-content" tabIndex={-1} className="flex-1 w-full pb-24 animate-in fade-in duration-150 focus:outline-none motion-reduce:animate-none md:pb-0">{children}</div>
+      <div id="marketplace-content" tabIndex={-1} className="flex-1 w-full pb-[calc(4.75rem+env(safe-area-inset-bottom))] animate-in fade-in duration-150 focus:outline-none motion-reduce:animate-none md:pb-0">{children}</div>
       <MarketplaceFooter />
       <MarketplaceMobileNav />
       <QuickViewDialog product={quickViewProduct} isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)}

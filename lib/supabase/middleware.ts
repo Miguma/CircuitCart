@@ -115,16 +115,40 @@ export async function updateSession(request: NextRequest) {
   if (user && (normalizedPath === "/login" || normalizedPath === "/register")) {
     const rawRedirect =
       request.nextUrl.searchParams.get("redirectTo") ||
-      request.nextUrl.searchParams.get("redirect") ||
-      "/marketplace";
-    const isSafe =
-      rawRedirect.startsWith("/") &&
-      !rawRedirect.startsWith("//") &&
-      !rawRedirect.startsWith("/\\");
-    const redirectTo = isSafe ? rawRedirect : "/marketplace";
+      request.nextUrl.searchParams.get("redirect");
 
+    // Fetch user profile role to determine safe role-aware redirect destination
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = profile?.role;
+    let targetDestination = "/marketplace";
+
+    if (role === "admin") {
+      // ADMIN: default is /admin. Respect redirectTo ONLY if an admin route
+      const isSafeAdminRoute =
+        rawRedirect &&
+        rawRedirect.startsWith("/admin") &&
+        !rawRedirect.startsWith("//") &&
+        !rawRedirect.startsWith("/\\");
+      targetDestination = isSafeAdminRoute ? rawRedirect : "/admin";
+    } else {
+      // BUYER / SELLER: default is /marketplace. Respect safe internal paths
+      const isSafeRelativeRoute =
+        rawRedirect &&
+        rawRedirect.startsWith("/") &&
+        !rawRedirect.startsWith("//") &&
+        !rawRedirect.startsWith("/\\");
+      targetDestination = isSafeRelativeRoute ? rawRedirect : "/marketplace";
+    }
+
+    const targetUrl = new URL(targetDestination, request.url);
     const url = request.nextUrl.clone();
-    url.pathname = redirectTo;
+    url.pathname = targetUrl.pathname;
+    url.search = targetUrl.search;
     url.searchParams.delete("redirectTo");
     url.searchParams.delete("redirect");
     return NextResponse.redirect(url);

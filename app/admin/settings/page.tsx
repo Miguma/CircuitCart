@@ -36,7 +36,7 @@ export default function AdminSettingsPage() {
                 Seller Verification Rules
               </h3>
               <p className="text-xs text-[#b9adb6]">
-                Automated review thresholds and manual queue routing
+                OCR-assisted reading and manual administrator review
               </p>
             </div>
           </div>
@@ -44,21 +44,21 @@ export default function AdminSettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 text-xs">
             <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
               <span className="text-[10px] font-bold uppercase text-[#8f7d8c]">
-                Auto-Approval Threshold Specification
+                Final decision authority
               </span>
-              <p className="text-sm font-bold text-[#fffafa]">≥ 90% OCR Match</p>
+              <p className="text-sm font-bold text-[#fffafa]">Authorized administrator</p>
               <p className="text-[11px] text-[#b9adb6]">
-                Applications with score ≥ 90 and zero mismatch flags qualify for automated approval.
+                Every application requires manual review of the original evidence. OCR never approves an applicant.
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
               <span className="text-[10px] font-bold uppercase text-[#8f7d8c]">
-                Manual Review Routing Specification
+                Optional OCR assistance
               </span>
-              <p className="text-sm font-bold text-[#fffafa]">70 - 89% or Flagged</p>
+              <p className="text-sm font-bold text-[#fffafa]">Text recognition only</p>
               <p className="text-[11px] text-[#b9adb6]">
-                Applications with uncertain OCR or discrepancies are routed to manual admin review.
+                OCR results are temporary suggestions. Text confidence does not establish identity or authenticity.
               </p>
             </div>
           </div>

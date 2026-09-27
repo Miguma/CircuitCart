@@ -15,6 +15,7 @@ import {
   Settings,
   LogOut,
   MessageSquare,
+  ShieldCheck,
 } from "lucide-react";
 import { useMarketplace } from "./marketplace-provider";
 import { useMarketplaceAccount } from "./marketplace-account";
@@ -109,7 +110,7 @@ export function MarketplaceHeader({
     <header className="sticky top-0 z-40 w-full glass-marketplace-header">
       <div className="max-w-[84rem] mx-auto px-4 sm:px-6 lg:px-8">
         {/* ROW 1: Logo, Search, Actions */}
-        <div className="flex items-center justify-between h-16 gap-4 sm:gap-8">
+        <div className="flex h-12 items-center justify-between gap-2 sm:h-16 sm:gap-8">
           {/* Logo / Brand Mark */}
           <Link
             href="/marketplace"
@@ -143,7 +144,7 @@ export function MarketplaceHeader({
               <circle cx="8" cy="16.5" r="1.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
               <circle cx="15" cy="16.5" r="1.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
             </svg>
-            <span className="text-xl font-bold tracking-tight text-[#fffafa]">
+            <span className="text-base font-bold tracking-tight cc-text-primary sm:text-xl">
               Circuit<span className="text-[#e59bc9]">Cart</span>
             </span>
           </Link>
@@ -159,16 +160,16 @@ export function MarketplaceHeader({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search products, brands, or categories"
-              className="w-full h-10 pl-10 pr-4 bg-[#342339] border border-white/10 text-[#fffafa] placeholder:text-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-sm transition-all"
+              className="w-full h-10 pl-10 pr-4 cc-header-input border cc-border focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-sm transition-all"
             />
           </form>
 
           {/* ACTIONS & USER MENU */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-3">
             {/* Sell Button */}
             <Link
               href="/sell"
-              className="hidden sm:inline-flex items-center gap-1.5 h-10 px-4 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-[#fffafa] rounded-xl shadow-xs transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              className="hidden sm:inline-flex items-center gap-1.5 h-10 px-4 text-xs font-semibold bg-[#65486f] hover:bg-[#7a5985] text-white rounded-xl shadow-xs transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
             >
               <PlusCircle className="size-4 text-[#e59bc9]" />
               <span>Sell</span>
@@ -176,12 +177,12 @@ export function MarketplaceHeader({
 
             {/* Favorites Button */}
             <Link
-              href="/marketplace/favorites"
-              className="relative hidden p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] md:inline-flex"
-              aria-label={`Favorites with ${favorites.length} items`}
+              href={userId ? "/marketplace/favorites" : "/login?redirectTo=/marketplace/favorites"}
+              className="relative hidden p-2 cc-text-primary hover:text-[#e59bc9] hover:cc-surface-secondary rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] md:inline-flex"
+              aria-label={userId ? `Favorites with ${favorites.length} items` : "Log in to view favorites"}
             >
               <Heart className="size-5" />
-              {favorites.length > 0 && (
+              {userId && favorites.length > 0 && (
                 <span className="absolute top-1 right-1 size-4 bg-[#b78bd7] text-[#19131b] text-[10px] font-extrabold rounded-full flex items-center justify-center">
                   {favorites.length}
                 </span>
@@ -190,12 +191,12 @@ export function MarketplaceHeader({
 
             {/* Cart Button */}
             <Link
-              href="/marketplace/cart"
-              className="relative hidden p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] md:inline-flex"
-              aria-label={`Cart with ${totalCartCount} items`}
+              href={userId ? "/marketplace/cart" : "/login?redirectTo=/marketplace/cart"}
+              className="relative hidden p-2 cc-text-primary hover:text-[#e59bc9] hover:cc-surface-secondary rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] md:inline-flex"
+              aria-label={userId ? `Cart with ${totalCartCount} items` : "Log in to view cart"}
             >
               <ShoppingCart className="size-5" />
-              {totalCartCount > 0 && (
+              {userId && totalCartCount > 0 && (
                 <span className="absolute top-1 right-1 size-4 bg-[#e59bc9] text-[#19131b] text-[10px] font-extrabold rounded-full flex items-center justify-center">
                   {totalCartCount}
                 </span>
@@ -205,7 +206,7 @@ export function MarketplaceHeader({
             {/* Messages Button */}
             <Link
               href="/marketplace/messages"
-              className="relative hidden sm:inline-flex p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              className="relative hidden sm:inline-flex p-2 cc-text-primary hover:text-[#e59bc9] hover:cc-surface-secondary rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
               aria-label="Messages"
             >
               <MessageSquare className="size-5" />
@@ -214,7 +215,7 @@ export function MarketplaceHeader({
             {/* Notifications Button */}
             <Link
               href="/marketplace/notifications"
-              className="relative p-2 text-[#fffafa] hover:text-[#e59bc9] hover:bg-[#342339] rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+              className="relative p-2 cc-text-primary hover:text-[#e59bc9] hover:cc-surface-secondary rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
               aria-label={`Notifications ${unreadNotificationsCount > 0 ? `(${unreadNotificationsCount} unread)` : ""}`}
             >
               <Bell className="size-5" />
@@ -282,6 +283,18 @@ export function MarketplaceHeader({
                   </div>
 
                   {/* Menu Items */}
+                  {profile?.role === "admin" && (
+                    <Link
+                      href="/admin"
+                      role="menuitem"
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-[#e59bc9] hover:bg-[#342339] hover:text-[#fffafa] transition-colors"
+                    >
+                      <ShieldCheck className="size-3.5 text-[#e59bc9]" />
+                      <span>Admin Dashboard</span>
+                    </Link>
+                  )}
+
                   <Link
                     href={isSeller ? "/seller" : "/sell"}
                     role="menuitem"
@@ -352,7 +365,7 @@ export function MarketplaceHeader({
       </div>
 
         {/* ROW 2: Mobile Search Bar */}
-        <div className="flex md:hidden items-center pb-3 pt-1">
+        <div className="flex items-center pb-1.5 md:hidden">
           <form onSubmit={handleSearchSubmit} className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#b9adb6]" />
             <input
@@ -360,7 +373,7 @@ export function MarketplaceHeader({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search products, brands, or categories"
-              className="w-full h-10 pl-10 pr-4 bg-[#342339] border border-white/10 text-[#fffafa] placeholder:text-[#b9adb6] focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30 rounded-xl text-xs transition-all"
+              className="h-9 w-full rounded-xl border cc-border cc-header-input pl-10 pr-4 text-xs transition-all focus:border-[#e59bc9] focus:outline-none focus:ring-2 focus:ring-[#e59bc9]/30"
             />
           </form>
         </div>

@@ -586,9 +586,9 @@ export function CatalogToolbar({
       {/* ========================================================= */}
       {/* 1. PRODUCT BROWSING HEADER + SORT AND FILTER BUTTON       */}
       {/* ========================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2 sm:gap-3">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#fffafa]">
+          <h2 className="text-lg font-bold tracking-tight cc-text-primary sm:text-2xl">
             {heading}
           </h2>
         </div>
@@ -600,14 +600,15 @@ export function CatalogToolbar({
             aria-label="Toggle sort and filter panel"
             aria-expanded={isFilterOpen}
             onClick={onToggleFilter}
-            className={`inline-flex items-center gap-2 h-10 px-4 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-xs backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-[#e59bc9] active:scale-[0.98] ${
+            className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold shadow-xs backdrop-blur-sm transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] active:scale-[0.98] sm:h-10 sm:gap-2 sm:px-4 sm:text-sm ${
               isFilterOpen
                 ? "bg-[#65486f] text-white border-white/20"
-                : "bg-[#342339]/80 hover:bg-[#45304b] text-[#fffafa] border-white/10"
+                : "cc-surface-card hover:cc-surface-secondary cc-text-primary cc-border"
             }`}
           >
             <SlidersHorizontal className={`size-4 ${isFilterOpen ? "text-white" : "text-[#e59bc9]"}`} />
-            <span>Sort and Filter</span>
+            <span className="sm:hidden">Filters</span>
+            <span className="hidden sm:inline">Sort and Filter</span>
             {activeFilterCount > 0 && (
               <span className={`size-5 rounded-full text-xs font-bold flex items-center justify-center ml-0.5 ${
                 isFilterOpen ? "bg-white text-[#19131b]" : "bg-[#e59bc9] text-[#19131b]"
@@ -629,10 +630,10 @@ export function CatalogToolbar({
             <button
               type="button"
               onClick={() => onConditionChange("All")}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#342339]/80 border border-white/15 text-[#fffafa] hover:border-[#e59bc9] hover:bg-[#45304b] transition-colors cursor-pointer group"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium cc-surface-card border cc-border cc-text-primary hover:border-[#e59bc9] transition-colors cursor-pointer group"
             >
               <span>{condition}</span>
-              <X className="size-3 text-[#b9adb6] group-hover:text-[#e59bc9]" />
+              <X className="size-3 cc-text-muted group-hover:text-[#e59bc9]" />
             </button>
           )}
 
@@ -641,10 +642,10 @@ export function CatalogToolbar({
             <button
               type="button"
               onClick={clearPriceFilter}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#342339]/80 border border-white/15 text-[#fffafa] hover:border-[#e59bc9] hover:bg-[#45304b] transition-colors cursor-pointer group"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium cc-surface-card border cc-border cc-text-primary hover:border-[#e59bc9] transition-colors cursor-pointer group"
             >
               <span>{getPriceLabel()}</span>
-              <X className="size-3 text-[#b9adb6] group-hover:text-[#e59bc9]" />
+              <X className="size-3 cc-text-muted group-hover:text-[#e59bc9]" />
             </button>
           )}
 
@@ -653,10 +654,10 @@ export function CatalogToolbar({
             <button
               type="button"
               onClick={() => onVerifiedOnlyChange(false)}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#342339]/80 border border-white/15 text-[#fffafa] hover:border-[#e59bc9] hover:bg-[#45304b] transition-colors cursor-pointer group"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium cc-surface-card border cc-border cc-text-primary hover:border-[#e59bc9] transition-colors cursor-pointer group"
             >
               <span>Verified sellers</span>
-              <X className="size-3 text-[#b9adb6] group-hover:text-[#e59bc9]" />
+              <X className="size-3 cc-text-muted group-hover:text-[#e59bc9]" />
             </button>
           )}
 
@@ -665,10 +666,10 @@ export function CatalogToolbar({
             <button
               type="button"
               onClick={() => onSortChange("recommended")}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#342339]/80 border border-white/15 text-[#fffafa] hover:border-[#e59bc9] hover:bg-[#45304b] transition-colors cursor-pointer group"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium cc-surface-card border cc-border cc-text-primary hover:border-[#e59bc9] transition-colors cursor-pointer group"
             >
               <span>{sortSubtitle}</span>
-              <X className="size-3 text-[#b9adb6] group-hover:text-[#e59bc9]" />
+              <X className="size-3 cc-text-muted group-hover:text-[#e59bc9]" />
             </button>
           )}
 
@@ -676,7 +677,7 @@ export function CatalogToolbar({
           <button
             type="button"
             onClick={onClear}
-            className="text-xs font-semibold text-[#b9adb6] hover:text-rose-300 ml-1 py-1 transition-colors cursor-pointer"
+            className="text-xs font-semibold cc-text-muted hover:text-rose-400 ml-1 py-1 transition-colors cursor-pointer"
           >
             Clear all
           </button>

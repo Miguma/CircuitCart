@@ -35,6 +35,70 @@ import { OrdersHeader } from "@/components/orders/orders-header";
 import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
 
+/** Skeleton approximating the real order card structure. */
+function OrderCardSkeleton() {
+  return (
+    <div
+      className="bg-[#241c27] border border-white/10 rounded-3xl p-5 sm:p-7 space-y-5 shadow-xl animate-pulse"
+      aria-hidden="true"
+    >
+      {/* Order header: ref + date + status badges */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-28 bg-white/10 rounded" />
+            <div className="h-3 w-20 bg-white/5 rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-white/5" />
+            <div className="h-3 w-32 bg-white/5 rounded" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="h-6 w-20 bg-[#342339] rounded-full" />
+          <div className="h-6 w-16 bg-[#342339] rounded-full" />
+          <div className="h-6 w-24 bg-[#342339] rounded-full" />
+        </div>
+      </div>
+
+      {/* Two product item rows */}
+      {[0, 1].map((i) => (
+        <div
+          key={i}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3.5 bg-[#1e1322]/80 border border-white/[0.06] rounded-2xl"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="size-14 rounded-xl bg-[#342339]/60 shrink-0" />
+            <div className="space-y-1.5 min-w-0">
+              <div className="h-3.5 w-40 bg-white/10 rounded" />
+              <div className="h-3 w-24 bg-white/5 rounded" />
+            </div>
+          </div>
+          <div className="flex items-center sm:flex-col sm:items-end gap-2 shrink-0 border-t sm:border-t-0 border-white/[0.06] pt-2 sm:pt-0">
+            <div className="h-4 w-16 bg-[#e59bc9]/20 rounded" />
+            <div className="h-6 w-24 bg-white/5 rounded-xl" />
+          </div>
+        </div>
+      ))}
+
+      {/* Footer: fulfillment details + total */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3 border-t border-white/10">
+        <div className="space-y-1.5">
+          <div className="h-3 w-48 bg-white/5 rounded" />
+          <div className="h-3 w-36 bg-white/5 rounded" />
+        </div>
+        <div className="flex items-center gap-3 self-end sm:self-auto">
+          <div className="h-8 w-24 bg-white/5 rounded-xl" />
+          <div className="text-right space-y-1">
+            <div className="h-3 w-16 bg-white/5 rounded" />
+            <div className="h-5 w-20 bg-[#e59bc9]/20 rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type OrderFilter = "All" | "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled";
 
 export default function OrdersPage() {
@@ -230,11 +294,10 @@ export default function OrdersPage() {
 
       {/* Orders List vs Loading vs Empty State */}
       {isLoading ? (
-        <div className="w-full bg-[#241c27] border border-white/10 rounded-3xl p-16 text-center flex flex-col items-center justify-center gap-3">
-          <Loader2 className="size-7 text-[#e59bc9] animate-spin" />
-          <span className="text-sm font-semibold text-[#d6cbd5]">
-            Loading your purchases...
-          </span>
+        <div className="space-y-5" aria-label="Loading your orders" aria-busy="true">
+          <OrderCardSkeleton />
+          <OrderCardSkeleton />
+          <OrderCardSkeleton />
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="bg-[#241c27] border border-white/10 rounded-3xl p-8 sm:p-10 text-center space-y-3 shadow-xl my-4 min-h-[230px] sm:min-h-[280px] flex flex-col items-center justify-center">

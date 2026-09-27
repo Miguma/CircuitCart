@@ -161,18 +161,18 @@ export default function MarketplacePage() {
   // Dynamic grid column class based on filter panel open state
   const gridColsClass = isFilterOpen
     ? "grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4"
-    : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-6";
+    : "grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6";
 
   return (
-    <main className="max-w-[84rem] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5">
+    <main className="max-w-[84rem] w-full mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-2 sm:space-y-5">
       {/* ========================================================= */}
       {/* 1. HORIZONTAL TEXT CATEGORY NAVIGATION (Original Colors)   */}
       {/* ========================================================= */}
       <nav
         aria-label="Category navigation"
-        className="w-full border-b border-white/10 pb-1 -mt-2"
+        className="-mt-1 w-full border-b cc-border pb-0 sm:-mt-2 sm:pb-1"
       >
-        <div className="flex items-center justify-center gap-6 sm:gap-8 overflow-x-auto scrollbar-none no-scrollbar select-none py-1">
+        <div className="scrollbar-none no-scrollbar flex touch-pan-x select-none items-center justify-start gap-4 overflow-x-auto overscroll-x-contain py-0 sm:gap-5 sm:py-1 md:justify-center md:gap-8">
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
@@ -180,10 +180,10 @@ export default function MarketplacePage() {
                 key={cat}
                 type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`relative pb-3 text-sm transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] rounded-xs ${
+                className={`relative min-h-9 whitespace-nowrap rounded-xs pt-1.5 pb-2 text-xs transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] sm:min-h-11 sm:pt-2 sm:pb-3 sm:text-sm md:min-h-0 md:pt-0 ${
                   isSelected
-                    ? "font-bold text-[#fffafa]"
-                    : "font-medium text-[#d6cbd5] hover:text-[#fffafa]"
+                    ? "font-bold cc-text-primary"
+                    : "font-medium cc-text-secondary hover:cc-text-primary"
                 }`}
               >
                 <span>{cat}</span>
@@ -305,14 +305,14 @@ export default function MarketplacePage() {
                   <p className="text-xs font-semibold text-[#e59bc9] mb-0.5">
                     Catalogue results
                   </p>
-                  <h2 id="heading-results" className="text-lg sm:text-xl font-bold text-[#fffafa]">
+                  <h2 id="heading-results" className="text-lg sm:text-xl font-bold cc-text-primary">
                     Products matching your choices
                   </h2>
                 </div>
                 <button
                   type="button"
                   onClick={clearAllFilters}
-                  className="text-xs font-semibold text-[#b9adb6] hover:text-[#fffafa] transition-colors"
+                  className="text-xs font-semibold cc-text-muted hover:cc-text-primary transition-colors cursor-pointer"
                 >
                   Reset all
                 </button>
@@ -339,7 +339,7 @@ export default function MarketplacePage() {
                 <section aria-labelledby="heading-recommended" className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center gap-2">
                     <Sparkles className="size-4 text-[#e59bc9]" />
-                    <h2 id="heading-recommended" className="text-lg sm:text-xl font-bold text-[#fffafa]">
+                    <h2 id="heading-recommended" className="text-lg sm:text-xl font-bold cc-text-primary">
                       Recommended for you
                     </h2>
                   </div>
@@ -364,7 +364,7 @@ export default function MarketplacePage() {
                 <section aria-labelledby="heading-preowned" className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center gap-2">
                     <ShoppingBag className="size-4 text-[#b78bd7]" />
-                    <h2 id="heading-preowned" className="text-lg sm:text-xl font-bold text-[#fffafa]">
+                    <h2 id="heading-preowned" className="text-lg sm:text-xl font-bold cc-text-primary">
                       Pre-owned finds
                     </h2>
                   </div>
@@ -389,7 +389,7 @@ export default function MarketplacePage() {
                 <section aria-labelledby="heading-gaming" className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center gap-2">
                     <Flame className="size-4 text-[#e59bc9]" />
-                    <h2 id="heading-gaming" className="text-lg sm:text-xl font-bold text-[#fffafa]">
+                    <h2 id="heading-gaming" className="text-lg sm:text-xl font-bold cc-text-primary">
                       Popular in gaming
                     </h2>
                   </div>
@@ -414,7 +414,7 @@ export default function MarketplacePage() {
                 <section aria-labelledby="heading-trusted" className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="size-4 text-emerald-400" />
-                    <h2 id="heading-trusted" className="text-lg sm:text-xl font-bold text-[#fffafa]">
+                    <h2 id="heading-trusted" className="text-lg sm:text-xl font-bold cc-text-primary">
                       Trusted sellers
                     </h2>
                   </div>
@@ -441,7 +441,7 @@ export default function MarketplacePage() {
         {isFilterOpen && (
           <aside
             aria-label="Catalogue filter panel"
-            className="hidden lg:flex flex-col w-[360px] xl:w-[380px] shrink-0 sticky top-[4.5rem] self-start h-auto max-h-[calc(100vh-5.5rem)] bg-[#1c121e]/75 backdrop-blur-xl saturate-125 border border-white/[0.08] rounded-2xl shadow-xl shadow-black/40 overflow-hidden animate-in fade-in slide-in-from-right-4 duration-250 z-20"
+            className="hidden lg:flex flex-col w-[360px] xl:w-[380px] shrink-0 sticky top-[4.5rem] self-start h-auto max-h-[calc(100vh-5.5rem)] cc-surface-card backdrop-blur-xl saturate-125 border cc-border rounded-2xl shadow-xl shadow-black/20 overflow-hidden animate-in fade-in slide-in-from-right-4 duration-250 z-20"
           >
             <FilterPanel
               resultCount={filteredProducts.length}
@@ -470,7 +470,7 @@ export default function MarketplacePage() {
               className="fixed inset-0 bg-black/40 backdrop-blur-xs"
               onClick={() => setIsFilterOpen(false)}
             />
-            <div className="fixed inset-x-0 bottom-0 max-h-[85vh] bg-[#1c121e]/95 backdrop-blur-xl border-t border-white/[0.08] rounded-t-3xl shadow-2xl flex flex-col z-50 animate-in slide-in-from-bottom duration-250">
+            <div className="fixed inset-x-0 bottom-0 max-h-[85vh] cc-surface-card backdrop-blur-xl border-t cc-border rounded-t-3xl shadow-2xl flex flex-col z-50 animate-in slide-in-from-bottom duration-250">
               <FilterPanel
                 resultCount={filteredProducts.length}
                 condition={condition}

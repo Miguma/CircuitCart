@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CircuitCartWordmark } from "@/components/ui/circuitcart-wordmark";
-import { signInWithEmail, resendConfirmationEmail } from "@/lib/supabase/auth";
+import { signInWithEmail, resendConfirmationEmail, getCurrentUserProfile } from "@/lib/supabase/auth";
 import { AuthPhase, FocusedField } from "./tech-characters";
 
 const loginSchema = z.object({
@@ -183,15 +183,44 @@ export function LoginForm({
       if (res.success) {
         setIsChecking(false);
         setIsSuccessState(true);
+
+        // Fetch authoritative profile to determine role-aware login destination
+        let role = "buyer";
+        try {
+          const userProfile = await getCurrentUserProfile();
+          if (userProfile?.role) {
+            role = userProfile.role;
+          }
+        } catch (profileErr) {
+          console.error("Failed to load user profile on login:", profileErr);
+        }
+
         setTimeout(() => {
           const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-          const rawRedirect = params?.get("redirectTo") || params?.get("redirect") || "/marketplace";
-          const isSafe =
-            rawRedirect.startsWith("/") &&
-            !rawRedirect.startsWith("//") &&
-            !rawRedirect.startsWith("/\\");
-          const redirectTo = isSafe ? rawRedirect : "/marketplace";
-          router.push(redirectTo);
+          const rawRedirect = params?.get("redirectTo") || params?.get("redirect");
+
+          let targetDestination = "/marketplace";
+          if (role === "admin") {
+            // ADMIN: default destination is /admin
+            // Respect redirectTo ONLY if it is an explicitly appropriate admin route (starts with /admin)
+            const isSafeAdminRoute =
+              rawRedirect &&
+              rawRedirect.startsWith("/admin") &&
+              !rawRedirect.startsWith("//") &&
+              !rawRedirect.startsWith("/\\");
+            targetDestination = isSafeAdminRoute ? rawRedirect : "/admin";
+          } else {
+            // BUYER / SELLER: default destination is /marketplace
+            // Respect safe internal relative paths
+            const isSafeRelativeRoute =
+              rawRedirect &&
+              rawRedirect.startsWith("/") &&
+              !rawRedirect.startsWith("//") &&
+              !rawRedirect.startsWith("/\\");
+            targetDestination = isSafeRelativeRoute ? rawRedirect : "/marketplace";
+          }
+
+          router.push(targetDestination);
           router.refresh();
         }, 600);
       } else {
@@ -470,7 +499,7 @@ export function LoginForm({
         <Button
           type="submit"
           disabled={isChecking || isSuccessState}
-          className="w-full h-[48px] text-base font-semibold bg-[#201524] text-white hover:bg-[#34253a] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-140 rounded-xl shadow-xs focus-visible:ring-3 focus-visible:ring-[#6e546f]/30 disabled:opacity-70 mt-1"
+          className="w-full h-[48px] text-base font-semibold bg-[#201524] text-[#fffafa] hover:bg-[#34253a] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-140 rounded-xl shadow-xs focus-visible:ring-3 focus-visible:ring-[#6e546f]/30 disabled:opacity-70 mt-1"
         >
           {isSuccessState ? (
             <span className="flex items-center justify-center gap-2">
@@ -479,7 +508,7 @@ export function LoginForm({
             </span>
           ) : isChecking ? (
             <span className="flex items-center justify-center gap-2">
-              <Loader2 className="size-5 animate-spin text-white" />
+              <Loader2 className="size-5 animate-spin text-[#fffafa]" />
               Logging in…
             </span>
           ) : (

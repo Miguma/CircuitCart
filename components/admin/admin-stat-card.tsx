@@ -21,10 +21,10 @@ export function AdminStatCard({
   href,
 }: AdminStatCardProps) {
   const content = (
-    <div className={`p-5 rounded-2xl bg-[#1e1322]/90 border border-white/10 shadow-xl space-y-3 transition-all ${href ? "hover:border-[#e59bc9]/40 hover:bg-[#25172b]" : ""}`}>
+    <div className={`p-5 rounded-2xl cc-surface-card border cc-border shadow-xl space-y-3 transition-all ${href ? "hover:border-[#e59bc9]/40 hover:cc-surface-secondary" : ""}`}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-[#b9adb6]">{label}</span>
-        <div className="size-9 rounded-xl bg-[#342339] border border-white/10 flex items-center justify-center text-[#e59bc9]">
+        <span className="text-xs font-semibold cc-text-muted">{label}</span>
+        <div className="size-9 rounded-xl cc-surface-secondary border cc-border flex items-center justify-center text-[var(--cc-accent-pink)]">
           <Icon className="size-4" />
         </div>
       </div>
@@ -33,12 +33,12 @@ export function AdminStatCard({
         {loading ? (
           <div className="h-8 w-20 bg-white/5 animate-pulse rounded-lg" />
         ) : (
-          <p className="text-2xl font-extrabold text-[#fffafa] tracking-tight">
+          <p className="text-2xl font-extrabold cc-text-primary tracking-tight">
             {value !== null && value !== undefined ? value.toLocaleString() : "Unavailable"}
           </p>
         )}
         {description && (
-          <p className="text-[11px] text-[#b9adb6] mt-1 leading-snug">{description}</p>
+          <p className="text-[11px] cc-text-muted mt-1 leading-snug">{description}</p>
         )}
       </div>
     </div>

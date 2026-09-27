@@ -13,8 +13,12 @@ import {
   Info,
   Check,
   Loader2,
+  Sun,
+  Moon,
+  Sparkles,
 } from "lucide-react";
 import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
+import { useTheme } from "@/components/theme/theme-provider";
 import { toast } from "sonner";
 
 interface SwitchControlProps {
@@ -47,13 +51,13 @@ function SwitchControl({
           onChange(!checked);
         }
       }}
-      className="flex items-center justify-between p-3.5 bg-[#342339]/50 border border-white/5 rounded-2xl cursor-pointer hover:bg-[#342339] transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] select-none"
+      className="flex items-center justify-between p-3.5 cc-surface-secondary border cc-border rounded-2xl cursor-pointer hover:cc-surface-tertiary transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] select-none"
     >
       <div className="pr-4">
-        <div id={`${id}-label`} className="text-xs font-semibold text-white">
+        <div id={`${id}-label`} className="text-xs font-semibold cc-text-primary">
           {label}
         </div>
-        <div id={`${id}-desc`} className="text-[11px] text-[#b9adb6]">
+        <div id={`${id}-desc`} className="text-[11px] cc-text-muted">
           {description}
         </div>
       </div>
@@ -61,7 +65,7 @@ function SwitchControl({
       {/* Semantic Accessible Switch Indicator */}
       <div
         className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors shrink-0 ${
-          checked ? "bg-[#65486f]" : "bg-[#211a24] border border-white/20"
+          checked ? "bg-[#65486f]" : "bg-[#211a24] border cc-border"
         }`}
       >
         <div
@@ -89,7 +93,7 @@ export default function SettingsPage() {
   const [securityNotices, setSecurityNotices] = useState(true);
   const [publicProfile, setPublicProfile] = useState(true);
   const [showActivity, setShowActivity] = useState(false);
-  const [theme, setTheme] = useState<"mauve" | "dark" | "system">("mauve");
+  const { theme, setTheme } = useTheme();
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,8 +103,8 @@ export default function SettingsPage() {
   if (isAccountLoading || !userId) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
-        <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
-        <p className="text-sm text-[#b9adb6]">Redirecting to login...</p>
+        <Loader2 className="size-8 text-[var(--cc-accent-pink)] animate-spin" />
+        <p className="text-sm cc-text-muted">Redirecting to login...</p>
       </div>
     );
   }
@@ -109,49 +113,143 @@ export default function SettingsPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 text-xs text-[#b9adb6] mb-1">
+        <div className="flex items-center gap-2 text-xs cc-text-muted mb-1">
           <Link
             href="/marketplace"
-            className="hover:text-white transition-colors flex items-center gap-1"
+            className="hover:cc-text-primary transition-colors flex items-center gap-1"
           >
             <ArrowLeft className="size-3.5" />
             <span>Back to Marketplace</span>
           </Link>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-          <Settings className="size-6 text-[#e59bc9]" />
+        <h1 className="text-2xl sm:text-3xl font-extrabold cc-text-primary tracking-tight flex items-center gap-2.5">
+          <Settings className="size-6 text-[var(--cc-accent-pink)]" />
           <span>Account Settings</span>
         </h1>
-        <p className="text-xs text-[#b9adb6] mt-1">
+        <p className="text-xs cc-text-muted mt-1">
           Manage your interface preferences, alerts, and profile visibility.
         </p>
       </div>
 
       {/* Notice Banner */}
-      <div className="flex items-start gap-3 p-4 bg-[#241c27] border border-[#e59bc9]/30 rounded-2xl text-xs text-[#b9adb6] leading-relaxed shadow-sm">
-        <Info className="size-4 text-[#e59bc9] shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 p-4 cc-surface-secondary border border-[#e59bc9]/30 rounded-2xl text-xs cc-text-muted leading-relaxed shadow-sm">
+        <Info className="size-4 text-[var(--cc-accent-pink)] shrink-0 mt-0.5" />
         <span>
           Interface preferences and alert settings are stored for your browser session. To update your public profile and account details, visit your Profile page.
         </span>
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* SECTION 1: REGION & PREFERENCES */}
-        <div className="bg-[#241c27] border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-white/10">
-            <Globe className="size-4 text-[#e59bc9]" />
+        {/* SECTION 1: APPEARANCE / VISUAL THEME */}
+        <div id="appearance" className="cc-surface-card border cc-border rounded-3xl p-6 space-y-4 shadow-xl">
+          <h2 className="text-sm font-bold cc-text-primary flex items-center gap-2 pb-2 border-b cc-border">
+            <Palette className="size-4 text-[var(--cc-accent-pink)]" />
+            <span>Appearance & Visual Theme</span>
+          </h2>
+          <p className="text-xs cc-text-muted">
+            Select your preferred display theme. Changes apply immediately across CircuitCart.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            {/* 1. Default Theme */}
+            <button
+              type="button"
+              onClick={() => {
+                setTheme("default");
+                toast.success("Theme changed to CircuitCart Default.");
+              }}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] ${
+                theme === "default"
+                  ? "bg-[var(--cc-surface-secondary)] border-[#e59bc9] cc-text-primary shadow-md ring-2 ring-[#e59bc9]/30"
+                  : "cc-surface-secondary border cc-border cc-text-muted hover:cc-surface-tertiary"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="size-7 rounded-lg bg-[#65486f] flex items-center justify-center text-white shrink-0">
+                    <Sparkles className="size-3.5 text-[#e59bc9]" />
+                  </div>
+                  <span className="text-xs font-bold">Default</span>
+                </div>
+                {theme === "default" && <Check className="size-3.5 text-[#e59bc9]" />}
+              </div>
+              <span className="text-[10px] block mt-2 opacity-85 leading-snug">
+                Signature plum & mauve CircuitCart appearance
+              </span>
+            </button>
+
+            {/* 2. Light Theme */}
+            <button
+              type="button"
+              onClick={() => {
+                setTheme("light");
+                toast.success("Theme changed to Light.");
+              }}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] ${
+                theme === "light"
+                  ? "bg-[var(--cc-surface-secondary)] border-[#e59bc9] cc-text-primary shadow-md ring-2 ring-[#e59bc9]/30"
+                  : "cc-surface-secondary border cc-border cc-text-muted hover:cc-surface-tertiary"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="size-7 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <Sun className="size-3.5 text-amber-500" />
+                  </div>
+                  <span className="text-xs font-bold">Light</span>
+                </div>
+                {theme === "light" && <Check className="size-3.5 text-[#e59bc9]" />}
+              </div>
+              <span className="text-[10px] block mt-2 opacity-85 leading-snug">
+                Clean light surfaces with dark readable text
+              </span>
+            </button>
+
+            {/* 3. Dark Theme */}
+            <button
+              type="button"
+              onClick={() => {
+                setTheme("dark");
+                toast.success("Theme changed to Dark.");
+              }}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] ${
+                theme === "dark"
+                  ? "bg-[var(--cc-surface-secondary)] border-[#e59bc9] cc-text-primary shadow-md ring-2 ring-[#e59bc9]/30"
+                  : "cc-surface-secondary border cc-border cc-text-muted hover:cc-surface-tertiary"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="size-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                    <Moon className="size-3.5 text-indigo-400" />
+                  </div>
+                  <span className="text-xs font-bold">Dark</span>
+                </div>
+                {theme === "dark" && <Check className="size-3.5 text-[#e59bc9]" />}
+              </div>
+              <span className="text-[10px] block mt-2 opacity-85 leading-snug">
+                Deep near-black aesthetic with brand accents
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* SECTION 2: REGION & PREFERENCES */}
+        <div className="cc-surface-card border cc-border rounded-3xl p-6 space-y-4 shadow-xl">
+          <h2 className="text-sm font-bold cc-text-primary flex items-center gap-2 pb-2 border-b cc-border">
+            <Globe className="size-4 text-[var(--cc-accent-pink)]" />
             <span>Regional Preferences</span>
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="space-y-1.5">
-              <label htmlFor="currency-select" className="text-[#b9adb6] font-semibold block">
+              <label htmlFor="currency-select" className="cc-text-muted font-semibold block">
                 Preferred Currency
               </label>
               <select
                 id="currency-select"
                 defaultValue="PHP"
-                className="w-full h-10 px-3 bg-[#342339] border border-white/10 rounded-xl text-white text-xs focus:border-[#e59bc9] focus:outline-none"
+                className="w-full h-10 px-3 cc-surface-secondary border cc-border rounded-xl cc-text-primary text-xs focus:border-[#e59bc9] focus:outline-none"
               >
                 <option value="PHP">Philippine Peso (PHP ₱)</option>
                 <option value="USD">US Dollar (USD $)</option>
@@ -159,13 +257,13 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="hub-select" className="text-[#b9adb6] font-semibold block">
+              <label htmlFor="hub-select" className="cc-text-muted font-semibold block">
                 Primary Trading Hub
               </label>
               <select
                 id="hub-select"
                 defaultValue="cebu"
-                className="w-full h-10 px-3 bg-[#342339] border border-white/10 rounded-xl text-white text-xs focus:border-[#e59bc9] focus:outline-none"
+                className="w-full h-10 px-3 cc-surface-secondary border cc-border rounded-xl cc-text-primary text-xs focus:border-[#e59bc9] focus:outline-none"
               >
                 <option value="cebu">Metro Cebu & Central Visayas</option>
                 <option value="davao">Davao Region</option>
@@ -175,10 +273,10 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* SECTION 2: NOTIFICATIONS */}
-        <div className="bg-[#241c27] border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-white/10">
-            <Bell className="size-4 text-[#e59bc9]" />
+        {/* SECTION 3: NOTIFICATIONS */}
+        <div className="cc-surface-card border cc-border rounded-3xl p-6 space-y-4 shadow-xl">
+          <h2 className="text-sm font-bold cc-text-primary flex items-center gap-2 pb-2 border-b cc-border">
+            <Bell className="size-4 text-[var(--cc-accent-pink)]" />
             <span>Notification Preferences</span>
           </h2>
 
@@ -209,10 +307,10 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* SECTION 3: PRIVACY */}
-        <div className="bg-[#241c27] border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-white/10">
-            <Lock className="size-4 text-[#e59bc9]" />
+        {/* SECTION 4: PRIVACY */}
+        <div className="cc-surface-card border cc-border rounded-3xl p-6 space-y-4 shadow-xl">
+          <h2 className="text-sm font-bold cc-text-primary flex items-center gap-2 pb-2 border-b cc-border">
+            <Lock className="size-4 text-[var(--cc-accent-pink)]" />
             <span>Privacy Controls</span>
           </h2>
 
@@ -232,64 +330,6 @@ export default function SettingsPage() {
               checked={showActivity}
               onChange={setShowActivity}
             />
-          </div>
-        </div>
-
-        {/* SECTION 4: APPEARANCE */}
-        <div className="bg-[#241c27] border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-white/10">
-            <Palette className="size-4 text-[#e59bc9]" />
-            <span>Visual Theme</span>
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => setTheme("mauve")}
-              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] ${
-                theme === "mauve"
-                  ? "bg-[#342339] border-[#e59bc9] text-white shadow-sm"
-                  : "bg-[#342339]/40 border-white/5 text-[#b9adb6] hover:bg-[#342339]/70"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold">CircuitCart Mauve</span>
-                {theme === "mauve" && <Check className="size-3.5 text-[#e59bc9]" />}
-              </div>
-              <span className="text-[10px] block mt-1 opacity-80">Default signature theme</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] ${
-                theme === "dark"
-                  ? "bg-[#342339] border-[#e59bc9] text-white shadow-sm"
-                  : "bg-[#342339]/40 border-white/5 text-[#b9adb6] hover:bg-[#342339]/70"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold">OLED Dark</span>
-                {theme === "dark" && <Check className="size-3.5 text-[#e59bc9]" />}
-              </div>
-              <span className="text-[10px] block mt-1 opacity-80">Deep charcoal contrast</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTheme("system")}
-              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9] ${
-                theme === "system"
-                  ? "bg-[#342339] border-[#e59bc9] text-white shadow-sm"
-                  : "bg-[#342339]/40 border-white/5 text-[#b9adb6] hover:bg-[#342339]/70"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold">System Default</span>
-                {theme === "system" && <Check className="size-3.5 text-[#e59bc9]" />}
-              </div>
-              <span className="text-[10px] block mt-1 opacity-80">Sync with OS settings</span>
-            </button>
           </div>
         </div>
 

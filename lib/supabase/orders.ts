@@ -38,6 +38,8 @@ export function formatPaymentMethodLabel(
       return short ? "Maya" : "Maya (Manual Transfer)";
     case "maya_online":
       return "Maya Online";
+    case "demo_card":
+      return "Demo Card";
     default:
       return "Cash on Delivery";
   }
@@ -76,6 +78,8 @@ export function getPaymentExplanation(
   switch (method) {
     case "maya_online":
       return "Awaiting verified online payment. Do not fulfill this order yet.";
+    case "demo_card":
+      return "Demo sandbox payment confirmed — no real money was charged.";
     case "cash_on_delivery":
       return "Payment due upon delivery.";
     case "cash_on_meetup":

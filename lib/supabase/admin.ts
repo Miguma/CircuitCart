@@ -106,8 +106,39 @@ export async function getAdminUsers(): Promise<DbProfile[]> {
 }
 
 export interface SellerWithShop extends DbProfile {
-  shops?: DbShop[];
+  shop: DbShop | null;
   productCount?: number;
+}
+
+export function adminSellerMatchesSearch(
+  seller: SellerWithShop,
+  searchTerm: string
+): boolean {
+  const term = searchTerm.trim().toLowerCase();
+  const searchableValues = [
+    seller.full_name,
+    seller.username,
+    seller.id,
+    seller.shop?.name,
+    seller.shop?.description,
+  ];
+
+  return searchableValues.some((value) =>
+    (value ?? "").toLowerCase().includes(term)
+  );
+}
+
+type AdminSellerRow = DbProfile & {
+  shop?: DbShop | DbShop[] | null;
+};
+
+function normalizeAdminSeller(row: AdminSellerRow): SellerWithShop {
+  const { shop: relatedShop, ...profile } = row;
+  const shop = Array.isArray(relatedShop)
+    ? relatedShop[0] ?? null
+    : relatedShop ?? null;
+
+  return { ...profile, shop };
 }
 
 /**
@@ -118,7 +149,7 @@ export async function getAdminSellers(): Promise<SellerWithShop[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("*, shops(*)")
+    .select("*, shop:shops(*)")
     .eq("role", "seller")
     .order("created_at", { ascending: false });
 
@@ -127,7 +158,8 @@ export async function getAdminSellers(): Promise<SellerWithShop[]> {
     throw new Error("Unable to retrieve seller directory. Please verify administrative database permissions.");
   }
 
-  return (data as SellerWithShop[]) || [];
+  const rows = (data ?? []) as unknown as AdminSellerRow[];
+  return rows.map(normalizeAdminSeller);
 }
 
 /**

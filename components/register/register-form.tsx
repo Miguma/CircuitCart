@@ -299,7 +299,7 @@ export function RegisterForm({
         <div className="flex flex-col gap-3">
           <Link
             href="/login"
-            className="w-full h-[46px] flex items-center justify-center text-sm font-semibold bg-[#201524] text-white hover:bg-[#34253a] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-140 rounded-xl shadow-xs focus-visible:ring-3 focus-visible:ring-[#6e546f]/30"
+            className="w-full h-[46px] flex items-center justify-center text-sm font-semibold bg-[#201524] text-[#fffafa] hover:bg-[#34253a] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-140 rounded-xl shadow-xs focus-visible:ring-3 focus-visible:ring-[#6e546f]/30"
           >
             Go to login
           </Link>
@@ -654,7 +654,7 @@ export function RegisterForm({
         <Button
           type="submit"
           disabled={!isFormValid || isSubmittingState || isSuccessState}
-          className="w-full h-[46px] text-base font-semibold bg-[#201524] text-white hover:bg-[#34253a] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-140 rounded-xl shadow-xs focus-visible:ring-3 focus-visible:ring-[#6e546f]/30 disabled:bg-[#201524]/38 disabled:text-[#fffafa]/78 disabled:cursor-not-allowed disabled:transform-none disabled:opacity-100"
+          className="w-full h-[46px] text-base font-semibold bg-[#201524] text-[#fffafa] hover:bg-[#34253a] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-140 rounded-xl shadow-xs focus-visible:ring-3 focus-visible:ring-[#6e546f]/30 disabled:bg-[#201524]/38 disabled:text-[#fffafa]/78 disabled:cursor-not-allowed disabled:transform-none disabled:opacity-100"
         >
           {isSuccessState ? (
             <span className="flex items-center justify-center gap-2">
@@ -663,7 +663,7 @@ export function RegisterForm({
             </span>
           ) : isSubmittingState ? (
             <span className="flex items-center justify-center gap-2">
-              <Loader2 className="size-5 animate-spin text-white" />
+              <Loader2 className="size-5 animate-spin text-[#fffafa]" />
               Creating account…
             </span>
           ) : (

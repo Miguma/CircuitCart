@@ -30,6 +30,7 @@ import type { SellerVerificationWithProfile } from "@/lib/supabase/types";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { toast } from "sonner";
+import { AdminIdOcr } from "@/components/verification/admin-id-ocr";
 
 export default function AdminVerificationDetailPage({
   params,
@@ -410,89 +411,7 @@ export default function AdminVerificationDetailPage({
           </div>
         </div>
 
-        {/* OCR & Automated Review Telemetry */}
-        <div className="p-5 rounded-xl bg-black/30 border border-white/5 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[#b9adb6] uppercase tracking-wider">
-                Automated Review Telemetry
-              </span>
-              <span
-                className={`text-xs font-bold px-2.5 py-0.5 rounded-md ${
-                  request.automated_review_status === "passed"
-                    ? "bg-emerald-950/90 text-emerald-300 border border-emerald-500/40"
-                    : request.automated_review_status === "manual_review"
-                    ? "bg-amber-950/90 text-amber-300 border border-amber-500/40"
-                    : request.automated_review_status === "failed"
-                    ? "bg-rose-950/90 text-rose-300 border border-rose-500/40"
-                    : "bg-white/10 text-[#b9adb6] border border-white/10"
-                }`}
-              >
-                {request.automated_review_status || "queued"}
-              </span>
-            </div>
-
-            {request.automated_score !== null &&
-              request.automated_score !== undefined && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#b9adb6]">Confidence Score:</span>
-                  <span className="text-xs font-mono font-extrabold px-2.5 py-0.5 rounded-md bg-black/50 border border-white/10 text-[#fffafa]">
-                    {request.automated_score}/100
-                  </span>
-                </div>
-              )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[#b9adb6]">
-            <div className="p-2.5 rounded-lg bg-white/[0.02]">
-              <span className="text-[10px] text-[#8f7d8c] block uppercase">
-                OCR Name Extracted
-              </span>
-              <span className="font-semibold text-white">
-                {request.extracted_full_name || "—"}
-              </span>
-            </div>
-            <div className="p-2.5 rounded-lg bg-white/[0.02]">
-              <span className="text-[10px] text-[#8f7d8c] block uppercase">
-                OCR Date of Birth
-              </span>
-              <span className="font-semibold text-white">
-                {request.extracted_date_of_birth || "—"}
-              </span>
-            </div>
-            <div className="p-2.5 rounded-lg bg-white/[0.02]">
-              <span className="text-[10px] text-[#8f7d8c] block uppercase">
-                OCR ID Classification
-              </span>
-              <span className="font-semibold text-white">
-                {request.extracted_id_type || "—"}
-              </span>
-            </div>
-          </div>
-
-          {Array.isArray(request.automated_flags) &&
-            request.automated_flags.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[10px] text-[#8f7d8c] font-bold uppercase">
-                  Telemetry Flags:
-                </span>
-                {request.automated_flags.map((flag) => (
-                  <span
-                    key={flag}
-                    className="px-2 py-0.5 rounded-md bg-amber-950/60 border border-amber-500/30 text-amber-300 text-[10px] font-bold"
-                  >
-                    {flag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-          {request.automated_review_summary && (
-            <p className="text-xs text-[#b9adb6] pt-2 border-t border-white/5 italic">
-              &ldquo;{request.automated_review_summary}&rdquo;
-            </p>
-          )}
-        </div>
+        <AdminIdOcr key={request.id} path={request.id_front_path} />
 
         {/* Rejection notice if rejected */}
         {isRejected && request.rejection_reason && (

@@ -251,7 +251,7 @@ function ReviewDialogModal({
             <textarea
               id="review-comment-textarea"
               rows={4}
-              maxLength={1050}
+              maxLength={1000}
               disabled={isSubmitting}
               value={comment}
               onChange={(e) => setComment(e.target.value)}

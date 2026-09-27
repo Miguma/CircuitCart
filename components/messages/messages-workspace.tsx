@@ -406,17 +406,17 @@ function MessagesContent() {
       {/* Top Header Bar */}
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <MessageSquare className="size-6 text-[#e59bc9]" />
+          <h1 className="text-xl sm:text-2xl font-black cc-text-primary tracking-tight flex items-center gap-2">
+            <MessageSquare className="size-6 text-[var(--cc-accent-pink)]" />
             <span>Messages</span>
           </h1>
-          <p className="text-xs sm:text-sm text-[#d6cbd5] mt-0.5">
+          <p className="text-xs sm:text-sm cc-text-muted mt-0.5">
             Your buying and selling conversations, together in one place.
           </p>
         </div>
         <Link
           href="/marketplace"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-semibold text-[#d6cbd5] hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl cc-surface-card hover:cc-surface-secondary border cc-border text-xs font-semibold cc-text-muted hover:cc-text-primary transition-colors"
         >
           <ArrowLeft className="size-3.5" />
           <span>Back to Marketplace</span>
@@ -424,44 +424,44 @@ function MessagesContent() {
       </div>
 
       {/* PRIMARY MESSAGING WORKSPACE */}
-      <div className="h-[calc(100vh-14rem)] min-h-[580px] max-h-[820px] bg-[#1a0f1d]/90 backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden shadow-2xl flex relative">
+      <div className="h-[calc(100vh-14rem)] min-h-[580px] max-h-[820px] cc-surface-card backdrop-blur-xl border cc-border rounded-2xl overflow-hidden shadow-2xl flex relative">
         {/* ========================================================= */}
         {/* COLUMN 1: CONVERSATION LIST (~290px)                      */}
         {/* ========================================================= */}
         <div
-          className={`w-full md:w-[290px] shrink-0 border-r border-white/[0.06] flex flex-col min-h-0 bg-[#170c1a]/95 ${
+          className={`w-full md:w-[290px] shrink-0 border-r cc-border flex flex-col min-h-0 cc-surface-secondary ${
             selectedChatId ? "hidden md:flex" : "flex"
           }`}
         >
           {/* Top Header & Search */}
-          <div className="p-3.5 border-b border-white/[0.06] space-y-2.5 shrink-0">
+          <div className="p-3.5 border-b cc-border space-y-2.5 shrink-0">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#d6cbd5] flex items-center gap-1.5">
-                <MessageSquare className="size-3.5 text-[#e59bc9]" />
+              <h2 className="text-xs font-bold uppercase tracking-wider cc-text-muted flex items-center gap-1.5">
+                <MessageSquare className="size-3.5 text-[var(--cc-accent-pink)]" />
                 <span>Conversations</span>
               </h2>
-              <span className="text-[11px] px-2 py-0.2 rounded-full bg-white/[0.06] text-[#b9adb6] font-medium">
+              <span className="text-[11px] px-2 py-0.2 rounded-full cc-surface-card border cc-border cc-text-muted font-medium">
                 {conversations.length}
               </span>
             </div>
 
             {/* Search Input */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-[#8f7d8c] pointer-events-none" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 cc-text-faint pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search people, shops, or items..."
                 aria-label="Search conversations"
-                className="w-full h-8 pl-7.5 pr-7 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9] transition-colors"
+                className="w-full h-8 pl-7.5 pr-7 rounded-lg cc-surface-card border cc-border text-xs font-medium cc-text-primary placeholder:cc-text-faint outline-hidden focus:border-[#e59bc9] transition-colors"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
                   aria-label="Clear conversation search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8f7d8c] hover:text-white cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 cc-text-faint hover:cc-text-primary cursor-pointer"
                 >
                   <X className="size-3" />
                 </button>
@@ -469,7 +469,7 @@ function MessagesContent() {
             </div>
 
             {/* Buying and selling are conversation contexts, not separate inboxes. */}
-            <div className="flex items-center p-0.5 rounded-lg bg-white/[0.03] border border-white/[0.04]">
+            <div className="flex items-center p-0.5 rounded-lg cc-surface-card border cc-border">
               <button
                 type="button"
                 onClick={() => setActiveTab("All")}
@@ -477,7 +477,7 @@ function MessagesContent() {
                 className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                   activeTab === "All"
                     ? "bg-[#54385c] text-white shadow-xs"
-                    : "text-[#8f7d8c] hover:text-[#fffafa]"
+                    : "cc-text-muted hover:cc-text-primary"
                 }`}
               >
                 All
@@ -489,7 +489,7 @@ function MessagesContent() {
                 className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   activeTab === "Unread"
                     ? "bg-[#54385c] text-white shadow-xs"
-                    : "text-[#8f7d8c] hover:text-[#fffafa]"
+                    : "cc-text-muted hover:cc-text-primary"
                 }`}
               >
                 <span>Unread</span>
@@ -505,7 +505,7 @@ function MessagesContent() {
                   type="button"
                   onClick={() => setActiveTab(tab)}
                   aria-pressed={activeTab === tab}
-                  className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${activeTab === tab ? "bg-[#54385c] text-white shadow-xs" : "text-[#8f7d8c] hover:text-[#fffafa]"}`}
+                  className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${activeTab === tab ? "bg-[#54385c] text-white shadow-xs" : "cc-text-muted hover:cc-text-primary"}`}
                 >
                   {tab}
                 </button>
@@ -516,14 +516,24 @@ function MessagesContent() {
           {/* Conversations Scrollable List */}
           <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-white/[0.03]">
             {isLoadingList || isLoadingAccount ? (
-              <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
-                <Loader2 className="size-5 text-[#e59bc9] animate-spin" />
-                <span className="text-xs text-[#b9adb6]">Loading chats...</span>
+              <div className="p-2 space-y-1" aria-label="Loading conversations" aria-busy="true">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="p-3 rounded-xl flex items-center gap-3 animate-pulse">
+                    <div className="size-10 rounded-full bg-white/10 shrink-0" />
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="h-3.5 w-24 bg-white/10 rounded" />
+                        <div className="h-2.5 w-10 bg-white/5 rounded" />
+                      </div>
+                      <div className="h-2.5 w-36 bg-white/5 rounded" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filteredConversations.length === 0 ? (
               <div className="p-6 text-center space-y-1.5">
-                <p className="text-xs font-semibold text-[#b9adb6]">No conversations found</p>
-                <p className="text-[11px] text-[#8f7d8c]">
+                <p className="text-xs font-semibold cc-text-muted">No conversations found</p>
+                <p className="text-[11px] cc-text-faint">
                   {searchQuery
                     ? "Try a different search query."
                     : activeTab === "Selling"
@@ -554,13 +564,13 @@ function MessagesContent() {
                     onClick={() => handleSelectConversation(conv.id)}
                     className={`w-full p-3 text-left transition-all cursor-pointer flex items-start gap-2.5 select-none relative ${
                       isSelected
-                        ? "bg-[#2d192f]/70 border-l-2 border-[#e59bc9]"
-                        : "hover:bg-white/[0.02] border-l-2 border-transparent"
+                        ? "bg-[var(--cc-surface-card)] border-l-2 border-[#e59bc9]"
+                        : "hover:cc-surface-card border-l-2 border-transparent"
                     }`}
                   >
                     {/* Conversation participant */}
                     <div className="relative shrink-0 mt-0.5">
-                      <div className="size-8 rounded-full bg-[#3d2743] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold text-[11px]">
+                      <div className="size-8 rounded-full cc-surface-secondary border cc-border flex items-center justify-center text-[var(--cc-accent-pink)] font-bold text-[11px]">
                         {!selling && conv.shops?.name ? (
                           <Store className="size-4" />
                         ) : (
@@ -573,7 +583,7 @@ function MessagesContent() {
                         )}
                       </div>
                       {hasUnread && (
-                        <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-[#e59bc9] ring-2 ring-[#1e1322]" />
+                        <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-[#e59bc9] ring-2 ring-[var(--cc-surface-base)]" />
                       )}
                     </div>
 
@@ -583,24 +593,24 @@ function MessagesContent() {
                         <h4
                           className={`text-xs truncate ${
                             hasUnread || isSelected
-                              ? "font-bold text-[#fffafa]"
-                              : "font-medium text-[#d6cbd5]"
+                              ? "font-bold cc-text-primary"
+                              : "font-medium cc-text-secondary"
                           }`}
                         >
                           {participantName}
                         </h4>
-                        <span className="text-[10px] text-[#8f7d8c] shrink-0">
+                        <span className="text-[10px] cc-text-faint shrink-0">
                           {timeStr}
                         </span>
                       </div>
 
-                      <span className="inline-flex mt-1 rounded bg-[#54385c]/50 px-1.5 py-0.5 text-[9px] font-bold text-[#e59bc9]">
+                      <span className="inline-flex mt-1 rounded cc-surface-tertiary px-1.5 py-0.5 text-[9px] font-bold text-[var(--cc-accent-pink)] border cc-border">
                         {selling ? "Selling" : "Buying"}
                       </span>
 
                       {/* Product Name reference */}
                       {conv.products && (
-                        <p className="text-[11px] text-[#e59bc9]/90 font-medium truncate mt-0.5">
+                        <p className="text-[11px] text-[var(--cc-accent-pink)] font-medium truncate mt-0.5">
                           {conv.products.title}
                         </p>
                       )}
@@ -609,8 +619,8 @@ function MessagesContent() {
                       <p
                         className={`text-xs truncate mt-0.5 ${
                           hasUnread
-                            ? "text-[#fffafa] font-semibold"
-                            : "text-[#8f7d8c]"
+                            ? "cc-text-primary font-semibold"
+                            : "cc-text-faint"
                         }`}
                       >
                         {lastMsg}
@@ -628,25 +638,25 @@ function MessagesContent() {
         {/* ========================================================= */}
         {activeConversation ? (
           <div
-            className={`flex-1 flex flex-col min-w-0 min-h-0 bg-[#140a17]/50 ${
+            className={`flex-1 flex flex-col min-w-0 min-h-0 bg-[var(--cc-surface-base)] ${
               !selectedChatId ? "hidden md:flex" : "flex"
             }`}
           >
             {/* Clean Chat Header (~64px height) */}
-            <div className="h-16 px-4 sm:px-5 border-b border-white/[0.06] flex items-center justify-between gap-3 shrink-0 bg-[#1a0f1d]/80">
+            <div className="h-16 px-4 sm:px-5 border-b cc-border flex items-center justify-between gap-3 shrink-0 cc-surface-card">
               <div className="flex items-center gap-3 min-w-0">
                 {/* Mobile Back button */}
                 <button
                   type="button"
                   onClick={() => setSelectedChatId(null)}
                   aria-label="Back to conversations"
-                  className="md:hidden p-1 -ml-1 text-[#b9adb6] hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
+                  className="md:hidden p-1 -ml-1 cc-text-muted hover:cc-text-primary rounded-lg hover:cc-surface-secondary cursor-pointer"
                 >
                   <ArrowLeft className="size-4" />
                 </button>
 
                 {/* Conversation participant */}
-                <div className="size-9 rounded-full bg-[#3d2743] border border-white/10 flex items-center justify-center text-[#e59bc9] font-bold text-xs shrink-0">
+                <div className="size-9 rounded-full cc-surface-secondary border cc-border flex items-center justify-center text-[var(--cc-accent-pink)] font-bold text-xs shrink-0">
                   {!isSelling && activeConversation.shops?.name ? (
                     <Store className="size-4" />
                   ) : (
@@ -662,28 +672,28 @@ function MessagesContent() {
                 {/* Participant and listing context */}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xs sm:text-sm font-bold text-[#fffafa] truncate">
+                    <h3 className="text-xs sm:text-sm font-bold cc-text-primary truncate">
                       {activeParticipantName}
                     </h3>
                     {!isSelling && activeConversation.shops && (
                       <Link
                         href={`/shop/${activeConversation.shops.slug}`}
-                        className="text-[11px] text-[#e59bc9] hover:underline flex items-center gap-1 font-medium"
+                        className="text-[11px] text-[var(--cc-accent-pink)] hover:underline flex items-center gap-1 font-medium"
                       >
                         <span>Visit Shop</span>
                       </Link>
                     )}
                   </div>
                   {activeConversation.products && (
-                    <p className="text-[11px] text-[#8f7d8c] truncate">
+                    <p className="text-[11px] cc-text-faint truncate">
                       {isSelling ? "Selling" : "Buying"}:{" "}
-                      <span className="text-[#e59bc9] font-medium">
+                      <span className="text-[var(--cc-accent-pink)] font-medium">
                         {activeConversation.products.title}
                       </span>
                     </p>
                   )}
                   {!activeConversation.products && (
-                    <p className="text-[11px] text-[#8f7d8c]">
+                    <p className="text-[11px] cc-text-faint">
                       {isSelling ? "Selling" : "Buying"} &bull; {activeConversation.orders ? "Order conversation" : "Shop inquiry"}
                     </p>
                   )}
@@ -695,7 +705,7 @@ function MessagesContent() {
                 {activeConversation.orders && (
                   <Link
                     href={ordersHref}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-semibold text-[#e59bc9] transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cc-surface-secondary hover:cc-surface-card border cc-border text-xs font-semibold text-[var(--cc-accent-pink)] transition-colors"
                   >
                     <ShoppingBag className="size-3" />
                     <span>{formatOrderReference(activeConversation.orders.id)}</span>
@@ -706,10 +716,10 @@ function MessagesContent() {
                 <button
                   type="button"
                   onClick={() => setShowMobileContext(!showMobileContext)}
-                  className="xl:hidden p-1.5 rounded-lg bg-white/[0.04] hover:bg-white/10 text-[#d6cbd5] hover:text-white border border-white/[0.08] transition-colors cursor-pointer"
+                  className="xl:hidden p-1.5 rounded-lg cc-surface-secondary hover:cc-surface-card cc-text-muted hover:cc-text-primary border cc-border transition-colors cursor-pointer"
                   title="View Item Details"
                 >
-                  <Info className="size-4 text-[#e59bc9]" />
+                  <Info className="size-4 text-[var(--cc-accent-pink)]" />
                 </button>
               </div>
             </div>
@@ -720,16 +730,27 @@ function MessagesContent() {
               className="flex-1 p-4 sm:p-5 overflow-y-auto min-h-0 space-y-3"
             >
               {isLoadingMessages ? (
-                <div className="h-full flex items-center justify-center">
-                  <Loader2 className="size-6 text-[#e59bc9] animate-spin" />
+                <div className="space-y-4 animate-pulse p-1" aria-label="Loading messages" aria-busy="true">
+                  <div className="flex justify-start">
+                    <div className="h-12 w-48 cc-surface-secondary rounded-2xl rounded-tl-xs" />
+                  </div>
+                  <div className="flex justify-end">
+                    <div className="h-10 w-40 bg-[#65486f]/50 rounded-2xl rounded-tr-xs" />
+                  </div>
+                  <div className="flex justify-start">
+                    <div className="h-16 w-60 cc-surface-secondary rounded-2xl rounded-tl-xs" />
+                  </div>
+                  <div className="flex justify-end">
+                    <div className="h-14 w-52 bg-[#65486f]/50 rounded-2xl rounded-tr-xs" />
+                  </div>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2">
-                  <div className="size-10 rounded-full bg-[#342339] border border-white/10 flex items-center justify-center text-[#e59bc9]">
+                  <div className="size-10 rounded-full cc-surface-secondary border cc-border flex items-center justify-center text-[var(--cc-accent-pink)]">
                     <MessageSquare className="size-5" />
                   </div>
-                  <h4 className="text-xs font-bold text-white">Start the conversation</h4>
-                  <p className="text-[11px] text-[#8f7d8c] max-w-xs">
+                  <h4 className="text-xs font-bold cc-text-primary">Start the conversation</h4>
+                  <p className="text-[11px] cc-text-faint max-w-xs">
                   Discuss availability, specs, meetup details, or an order.
                   </p>
                 </div>
@@ -745,7 +766,7 @@ function MessagesContent() {
                     <React.Fragment key={msg.id || idx}>
                       {showDateSeparator && (
                         <div className="flex items-center justify-center my-3">
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-[#8f7d8c] bg-white/[0.03]">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold cc-text-faint cc-surface-card border cc-border">
                             {dateGroup}
                           </span>
                         </div>
@@ -760,12 +781,12 @@ function MessagesContent() {
                           className={`max-w-[72%] p-3 sm:px-4 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                             isOwnMessage
                               ? "bg-[#54385c] text-white rounded-tr-xs shadow-xs"
-                              : "bg-[#231526] text-[#fffafa] border border-white/[0.06] rounded-tl-xs shadow-xs"
+                              : "cc-surface-card cc-text-primary border cc-border rounded-tl-xs shadow-xs"
                           }`}
                         >
                           {msg.body}
                         </div>
-                        <span className="text-[10px] text-[#8f7d8c] mt-1 px-1 flex items-center gap-1">
+                        <span className="text-[10px] cc-text-faint mt-1 px-1 flex items-center gap-1">
                           <span>{formatMessageTime(msg.created_at)}</span>
                           {isOwnMessage && (
                             <CheckCheck
@@ -783,9 +804,9 @@ function MessagesContent() {
             </div>
 
             {/* Quick Replies Row */}
-            <div className="px-4 py-2 bg-[#1a0f1d]/80 border-t border-white/[0.04] overflow-x-auto scrollbar-none no-scrollbar flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] uppercase font-bold text-[#8f7d8c] shrink-0 flex items-center gap-1 mr-1">
-                <Sparkles className="size-3 text-[#e59bc9]" />
+            <div className="px-4 py-2 cc-surface-card border-t cc-border overflow-x-auto scrollbar-none no-scrollbar flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] uppercase font-bold cc-text-muted shrink-0 flex items-center gap-1 mr-1">
+                <Sparkles className="size-3 text-[var(--cc-accent-pink)]" />
                 <span>Quick:</span>
               </span>
               {quickReplies.map((reply) => (
@@ -796,7 +817,7 @@ function MessagesContent() {
                     setInputText(reply.text);
                     textareaRef.current?.focus({ preventScroll: true });
                   }}
-                  className="px-2.5 py-1 rounded-md bg-white/[0.03] hover:bg-[#3d2743] hover:text-[#fffafa] text-[11px] font-medium text-[#b9adb6] border border-white/[0.05] transition-all shrink-0 cursor-pointer whitespace-nowrap active:scale-95"
+                  className="px-2.5 py-1 rounded-md cc-surface-secondary hover:cc-surface-tertiary hover:cc-text-primary text-[11px] font-medium cc-text-muted border cc-border transition-all shrink-0 cursor-pointer whitespace-nowrap active:scale-95"
                   title={reply.text}
                 >
                   {reply.label}
@@ -810,12 +831,12 @@ function MessagesContent() {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="p-3 sm:p-3.5 border-t border-white/[0.06] bg-[#1a0f1d]/90 flex items-end gap-2 shrink-0"
+              className="p-3 sm:p-3.5 border-t cc-border cc-surface-card flex items-end gap-2 shrink-0"
             >
               <button
                 type="button"
                 onClick={() => toast.info("Attachments will be supported in upcoming release.")}
-                className="size-9 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] text-[#8f7d8c] hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0 border border-white/[0.06]"
+                className="size-9 rounded-lg cc-surface-secondary hover:cc-surface-tertiary cc-text-muted hover:cc-text-primary flex items-center justify-center transition-colors cursor-pointer shrink-0 border cc-border"
                 title="Add attachment"
               >
                 <Paperclip className="size-4" />
@@ -830,7 +851,7 @@ function MessagesContent() {
                   placeholder={`Message ${activeParticipantName}...`}
                   aria-label={`Message ${activeParticipantName}`}
                   rows={1}
-                  className="w-full min-h-[38px] max-h-[90px] py-2 px-3 rounded-lg bg-[#281829]/70 border border-white/[0.08] text-xs sm:text-sm font-medium text-[#fffafa] placeholder-[#8f7d8c] outline-hidden focus:border-[#e59bc9] focus:ring-1 focus:ring-[#e59bc9] transition-colors resize-none"
+                  className="w-full min-h-[38px] max-h-[90px] py-2 px-3 rounded-lg cc-surface-secondary border cc-border text-xs sm:text-sm font-medium cc-text-primary placeholder:cc-text-faint outline-hidden focus:border-[#e59bc9] focus:ring-1 focus:ring-[#e59bc9] transition-colors resize-none"
                 />
               </div>
 
@@ -840,7 +861,7 @@ function MessagesContent() {
                 className={`size-9 rounded-lg flex items-center justify-center transition-all shrink-0 ${
                   inputText.trim() && !isSending
                     ? "bg-[#54385c] text-white hover:bg-[#684771] shadow-xs cursor-pointer active:scale-95"
-                    : "bg-white/5 text-[#8f7d8c] cursor-not-allowed opacity-40"
+                    : "bg-white/5 cc-text-faint cursor-not-allowed opacity-40"
                 }`}
                 title="Send message"
               >
@@ -854,12 +875,12 @@ function MessagesContent() {
           </div>
         ) : (
           /* Empty state when no conversation is selected */
-          <div className="flex-1 hidden md:flex flex-col items-center justify-center p-8 text-center space-y-2.5 bg-[#140a17]/40">
-            <div className="size-12 rounded-xl bg-[#281829] border border-white/[0.08] flex items-center justify-center text-[#e59bc9]">
+          <div className="flex-1 hidden md:flex flex-col items-center justify-center p-8 text-center space-y-2.5 bg-[var(--cc-surface-base)]">
+            <div className="size-12 rounded-xl cc-surface-secondary border cc-border flex items-center justify-center text-[var(--cc-accent-pink)]">
               <MessageSquare className="size-6" />
             </div>
-            <h3 className="text-sm font-bold text-[#fffafa]">Messages</h3>
-            <p className="text-xs text-[#8f7d8c] max-w-xs">
+            <h3 className="text-sm font-bold cc-text-primary">Messages</h3>
+            <p className="text-xs cc-text-faint max-w-xs">
               Select a conversation to view your messages about a listing or order.
             </p>
           </div>
@@ -869,17 +890,17 @@ function MessagesContent() {
         {/* COLUMN 3: PRODUCT & SELLER CONTEXT PANEL (~270px)        */}
         {/* ========================================================= */}
         {activeConversation && (
-          <div className="w-[270px] shrink-0 border-l border-white/[0.06] hidden xl:flex flex-col min-h-0 bg-[#170c1a]/90 p-4 overflow-y-auto space-y-4">
+          <div className="w-[270px] shrink-0 border-l cc-border hidden xl:flex flex-col min-h-0 cc-surface-secondary p-4 overflow-y-auto space-y-4">
             {/* ABOUT THIS ITEM */}
             {activeConversation.products && (
               <div className="space-y-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8f7d8c] flex items-center gap-1.5">
-                  <Tag className="size-3 text-[#e59bc9]" />
+                <span className="text-[10px] font-bold uppercase tracking-wider cc-text-muted flex items-center gap-1.5">
+                  <Tag className="size-3 text-[var(--cc-accent-pink)]" />
                   <span>Product Listing</span>
                 </span>
 
                 {/* Thumbnail & Info */}
-                <div className="relative aspect-[16/10] rounded-lg bg-gradient-to-br from-[#3d2743] to-[#201323] border border-white/[0.06] flex items-center justify-center overflow-hidden p-2">
+                <div className="relative aspect-[16/10] rounded-lg cc-surface-card border cc-border flex items-center justify-center overflow-hidden p-2">
                   {activeProductImage ? (
                     <Image
                       src={activeProductImage}
@@ -889,7 +910,7 @@ function MessagesContent() {
                       className="size-full object-contain"
                     />
                   ) : (
-                    <Package className="size-8 text-[#e59bc9]/60" />
+                    <Package className="size-8 text-[var(--cc-accent-pink)]/60" />
                   )}
                   <div className="absolute top-2 right-2">
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-black/50 backdrop-blur-xs text-white/90 border border-white/10">
@@ -899,16 +920,16 @@ function MessagesContent() {
                 </div>
 
                 <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-[#fffafa] leading-snug">
+                  <h4 className="text-xs font-bold cc-text-primary leading-snug">
                     {activeConversation.products.title}
                   </h4>
                   <div className="flex items-center justify-between">
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-sm font-extrabold text-[#fffafa]">
+                      <span className="text-sm font-extrabold cc-text-primary">
                         ₱{Number(activeConversation.products.price).toLocaleString()}
                       </span>
                       {activeConversation.products.original_price && (
-                        <span className="text-[10px] text-[#8f7d8c] line-through">
+                        <span className="text-[10px] cc-text-faint line-through">
                           ₱{Number(activeConversation.products.original_price).toLocaleString()}
                         </span>
                       )}
@@ -921,7 +942,7 @@ function MessagesContent() {
 
                 {/* Specs snippet */}
                 {activeConversation.products.specs && (
-                  <p className="text-[11px] text-[#8f7d8c] leading-relaxed line-clamp-2">
+                  <p className="text-[11px] cc-text-faint leading-relaxed line-clamp-2">
                     {activeConversation.products.specs}
                   </p>
                 )}
@@ -930,9 +951,9 @@ function MessagesContent() {
                 <button
                   type="button"
                   onClick={() => handleOpenProductModal(activeConversation.products)}
-                  className="w-full py-1.5 rounded-lg bg-white/[0.03] hover:bg-[#54385c] text-xs font-semibold text-[#fffafa] border border-white/[0.06] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-1.5 rounded-lg cc-surface-card hover:bg-[#54385c] hover:text-white text-xs font-semibold cc-text-primary border cc-border transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Eye className="size-3 text-[#e59bc9]" />
+                  <Eye className="size-3 text-[var(--cc-accent-pink)]" />
                   <span>View Product</span>
                 </button>
                 {isSelling && (
@@ -949,19 +970,19 @@ function MessagesContent() {
 
             {/* ASSOCIATED ORDER SECTION (if exists) */}
             {activeConversation.orders && (
-              <div className="pt-3 border-t border-white/[0.06] space-y-2">
+              <div className="pt-3 border-t cc-border space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#8f7d8c]">
+                  <span className="text-[10px] font-bold uppercase tracking-wider cc-text-muted">
                     Order Reference
                   </span>
                   {getOrderStatusBadge(activeConversation.orders.status)}
                 </div>
 
                 <div className="space-y-0.5 text-xs">
-                  <div className="text-[#fffafa] font-bold">
+                  <div className="cc-text-primary font-bold">
                     {formatOrderReference(activeConversation.orders.id)}
                   </div>
-                  <div className="text-[#8f7d8c] text-[11px]">
+                  <div className="cc-text-faint text-[11px]">
                     ₱{Number(activeConversation.orders.total).toLocaleString()} &bull;{" "}
                     {activeConversation.orders.delivery_method === "delivery"
                       ? "Delivery"
@@ -980,21 +1001,21 @@ function MessagesContent() {
             )}
 
             {/* SELLER / SHOP PROFILE SECTION */}
-            <div className="pt-3 border-t border-white/[0.06] space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8f7d8c]">
+            <div className="pt-3 border-t cc-border space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider cc-text-muted">
                 {isSelling ? "Buyer Information" : "Seller Information"}
               </span>
               <div className="space-y-1 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[#8f7d8c]">{isSelling ? "Buyer:" : "Seller:"}</span>
-                  <span className="text-white font-semibold">{activeParticipantName}</span>
+                  <span className="cc-text-faint">{isSelling ? "Buyer:" : "Seller:"}</span>
+                  <span className="cc-text-primary font-semibold">{activeParticipantName}</span>
                 </div>
                 {!isSelling && activeConversation.shops && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[#8f7d8c]">Shop:</span>
+                    <span className="cc-text-faint">Shop:</span>
                     <Link
                       href={`/shop/${activeConversation.shops.slug}`}
-                      className="text-[#e59bc9] hover:underline truncate max-w-[130px] font-medium"
+                      className="text-[var(--cc-accent-pink)] hover:underline truncate max-w-[130px] font-medium"
                     >
                       {activeConversation.shops.name}
                     </Link>
@@ -1002,8 +1023,8 @@ function MessagesContent() {
                 )}
                 {activeParticipant?.location && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[#8f7d8c]">Location:</span>
-                    <span className="text-[#d6cbd5] truncate max-w-[130px]">
+                    <span className="cc-text-faint">Location:</span>
+                    <span className="cc-text-muted truncate max-w-[130px]">
                       {activeParticipant.location}
                     </span>
                   </div>
@@ -1024,17 +1045,17 @@ function MessagesContent() {
         {/* ========================================================= */}
         {showMobileContext && activeConversation && (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex justify-end xl:hidden animate-in fade-in duration-200">
-            <div className="w-full max-w-xs bg-[#1a0f1d] h-full p-4 overflow-y-auto space-y-4 border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-200">
-              <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#d6cbd5] flex items-center gap-1.5">
-                  <Tag className="size-3.5 text-[#e59bc9]" />
+            <div className="w-full max-w-xs cc-surface-card h-full p-4 overflow-y-auto space-y-4 border-l cc-border shadow-2xl animate-in slide-in-from-right duration-200">
+              <div className="flex items-center justify-between pb-2 border-b cc-border">
+                <span className="text-xs font-bold uppercase tracking-wider cc-text-muted flex items-center gap-1.5">
+                  <Tag className="size-3.5 text-[var(--cc-accent-pink)]" />
                   <span>Item Context</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowMobileContext(false)}
                   aria-label="Close conversation details"
-                  className="p-1 rounded-lg text-[#b9adb6] hover:text-white cursor-pointer"
+                  className="p-1 rounded-lg cc-text-muted hover:cc-text-primary cursor-pointer"
                 >
                   <X className="size-4" />
                 </button>
@@ -1043,11 +1064,11 @@ function MessagesContent() {
               {/* Product Info */}
               {activeConversation.products && (
                 <div className="space-y-2.5">
-                  <h4 className="text-xs font-bold text-[#fffafa]">
+                  <h4 className="text-xs font-bold cc-text-primary">
                     {activeConversation.products.title}
                   </h4>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-[#fffafa]">
+                    <span className="text-sm font-extrabold cc-text-primary">
                       ₱{Number(activeConversation.products.price).toLocaleString()}
                     </span>
                     <div>
@@ -1055,7 +1076,7 @@ function MessagesContent() {
                     </div>
                   </div>
 
-                  <p className="text-xs text-[#8f7d8c] leading-relaxed">
+                  <p className="text-xs cc-text-faint leading-relaxed">
                     {activeConversation.products.specs}
                   </p>
 
@@ -1073,7 +1094,7 @@ function MessagesContent() {
                   {isSelling && (
                     <Link
                       href="/seller/products"
-                      className="block w-full py-2 text-center rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors"
+                      className="block w-full py-2 text-center rounded-lg cc-surface-secondary hover:cc-surface-card text-xs font-semibold cc-text-primary border cc-border transition-colors"
                     >
                       Manage Listing
                     </Link>
@@ -1083,14 +1104,14 @@ function MessagesContent() {
 
               {/* Order Info */}
               {activeConversation.orders && (
-                <div className="pt-3 border-t border-white/10 space-y-2">
+                <div className="pt-3 border-t cc-border space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#fffafa]">
+                    <span className="text-xs font-bold cc-text-primary">
                       {formatOrderReference(activeConversation.orders.id)}
                     </span>
                     {getOrderStatusBadge(activeConversation.orders.status)}
                   </div>
-                  <p className="text-xs text-[#8f7d8c]">
+                  <p className="text-xs cc-text-faint">
                     ₱{Number(activeConversation.orders.total).toLocaleString()} &bull;{" "}
                     {activeConversation.orders.delivery_method === "delivery"
                       ? "Delivery"
@@ -1098,7 +1119,7 @@ function MessagesContent() {
                   </p>
                   <Link
                     href={ordersHref}
-                    className="block w-full py-1.5 text-center rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors"
+                    className="block w-full py-1.5 text-center rounded-lg cc-surface-secondary hover:cc-surface-card text-xs font-semibold cc-text-primary border cc-border transition-colors"
                   >
                     {isSelling ? "Go to Sales" : "Go to Purchases"}
                   </Link>

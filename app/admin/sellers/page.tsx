@@ -11,7 +11,11 @@ import {
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
-import { getAdminSellers, type SellerWithShop } from "@/lib/supabase/admin";
+import {
+  adminSellerMatchesSearch,
+  getAdminSellers,
+  type SellerWithShop,
+} from "@/lib/supabase/admin";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import Link from "next/link";
@@ -61,19 +65,9 @@ export default function AdminSellersPage() {
     };
   }, []);
 
-  const filteredSellers = sellers.filter((s) => {
-    const term = searchTerm.toLowerCase();
-    const nameMatch =
-      (s.full_name && s.full_name.toLowerCase().includes(term)) ||
-      (s.username && s.username.toLowerCase().includes(term)) ||
-      s.id.toLowerCase().includes(term);
-    const shopMatch = s.shops?.some(
-      (shop) =>
-        shop.name.toLowerCase().includes(term) ||
-        (shop.description && shop.description.toLowerCase().includes(term))
-    );
-    return nameMatch || shopMatch;
-  });
+  const filteredSellers = sellers.filter((seller) =>
+    adminSellerMatchesSearch(seller, searchTerm)
+  );
 
   return (
     <div className="space-y-6">
@@ -161,7 +155,7 @@ export default function AdminSellersPage() {
               </thead>
               <tbody className="divide-y divide-white/5 text-[#fffafa]">
                 {filteredSellers.map((seller) => {
-                  const shop = seller.shops?.[0];
+                  const shop = seller.shop;
 
                   return (
                     <tr

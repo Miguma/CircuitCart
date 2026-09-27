@@ -57,10 +57,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1e1322] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--cc-surface-base)] flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3 text-center">
-          <Loader2 className="size-8 text-[#e59bc9] animate-spin" />
-          <p className="text-sm font-semibold text-[#b9adb6]">
+          <Loader2 className="size-8 text-[var(--cc-accent-pink)] animate-spin" />
+          <p className="text-sm font-semibold cc-text-muted">
             Verifying administrative access...
           </p>
         </div>
@@ -70,16 +70,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   if (!profile || !isAdmin(profile)) {
     return (
-      <div className="min-h-screen bg-[#1e1322] flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-md w-full bg-[#342339] border border-rose-500/20 rounded-3xl p-8 space-y-5 shadow-2xl">
+      <div className="min-h-screen bg-[var(--cc-surface-base)] flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full cc-surface-card border border-rose-500/20 rounded-3xl p-8 space-y-5 shadow-2xl">
           <div className="size-14 rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center mx-auto">
             <ShieldAlert className="size-7" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-xl font-black text-[#fffafa]">
+            <h1 className="text-xl font-black cc-text-primary">
               Admin Access Restricted
             </h1>
-            <p className="text-xs text-[#b9adb6]">
+            <p className="text-xs cc-text-muted">
               You must have an administrator account to view the CircuitCart Admin Console.
             </p>
           </div>
@@ -95,7 +95,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#1e1322] text-[#fffafa] flex overflow-hidden">
+    <div className="min-h-screen bg-[var(--cc-surface-base)] cc-text-primary flex overflow-hidden">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block h-screen sticky top-0 shrink-0">
         <AdminSidebar profile={profile} />
@@ -108,11 +108,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="relative w-72 max-w-[80vw] h-full z-10 flex flex-col bg-[#1e1322]">
+          <div className="relative w-72 max-w-[80vw] h-full z-10 flex flex-col cc-surface-card">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-lg bg-[#342339] text-[#b9adb6] hover:text-white border border-white/10 z-20"
+              className="absolute top-4 right-4 p-2 rounded-lg cc-surface-secondary cc-text-muted hover:cc-text-primary border cc-border z-20"
               aria-label="Close menu"
             >
               <X className="size-4" />

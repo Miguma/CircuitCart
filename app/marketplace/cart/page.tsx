@@ -27,6 +27,7 @@ import {
   Info,
   CheckCircle2,
   Package,
+  Clock,
 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
 import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
@@ -35,13 +36,28 @@ import {
   formatPaymentMethodLabel,
   formatPaymentStatusLabel,
 } from "@/lib/supabase/orders";
-import { DbDeliveryMethod, DbPaymentMethod, DbLegacyPaymentMethod } from "@/lib/supabase/types";
-import { cancelOnlineCheckout, createOnlineCheckout, readOnlineCheckout } from "@/lib/checkout/online-client";
+import { DbDeliveryMethod, DbPaymentMethod } from "@/lib/supabase/types";
+import { cancelOnlineCheckout, readOnlineCheckout } from "@/lib/checkout/online-client";
 import type { OnlineCheckout } from "@/lib/checkout/online-contract";
 import { OnlinePaymentStage } from "@/components/marketplace/online-payment-stage";
+import {
+  deriveCardLast4,
+  formatDemoCardNumber,
+  formatDemoExpiry,
+  isDemoPaymentEnabled,
+  validateDemoCardholder,
+  validateDemoCardNumber,
+  validateDemoCvv,
+  validateDemoExpiry,
+  maskDemoCard,
+} from "@/lib/payments/demo";
 import { toast } from "sonner";
 
 const onlinePreviewEnabled = process.env.NEXT_PUBLIC_ONLINE_CHECKOUT_FOUNDATION_ENABLED === "true";
+const demoPaymentEnabled = isDemoPaymentEnabled();
+// Failure simulation toggle is strictly development-only (never production).
+const demoSimulationAllowed =
+  demoPaymentEnabled && process.env.NODE_ENV !== "production";
 
 function CartItemSkeleton() {
   return (
@@ -205,11 +221,32 @@ export default function CartPage() {
     orderIds: string[];
     sellerCount: number;
     deliveryMethod: DbDeliveryMethod;
-    paymentMethod: DbLegacyPaymentMethod;
+    paymentMethod: DbPaymentMethod;
     grandTotal: number;
     shippingName?: string;
     shippingAddress?: string;
+    demo?: {
+      reference: string;
+      cardLast4: string;
+      paymentTransactionId: string;
+    };
   } | null>(null);
+
+  // Demo Card form state. Raw PAN/CVV/expiry live only here and are discarded
+  // from memory immediately after the last4 is derived on submit.
+  const [demoCardName, setDemoCardName] = useState("");
+  const [demoCardNumber, setDemoCardNumber] = useState("");
+  const [demoCardExpiry, setDemoCardExpiry] = useState("");
+  const [demoCardCvv, setDemoCardCvv] = useState("");
+  const [demoFormError, setDemoFormError] = useState<string | null>(null);
+  const [demoSimulateFailure, setDemoSimulateFailure] = useState(false);
+
+  const clearDemoCardInputs = React.useCallback(() => {
+    setDemoCardName("");
+    setDemoCardNumber("");
+    setDemoCardExpiry("");
+    setDemoCardCvv("");
+  }, []);
 
   const handleDeliveryMethodChange = (newMethod: DbDeliveryMethod) => {
     setDeliveryMethod(newMethod);
@@ -221,15 +258,28 @@ export default function CartPage() {
   };
 
   const paymentOptions = React.useMemo(() => {
-    const onlineOption = onlinePreviewEnabled ? [{
+    const mayaOption = {
       id: "maya_online" as DbPaymentMethod,
-      title: "Maya Online (Foundation Preview)",
-      subtitle: "Creates an unpaid checkout; online payment is not connected yet",
+      title: "Maya",
+      subtitle: "Secure Sandbox Checkout",
       icon: <CreditCard className="size-4 text-[#e59bc9]" />,
-    }] : [];
+    };
+
+    // Demo Card is a separate offline sandbox method (academic defense only).
+    const demoOption = {
+      id: "demo_card" as DbPaymentMethod,
+      title: "Demo Card",
+      subtitle: "Sandbox payment — no real money will be charged",
+      icon: <CreditCard className="size-4 text-[#e59bc9]" />,
+    };
+    const withDemo = <T extends { id: DbPaymentMethod }>(list: T[]): T[] =>
+      demoPaymentEnabled
+        ? [list[0], demoOption as unknown as T, ...list.slice(1)]
+        : list;
+
     if (deliveryMethod === "delivery") {
-      return [
-        ...onlineOption,
+      return withDemo([
+        mayaOption,
         {
           id: "cash_on_delivery" as DbPaymentMethod,
           title: "Cash on Delivery (COD)",
@@ -248,10 +298,10 @@ export default function CartPage() {
           subtitle: "Direct e-wallet transfer; verify receipt via chat",
           icon: <CreditCard className="size-4 text-[#e59bc9]" />,
         },
-      ];
+      ]);
     }
-    return [
-      ...onlineOption,
+    return withDemo([
+      mayaOption,
       {
         id: "cash_on_meetup" as DbPaymentMethod,
         title: "Cash on Meetup",
@@ -270,7 +320,7 @@ export default function CartPage() {
         subtitle: "Direct e-wallet transfer; verify receipt via chat",
         icon: <CreditCard className="size-4 text-[#e59bc9]" />,
       },
-    ];
+    ]);
   }, [deliveryMethod]);
 
   const formatPrice = (price: number) =>
@@ -301,7 +351,7 @@ export default function CartPage() {
 
     return Array.from(map.entries()).map(([key, data]) => {
       const subtotal = data.items.reduce(
-        (sum, it) => sum + it.product.price * it.quantity,
+        (sum, it) => sum + Number(it.product.price) * Number(it.quantity),
         0
       );
       const shippingFee =
@@ -328,7 +378,16 @@ export default function CartPage() {
     [sellerGroups]
   );
 
-  const overallGrandTotal = cartSubtotal + overallShippingTotal;
+  // Pre-checkout display total derived strictly from current validated cart items
+  const checkoutDisplayTotal = React.useMemo(() => {
+    if (!cartItems || cartItems.length === 0) return 0;
+    return sellerGroups.reduce(
+      (acc, g) => acc + Number(g.subtotal || 0) + Number(g.shippingFee || 0),
+      0
+    );
+  }, [cartItems, sellerGroups]);
+
+  const overallGrandTotal = checkoutDisplayTotal;
 
   const getFallbackIcon = (category: string) => {
     switch (category) {
@@ -370,25 +429,118 @@ export default function CartPage() {
     submitLock.current = true;
     setIsSubmitting(true);
     try {
+      // Guard: never submit a checkout with an invalid, zero, or negative total
+      if (checkoutDisplayTotal <= 0 || cartItems.length === 0) {
+        toast.error("Cart total must be greater than zero to proceed with checkout.");
+        return;
+      }
+
       if (paymentMethod === "maya_online") {
-        if (!onlinePreviewEnabled) throw new Error("Online checkout is not available yet.");
-        attemptId.current ||= crypto.randomUUID();
-        try { localStorage.setItem(attemptStorageKey, attemptId.current); } catch { /* Recover by authenticated buyer on refresh. */ }
-        const checkout = await createOnlineCheckout({
-          attemptId: attemptId.current, paymentMethod: "maya_online", deliveryMethod,
-          shippingName, shippingPhone, shippingAddress, buyerNote,
+        const res = await fetch("/api/payments/maya/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            deliveryMethod,
+            shippingName: shippingName.trim() || undefined,
+            shippingPhone: shippingPhone.trim() || undefined,
+            shippingAddress: shippingAddress.trim() || undefined,
+            buyerNote: buyerNote.trim() || undefined,
+          }),
         });
-        const stillActive = ["created", "pending", "authorized"].includes(checkout.paymentStatus);
-        attemptId.current = stillActive ? checkout.attemptId : null;
-        try {
-          if (stillActive) localStorage.setItem(attemptStorageKey, checkout.attemptId);
-          else localStorage.removeItem(attemptStorageKey);
-        } catch { /* No financial data stored locally. */ }
-        setOnlineCheckout(checkout);
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.redirectUrl) {
+          // If checkout failed before redirect, close modal so user is not stuck on a stale modal
+          setIsCheckoutOpen(false);
+          await refreshCart({ preserveOnError: true }).catch(() => {});
+          if (data.recoveryRequired === true) {
+            setRecoveryState("error");
+          }
+          throw new Error(data.error || "Failed to initialize Maya Sandbox checkout.");
+        }
+
+        // Clean local cart snapshot and redirect to Maya Sandbox hosted checkout
+        resetLocalCart();
         setIsCheckoutOpen(false);
-        // A retry may return an older checkout: never blindly erase the current cart.
-        await refreshCart({ preserveOnError: true }).catch(() => toast.error("Payment status recovered. Refresh to update your cart."));
-        return; // Online checkout never reaches the legacy success modal or toast.
+        toast.info("Connecting to Maya Sandbox Checkout...");
+        window.location.href = data.redirectUrl;
+        return;
+      }
+      if (paymentMethod === "demo_card") {
+        if (!demoPaymentEnabled) {
+          throw new Error("Demo payment is not available.");
+        }
+        // Validate locally, derive only the last4, then immediately discard
+        // the raw card inputs — full PAN/CVV/expiry are never sent or stored.
+        const cardError =
+          validateDemoCardholder(demoCardName) ||
+          validateDemoCardNumber(demoCardNumber) ||
+          validateDemoExpiry(demoCardExpiry) ||
+          validateDemoCvv(demoCardCvv);
+        const cardLast4 = deriveCardLast4(demoCardNumber);
+        setDemoFormError(cardError);
+        clearDemoCardInputs();
+        if (cardError || cardLast4.length !== 4) {
+          throw new Error(cardError || "Check your demo card details.");
+        }
+
+        const demoRes = await fetch("/api/payments/demo/confirm", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            attemptId: crypto.randomUUID(),
+            deliveryMethod,
+            shippingName: shippingName.trim() || undefined,
+            shippingPhone: shippingPhone.trim() || undefined,
+            shippingAddress: shippingAddress.trim() || undefined,
+            buyerNote: buyerNote.trim() || undefined,
+            cardLast4,
+            ...(demoSimulationAllowed && demoSimulateFailure
+              ? { simulateFailure: true }
+              : {}),
+          }),
+        });
+
+        const demoData = await demoRes.json().catch(() => ({}));
+
+        if (!demoRes.ok || !demoData.success) {
+          // Server rolled back (stock released, cart restored) on failure.
+          await refreshCart({ preserveOnError: true }).catch(() => {});
+          const failureMsg =
+            demoData.error || "Demo payment failed. Your cart was preserved.";
+          setDemoFormError(failureMsg);
+          throw new Error(failureMsg);
+        }
+
+        const demoConfirmationData = {
+          orderIds: (demoData.orderIds as string[]) || [],
+          sellerCount,
+          deliveryMethod,
+          paymentMethod,
+          grandTotal: Number(demoData.amount) || overallGrandTotal,
+          shippingName: shippingName.trim() || undefined,
+          shippingAddress: shippingAddress.trim() || undefined,
+          demo: {
+            reference: String(demoData.reference || ""),
+            cardLast4: String(demoData.cardLast4 || cardLast4),
+            paymentTransactionId: String(demoData.paymentTransactionId || ""),
+          },
+        };
+
+        resetLocalCart();
+        await refreshCart();
+
+        toast.success("Payment successful — demo transaction, no real money was charged.");
+        setDemoFormError(null);
+        setDemoSimulateFailure(false);
+        setIsSubmitting(false);
+        setIsCheckoutOpen(false);
+        setConfirmation(demoConfirmationData);
+        return;
       }
       const orderIds = await checkoutCart({
         deliveryMethod,
@@ -413,11 +565,15 @@ export default function CartPage() {
       resetLocalCart();
       await refreshCart();
 
-      toast.success(
-        orderIds.length > 1
-          ? `Successfully placed ${orderIds.length} orders across ${sellerCount} shops!`
-          : "Order placed successfully!"
-      );
+      if (paymentMethod === "manual_gcash" || paymentMethod === "manual_maya") {
+        toast.info("Order created — payment verification required.");
+      } else {
+        toast.success(
+          orderIds.length > 1
+            ? `Successfully placed ${orderIds.length} orders across ${sellerCount} shops!`
+            : "Order placed successfully!"
+        );
+      }
 
       setIsSubmitting(false);
       setIsCheckoutOpen(false);
@@ -425,11 +581,6 @@ export default function CartPage() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Checkout failed. Please try again.";
       toast.error(msg);
-      if (paymentMethod === "maya_online") {
-        // A response can fail after the DB committed. Resolve that ambiguity before any new checkout.
-        setRecoveryState("error");
-        setIsCheckoutOpen(false);
-      }
     } finally {
       submitLock.current = false;
       setIsSubmitting(false);
@@ -862,7 +1013,10 @@ export default function CartPage() {
                         type="button"
                         role="radio"
                         aria-checked={isSelected}
-                        onClick={() => setPaymentMethod(opt.id)}
+                        onClick={() => {
+                          setPaymentMethod(opt.id);
+                          setDemoFormError(null);
+                        }}
                         className={`w-full p-3 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                           isSelected
                             ? "bg-[#342339] border-[#e59bc9] ring-1 ring-[#e59bc9]/30"
@@ -899,6 +1053,19 @@ export default function CartPage() {
                   })}
                 </div>
 
+                {/* Maya Sandbox Notice */}
+                {paymentMethod === "maya_online" && (
+                  <div className="mt-2.5 p-3 bg-[#342339]/60 border border-emerald-500/30 rounded-xl text-xs space-y-1 animate-in fade-in duration-150">
+                    <div className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                      <ShieldCheck className="size-3.5 text-emerald-400 shrink-0" />
+                      <span>Maya Sandbox Checkout</span>
+                    </div>
+                    <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
+                      You will be redirected to the official Maya Sandbox hosted checkout to test online payment. No real currency will be processed.
+                    </p>
+                  </div>
+                )}
+
                 {/* Manual E-Wallet Notice */}
                 {(paymentMethod === "manual_gcash" || paymentMethod === "manual_maya") && (
                   <div className="mt-2.5 p-3 bg-[#342339]/60 border border-[#e59bc9]/30 rounded-xl text-xs space-y-1 animate-in fade-in duration-150">
@@ -911,9 +1078,109 @@ export default function CartPage() {
                     </p>
                   </div>
                 )}
-              </div>
+                {/* Demo Card Sandbox Notice + Card Form */}
+                {demoPaymentEnabled && paymentMethod === "demo_card" && (
+                  <div className="mt-2.5 space-y-3 animate-in fade-in duration-150">
+                    <div className="p-3 bg-[#342339]/60 border border-emerald-500/30 rounded-xl text-xs space-y-1">
+                      <div className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                        <ShieldCheck className="size-3.5 text-emerald-400 shrink-0" />
+                        <span>Demo Card Checkout</span>
+                        <span className="ml-1 px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/40 text-[10px] font-extrabold tracking-wider text-emerald-300">
+                          DEMO
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
+                        Sandbox only — no real money will be charged. Any test
+                        details work, e.g. 4242 4242 4242 4242, 12/30, 123.
+                      </p>
+                    </div>
 
-              {/* Optional Buyer Notes */}
+                    <div className="p-4 bg-[#241c27] border border-white/10 rounded-2xl space-y-3">
+                      <div>
+                        <label htmlFor="demo-card-name" className="text-xs font-semibold text-[#d6cbd5] block mb-1">
+                          Cardholder name
+                        </label>
+                        <input
+                          id="demo-card-name"
+                          type="text"
+                          value={demoCardName}
+                          onChange={(e) => setDemoCardName(e.target.value)}
+                          placeholder="Juan Dela Cruz"
+                          autoComplete="cc-name"
+                          className="w-full px-3.5 py-2.5 bg-[#1e1322] border border-white/10 rounded-xl text-xs text-white placeholder:text-[#716872] focus:outline-none focus:border-[#e59bc9]"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="demo-card-number" className="text-xs font-semibold text-[#d6cbd5] block mb-1">
+                          Card number
+                        </label>
+                        <input
+                          id="demo-card-number"
+                          type="text"
+                          inputMode="numeric"
+                          value={demoCardNumber}
+                          onChange={(e) => setDemoCardNumber(formatDemoCardNumber(e.target.value))}
+                          placeholder="4242 4242 4242 4242"
+                          autoComplete="cc-number"
+                          className="w-full px-3.5 py-2.5 bg-[#1e1322] border border-white/10 rounded-xl text-xs text-white placeholder:text-[#716872] focus:outline-none focus:border-[#e59bc9]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="demo-card-expiry" className="text-xs font-semibold text-[#d6cbd5] block mb-1">
+                            Expiration
+                          </label>
+                          <input
+                            id="demo-card-expiry"
+                            type="text"
+                            inputMode="numeric"
+                            value={demoCardExpiry}
+                            onChange={(e) => setDemoCardExpiry(formatDemoExpiry(e.target.value))}
+                            placeholder="MM/YY"
+                            autoComplete="cc-exp"
+                            className="w-full px-3.5 py-2.5 bg-[#1e1322] border border-white/10 rounded-xl text-xs text-white placeholder:text-[#716872] focus:outline-none focus:border-[#e59bc9]"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="demo-card-cvv" className="text-xs font-semibold text-[#d6cbd5] block mb-1">
+                            CVV
+                          </label>
+                          <input
+                            id="demo-card-cvv"
+                            type="password"
+                            inputMode="numeric"
+                            value={demoCardCvv}
+                            onChange={(e) => setDemoCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                            placeholder="123"
+                            autoComplete="cc-csc"
+                            className="w-full px-3.5 py-2.5 bg-[#1e1322] border border-white/10 rounded-xl text-xs text-white placeholder:text-[#716872] focus:outline-none focus:border-[#e59bc9]"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-[#8f7d8c] leading-relaxed">
+                        Full card details never leave this device and are never
+                        stored — only the last 4 digits are kept for the receipt.
+                      </p>
+                      {demoFormError && (
+                        <p role="alert" className="text-[11px] font-semibold text-rose-300">
+                          {demoFormError}
+                        </p>
+                      )}
+                      {demoSimulationAllowed && (
+                        <label className="flex items-center gap-2 text-[11px] text-[#b9adb6] cursor-pointer select-none pt-1">
+                          <input
+                            type="checkbox"
+                            checked={demoSimulateFailure}
+                            onChange={(e) => setDemoSimulateFailure(e.target.checked)}
+                            className="size-3.5 accent-[#e59bc9]"
+                          />
+                          Simulate failed payment (dev only — stock and cart are restored)
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div>
                 <label className="text-xs font-semibold text-[#d6cbd5] block mb-1">
                   Buyer Notes (Optional)
@@ -932,22 +1199,30 @@ export default function CartPage() {
                 <div className="flex items-center justify-between text-xs text-[#d6cbd5]">
                   <span>Total Amount Due:</span>
                   <span className="text-base font-extrabold text-[#e59bc9]">
-                    {formatPrice(overallGrandTotal)}
+                    {checkoutDisplayTotal > 0 ? formatPrice(checkoutDisplayTotal) : "Unable to calculate total"}
                   </span>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isSubmitting || recoveryState !== "idle"}
-                  className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  disabled={isSubmitting || checkoutDisplayTotal <= 0 || cartItems.length === 0}
+                  className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
-                      <span>{paymentMethod === "maya_online" ? "Preparing Payment..." : "Processing Order..."}</span>
+                      <span>{paymentMethod === "maya_online" ? "Connecting to Maya..." : paymentMethod === "demo_card" ? "Processing demo payment..." : "Processing Order..."}</span>
                     </>
+                  ) : checkoutDisplayTotal <= 0 || cartItems.length === 0 ? (
+                    <span>Unable to calculate total</span>
                   ) : (
-                    <span>{paymentMethod === "maya_online" ? "Prepare Payment" : "Place Order"} ({formatPrice(overallGrandTotal)})</span>
+                    <span>
+                      {paymentMethod === "maya_online"
+                        ? `Pay ${formatPrice(checkoutDisplayTotal)} with Maya`
+                        : paymentMethod === "demo_card"
+                        ? `Pay ${formatPrice(checkoutDisplayTotal)} with Demo Card`
+                        : `Place Order (${formatPrice(checkoutDisplayTotal)})`}
+                    </span>
                   )}
                 </button>
               </div>
@@ -957,142 +1232,227 @@ export default function CartPage() {
       )}
 
       {/* Post-Checkout Order Confirmation Modal */}
-      {confirmation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-[#1e1322] border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="p-6 sm:p-7 border-b border-white/10 text-center space-y-3 bg-[#241728]/50">
-              <div className="size-14 rounded-full bg-emerald-950/60 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
-                <CheckCircle2 className="size-7 stroke-[2]" />
+      {confirmation && (() => {
+        const isManualPayment =
+          confirmation.paymentMethod === "manual_gcash" ||
+          confirmation.paymentMethod === "manual_maya";
+        const isDemoPayment = confirmation.paymentMethod === "demo_card";
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-[#1e1322] border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="p-6 sm:p-7 border-b border-white/10 text-center space-y-3 bg-[#241728]/50">
+                {isDemoPayment && (
+                  <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/40 text-[10px] font-extrabold tracking-wider text-emerald-300">
+                    DEMO
+                  </span>
+                )}
+                {isManualPayment ? (
+                  <div className="size-14 rounded-full bg-amber-950/60 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                    <Clock className="size-7 stroke-[2]" />
+                  </div>
+                ) : (
+                  <div className="size-14 rounded-full bg-emerald-950/60 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+                    <CheckCircle2 className="size-7 stroke-[2]" />
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                    {isManualPayment
+                      ? "Order Created — Payment Required"
+                      : isDemoPayment
+                      ? "Payment successful"
+                      : "Order Placed Successfully"}
+                  </h2>
+                  <p className="text-xs text-[#b9adb6] mt-1 max-w-sm mx-auto">
+                    {isManualPayment
+                      ? confirmation.paymentMethod === "manual_gcash"
+                        ? "Your order has been created, but your GCash payment has not been verified yet."
+                        : "Your order has been created, but your Maya payment has not been verified yet."
+                      : isDemoPayment
+                      ? "Demo transaction — no real money was charged."
+                      : confirmation.deliveryMethod === "meetup"
+                      ? "Your order has been placed. Payment will be handed over to the seller in cash during meetup."
+                      : confirmation.orderIds.length > 1
+                      ? `Your checkout created ${confirmation.orderIds.length} orders across ${confirmation.sellerCount} verified shops.`
+                      : "Your order has been submitted to the seller for fulfillment."}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-                  Order Placed Successfully
-                </h2>
-                <p className="text-xs text-[#b9adb6] mt-1 max-w-sm mx-auto">
-                  {confirmation.orderIds.length > 1
-                    ? `Your checkout created ${confirmation.orderIds.length} orders across ${confirmation.sellerCount} verified shops.`
-                    : "Your order has been submitted to the seller for fulfillment."}
-                </p>
-              </div>
-            </div>
 
-            {/* Content Details */}
-            <div className="p-6 sm:p-7 space-y-4 max-h-[70vh] overflow-y-auto">
-              {/* Summary Card */}
-              <div className="p-4 bg-[#241c27] border border-white/10 rounded-2xl space-y-2.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[#b9adb6]">Orders Created:</span>
-                  <span className="font-bold text-white">
-                    {confirmation.orderIds.length}{" "}
-                    {confirmation.orderIds.length === 1 ? "Order" : "Orders"}
-                  </span>
+              {/* Content Details */}
+              <div className="p-6 sm:p-7 space-y-4 max-h-[70vh] overflow-y-auto">
+                {/* Summary Card */}
+                <div className="p-4 bg-[#241c27] border border-white/10 rounded-2xl space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#b9adb6]">Orders Created:</span>
+                    <span className="font-bold text-white">
+                      {confirmation.orderIds.length}{" "}
+                      {confirmation.orderIds.length === 1 ? "Order" : "Orders"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#b9adb6]">Fulfillment Method:</span>
+                    <span className="font-semibold text-white capitalize flex items-center gap-1.5">
+                      {confirmation.deliveryMethod === "delivery" ? (
+                        <>
+                          <Truck className="size-3.5 text-[#e59bc9]" />
+                          <span>Delivery (Direct Courier)</span>
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="size-3.5 text-[#e59bc9]" />
+                          <span>Local Meetup (Cebu)</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#b9adb6]">Payment Method:</span>
+                    <span className="font-semibold text-white">
+                      {formatPaymentMethodLabel(confirmation.paymentMethod)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#b9adb6]">Payment Status:</span>
+                    <span
+                      className={`font-semibold ${
+                        isDemoPayment
+                          ? "text-emerald-300"
+                          : isManualPayment
+                          ? "text-amber-400"
+                          : "text-amber-300"
+                      }`}
+                    >
+                      {isDemoPayment
+                        ? formatPaymentStatusLabel("paid", confirmation.paymentMethod)
+                        : formatPaymentStatusLabel("pending", confirmation.paymentMethod)}
+                    </span>
+                  </div>
+
+                  {isDemoPayment && confirmation.demo && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#b9adb6]">Reference:</span>
+                        <span className="font-bold text-white">
+                          {confirmation.demo.reference}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#b9adb6]">Card:</span>
+                        <span className="font-semibold text-white">
+                          {maskDemoCard(confirmation.demo.cardLast4)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[#b9adb6] shrink-0">Order ID:</span>
+                        <span className="font-semibold text-white text-right break-all">
+                          {confirmation.orderIds.join(", ")}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between font-bold">
+                    <span className="text-white">Total Amount Due:</span>
+                    <span className="text-base text-[#e59bc9]">
+                      {formatPrice(confirmation.grandTotal)}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-[#b9adb6]">Fulfillment Method:</span>
-                  <span className="font-semibold text-white capitalize flex items-center gap-1.5">
-                    {confirmation.deliveryMethod === "delivery" ? (
-                      <>
-                        <Truck className="size-3.5 text-[#e59bc9]" />
-                        <span>Delivery (Direct Courier)</span>
-                      </>
-                    ) : (
-                      <>
-                        <MapPin className="size-3.5 text-[#e59bc9]" />
-                        <span>Local Meetup (Cebu)</span>
-                      </>
-                    )}
-                  </span>
-                </div>
+                {/* Contextual Payment Explanation Box */}
+                {isManualPayment ? (
+                  <div className="p-4 bg-[#342339]/60 border border-amber-500/20 rounded-2xl text-xs space-y-2">
+                    <div className="font-semibold text-amber-200 flex items-center gap-1.5">
+                      <Info className="size-4 text-amber-400 shrink-0" />
+                      <span>Next Steps for Manual E-Wallet Payment</span>
+                    </div>
+                    <ol className="text-[11px] text-[#d6cbd5] space-y-1 list-decimal list-inside leading-relaxed">
+                      <li>Contact the seller through CircuitCart chat to confirm payment details.</li>
+                      <li>
+                        Send exact payment via{" "}
+                        <strong>{confirmation.paymentMethod === "manual_gcash" ? "GCash" : "Maya"}</strong>.
+                      </li>
+                      <li>Send your transaction reference or receipt in chat for seller verification.</li>
+                      <li>The seller will verify payment and proceed with fulfillment.</li>
+                    </ol>
+                    <p className="text-[10px] text-amber-300/70 pt-1.5 border-t border-white/[0.06]">
+                      * Order created ≠ payment confirmed. CircuitCart does not hold or automatically verify manual e-wallet transfers.
+                    </p>
+                  </div>
+                ) : isDemoPayment ? (
+                  <div className="p-4 bg-[#342339]/60 border border-emerald-500/20 rounded-2xl text-xs space-y-2">
+                    <div className="font-semibold text-emerald-200 flex items-center gap-1.5">
+                      <Info className="size-4 text-emerald-400 shrink-0" />
+                      <span>Sandbox Receipt — No Real Payment</span>
+                    </div>
+                    <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
+                      This order was paid with the Demo Card sandbox provider.
+                      No real money was charged and no external gateway was
+                      contacted. Only the last 4 card digits were kept for this
+                      receipt.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-[#342339]/60 border border-white/10 rounded-2xl text-xs space-y-1.5">
+                    <div className="font-semibold text-white flex items-center gap-1.5">
+                      <Info className="size-4 text-[#e59bc9] shrink-0" />
+                      <span>
+                        {confirmation.paymentMethod === "cash_on_meetup"
+                          ? "Cash on Meetup Guidance"
+                          : "Cash on Delivery Guidance"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
+                      {confirmation.paymentMethod === "cash_on_delivery"
+                        ? "Payment will be collected in cash when your order is delivered to your address. Please prepare exact payment for the courier."
+                        : "Payment will be completed in cash in-person when you meet the seller. You can test and inspect the item before finalizing payment."}
+                    </p>
+                    <p className="text-[10px] text-[#8f7d8c] pt-1">
+                      * Successful order placement does not mean payment is complete. Order status and payment status are tracked independently.
+                    </p>
+                  </div>
+                )}
 
-                <div className="flex items-center justify-between">
-                  <span className="text-[#b9adb6]">Payment Method:</span>
-                  <span className="font-semibold text-white">
-                    {formatPaymentMethodLabel(confirmation.paymentMethod)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-[#b9adb6]">Payment Status:</span>
-                  <span
-                    className={`font-semibold ${
-                      confirmation.paymentMethod === "manual_gcash" ||
-                      confirmation.paymentMethod === "manual_maya"
-                        ? "text-amber-400"
-                        : "text-amber-300"
-                    }`}
+                {/* Action Buttons */}
+                <div className="pt-2 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmation(null);
+                      router.push("/marketplace/orders");
+                    }}
+                    className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {formatPaymentStatusLabel("pending", confirmation.paymentMethod)}
-                  </span>
+                    <Package className="size-4" />
+                    <span>
+                      {isManualPayment
+                        ? "View My Orders & Coordinate Payment"
+                        : "View My Orders"}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmation(null);
+                      router.push("/marketplace");
+                    }}
+                    className="w-full py-2.5 bg-white/[0.05] hover:bg-white/10 text-[#d6cbd5] hover:text-white border border-white/10 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>Continue Shopping</span>
+                  </button>
                 </div>
-
-                <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between font-bold">
-                  <span className="text-white">Total Amount Due:</span>
-                  <span className="text-base text-[#e59bc9]">
-                    {formatPrice(confirmation.grandTotal)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Contextual Payment Explanation Box */}
-              <div className="p-3.5 bg-[#342339]/60 border border-white/10 rounded-2xl text-xs space-y-1.5">
-                <div className="font-semibold text-white flex items-center gap-1.5">
-                  <Info className="size-4 text-[#e59bc9] shrink-0" />
-                  <span>Next Steps & Payment Guidance</span>
-                </div>
-                <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
-                  {confirmation.paymentMethod === "cash_on_delivery" && (
-                    <>
-                      Payment will be collected in cash when your order is delivered to your address. Please prepare exact payment for the courier.
-                    </>
-                  )}
-                  {confirmation.paymentMethod === "cash_on_meetup" && (
-                    <>
-                      Payment will be completed in cash in-person when you meet the seller. You can test and inspect the item before finalizing payment.
-                    </>
-                  )}
-                  {(confirmation.paymentMethod === "manual_gcash" ||
-                    confirmation.paymentMethod === "manual_maya") && (
-                    <>
-                      Please coordinate payment transfer and receipt verification directly with the seller via CircuitCart chat. Your order will be fulfilled once the seller verifies your transaction receipt.
-                    </>
-                  )}
-                </p>
-                <p className="text-[10px] text-[#8f7d8c] pt-1">
-                  * Successful order placement does not mean payment is complete. Order status and payment status are tracked independently.
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConfirmation(null);
-                    router.push("/marketplace/orders");
-                  }}
-                  className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Package className="size-4" />
-                  <span>View My Orders</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConfirmation(null);
-                    router.push("/marketplace");
-                  }}
-                  className="w-full py-2.5 bg-white/[0.05] hover:bg-white/10 text-[#d6cbd5] hover:text-white border border-white/10 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>Continue Shopping</span>
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

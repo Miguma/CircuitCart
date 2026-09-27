@@ -12,9 +12,9 @@ export function MarketplaceFooter() {
   };
 
   return (
-    <footer className="w-full bg-[#19131b] text-[#b9adb6] border-t border-white/10 pt-10 pb-8 mt-16">
+    <footer className="hidden w-full cc-surface-secondary cc-text-muted border-t cc-border pt-10 pb-8 mt-16 md:block">
       <div className="max-w-[84rem] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-white/10">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b cc-border">
           {/* Brand Mark Column */}
           <div className="md:col-span-4 space-y-3">
             <Link
@@ -27,7 +27,7 @@ export function MarketplaceFooter() {
                 viewBox="0 0 20 20"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="text-[#e59bc9] size-5 shrink-0"
+                className="text-[var(--cc-accent-pink)] size-5 shrink-0"
                 aria-hidden="true"
               >
                 <path
@@ -49,18 +49,18 @@ export function MarketplaceFooter() {
                 <circle cx="8" cy="16.5" r="1.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
                 <circle cx="15" cy="16.5" r="1.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
               </svg>
-              <span className="text-xl font-bold tracking-tight text-[#fffafa]">
-                Circuit<span className="text-[#e59bc9]">Cart</span>
+              <span className="text-xl font-bold tracking-tight cc-text-primary">
+                Circuit<span className="text-[var(--cc-accent-pink)]">Cart</span>
               </span>
             </Link>
-            <p className="text-xs text-[#b9adb6] leading-relaxed max-w-sm">
+            <p className="text-xs cc-text-muted leading-relaxed max-w-sm">
               The premier marketplace for discovering verified new and pre-owned technology across Cebu and the Visayas.
             </p>
           </div>
 
           {/* Marketplace Links */}
           <div className="md:col-span-3 space-y-2">
-            <h4 className="text-xs font-semibold text-[#fffafa] uppercase tracking-wider">
+            <h4 className="text-xs font-semibold cc-text-primary uppercase tracking-wider">
               Marketplace
             </h4>
             <ul className="space-y-1.5 text-xs text-[#b9adb6]">
@@ -89,7 +89,7 @@ export function MarketplaceFooter() {
 
           {/* Buyer Support Links */}
           <div className="md:col-span-2 space-y-2">
-            <h4 className="text-xs font-semibold text-[#fffafa] uppercase tracking-wider">
+            <h4 className="text-xs font-semibold cc-text-primary uppercase tracking-wider">
               Buyer Support
             </h4>
             <ul className="space-y-1.5 text-xs text-[#b9adb6]">
@@ -125,7 +125,7 @@ export function MarketplaceFooter() {
 
           {/* Seller Links */}
           <div className="md:col-span-3 space-y-2">
-            <h4 className="text-xs font-semibold text-[#fffafa] uppercase tracking-wider">
+            <h4 className="text-xs font-semibold cc-text-primary uppercase tracking-wider">
               Sellers & Partners
             </h4>
             <ul className="space-y-1.5 text-xs text-[#b9adb6]">

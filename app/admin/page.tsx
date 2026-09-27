@@ -72,7 +72,10 @@ export default function AdminDashboardPage() {
     }
 
     if (verificationsResult.status === "fulfilled") {
-      setRecentVerifications(verificationsResult.value.slice(0, 5));
+      const pendingOnly = verificationsResult.value.filter(
+        (v) => v.status === "pending"
+      );
+      setRecentVerifications(pendingOnly.slice(0, 5));
     } else {
       setVerificationsError(verificationsResult.reason?.message || "Failed to load verification queue");
     }
@@ -132,10 +135,10 @@ export default function AdminDashboardPage() {
             type="button"
             onClick={handleManualRefresh}
             disabled={refreshing || loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#342339] hover:bg-[#45304b] border border-white/10 text-xs font-semibold text-[#fffafa] transition-colors disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl cc-surface-card hover:cc-surface-secondary border cc-border text-xs font-semibold cc-text-primary transition-colors disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw
-              className={`size-3.5 text-[#e59bc9] ${
+              className={`size-3.5 text-[var(--cc-accent-pink)] ${
                 refreshing ? "animate-spin" : ""
               }`}
             />
@@ -193,17 +196,17 @@ export default function AdminDashboardPage() {
       {/* Main Grid: Pending Verifications & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Verification Queue (2 columns wide on large) */}
-        <div className="lg:col-span-2 rounded-2xl bg-[#342339]/40 border border-white/10 p-5 sm:p-6 space-y-4">
+        <div className="lg:col-span-2 rounded-2xl cc-surface-card border cc-border p-5 sm:p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <ShieldCheck className="size-5 text-[#e59bc9]" />
-              <h2 className="text-base font-bold text-[#fffafa]">
+              <ShieldCheck className="size-5 text-[var(--cc-accent-pink)]" />
+              <h2 className="text-base font-bold cc-text-primary">
                 Pending Seller Applications
               </h2>
             </div>
             <Link
               href="/admin/verifications"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#e59bc9] hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--cc-accent-pink)] hover:underline"
             >
               <span>View All</span>
               <ArrowRight className="size-3" />
@@ -211,7 +214,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {loading ? (
-            <div className="py-12 flex justify-center text-xs text-[#b9adb6]">
+            <div className="py-12 flex justify-center text-xs cc-text-muted">
               Loading verification queue...
             </div>
           ) : verificationsError ? (
@@ -221,7 +224,7 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={handleManualRefresh}
-                className="text-[11px] font-bold text-[#e59bc9] hover:underline"
+                className="text-[11px] font-bold text-[var(--cc-accent-pink)] hover:underline"
               >
                 Retry
               </button>
@@ -233,7 +236,7 @@ export default function AdminDashboardPage() {
               description="There are currently no pending seller verification applications requiring manual review."
             />
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-white/5 dark:divide-white/5 [data-theme=light]:divide-black/5">
               {recentVerifications.map((item) => (
                 <div
                   key={item.id}
@@ -241,23 +244,17 @@ export default function AdminDashboardPage() {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#fffafa]">
+                      <span className="text-xs font-bold cc-text-primary">
                         {item.full_name}
                       </span>
                       <AdminStatusBadge
                         type="verification"
                         status={item.status}
                       />
-                      {item.automated_score !== null &&
-                        item.automated_score !== undefined && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 border border-white/10 text-[#b9adb6] font-mono">
-                            AI: {item.automated_score}/100
-                          </span>
-                        )}
                     </div>
-                    <p className="text-[11px] text-[#b9adb6]">
+                    <p className="text-[11px] cc-text-muted">
                       {item.seller_type} seller · ID: {item.id_type} ·{" "}
-                      <span className="text-[#8f7d8c]">
+                      <span className="cc-text-faint">
                         Submitted {new Date(item.submitted_at).toLocaleDateString()}
                       </span>
                     </p>
@@ -265,9 +262,9 @@ export default function AdminDashboardPage() {
 
                   <Link
                     href={`/admin/verifications?id=${item.id}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-[#65486f] border border-white/10 text-xs font-medium text-[#fffafa] transition-colors shrink-0 self-start sm:self-auto"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl cc-surface-secondary hover:bg-[#65486f] hover:text-white border cc-border text-xs font-medium cc-text-primary transition-colors shrink-0 self-start sm:self-auto"
                   >
-                    <Eye className="size-3.5 text-[#e59bc9]" />
+                    <Eye className="size-3.5 text-[var(--cc-accent-pink)]" />
                     <span>Review</span>
                   </Link>
                 </div>
@@ -277,17 +274,17 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Recent Registered Users */}
-        <div className="rounded-2xl bg-[#342339]/40 border border-white/10 p-5 sm:p-6 space-y-4">
+        <div className="rounded-2xl cc-surface-card border cc-border p-5 sm:p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <Users className="size-5 text-[#e59bc9]" />
-              <h2 className="text-base font-bold text-[#fffafa]">
+              <Users className="size-5 text-[var(--cc-accent-pink)]" />
+              <h2 className="text-base font-bold cc-text-primary">
                 Recent Users
               </h2>
             </div>
             <Link
               href="/admin/users"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#e59bc9] hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--cc-accent-pink)] hover:underline"
             >
               <span>View All</span>
               <ArrowRight className="size-3" />
@@ -295,7 +292,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {loading ? (
-            <div className="py-12 flex justify-center text-xs text-[#b9adb6]">
+            <div className="py-12 flex justify-center text-xs cc-text-muted">
               Loading users...
             </div>
           ) : usersError ? (
@@ -305,7 +302,7 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={handleManualRefresh}
-                className="text-[11px] font-bold text-[#e59bc9] hover:underline"
+                className="text-[11px] font-bold text-[var(--cc-accent-pink)] hover:underline"
               >
                 Retry
               </button>
@@ -316,17 +313,17 @@ export default function AdminDashboardPage() {
               description="No registered user records found."
             />
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-white/5 dark:divide-white/5 [data-theme=light]:divide-black/5">
               {recentUsers.map((user) => (
                 <div
                   key={user.id}
                   className="py-3 flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-[#fffafa] truncate">
+                    <p className="text-xs font-bold cc-text-primary truncate">
                       {user.full_name || user.username || "Anonymous"}
                     </p>
-                    <p className="text-[11px] text-[#8f7d8c] truncate">
+                    <p className="text-[11px] cc-text-faint truncate">
                       {user.id.substring(0, 8)}... · Joined{" "}
                       {user.created_at
                         ? new Date(user.created_at).toLocaleDateString()
@@ -342,17 +339,17 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Recent Marketplace Listings */}
-      <div className="rounded-2xl bg-[#342339]/40 border border-white/10 p-5 sm:p-6 space-y-4">
+      <div className="rounded-2xl cc-surface-card border cc-border p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Package className="size-5 text-[#e59bc9]" />
-            <h2 className="text-base font-bold text-[#fffafa]">
+            <Package className="size-5 text-[var(--cc-accent-pink)]" />
+            <h2 className="text-base font-bold cc-text-primary">
               Recent Marketplace Products
             </h2>
           </div>
           <Link
             href="/admin/products"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#e59bc9] hover:underline"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--cc-accent-pink)] hover:underline"
           >
             <span>View All</span>
             <ArrowRight className="size-3" />
@@ -360,7 +357,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {loading ? (
-          <div className="py-12 flex justify-center text-xs text-[#b9adb6]">
+          <div className="py-12 flex justify-center text-xs cc-text-muted">
             Loading marketplace products...
           </div>
         ) : productsError ? (
@@ -370,7 +367,7 @@ export default function AdminDashboardPage() {
             <button
               type="button"
               onClick={handleManualRefresh}
-              className="text-[11px] font-bold text-[#e59bc9] hover:underline"
+              className="text-[11px] font-bold text-[var(--cc-accent-pink)] hover:underline"
             >
               Retry
             </button>
@@ -390,9 +387,9 @@ export default function AdminDashboardPage() {
               return (
                 <div
                   key={prod.id}
-                  className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-2 hover:border-white/10 transition-colors"
+                  className="p-3.5 rounded-xl cc-surface-secondary border cc-border space-y-2 hover:border-[#e59bc9]/30 transition-colors"
                 >
-                  <div className="aspect-video w-full rounded-lg bg-black/40 overflow-hidden relative flex items-center justify-center border border-white/5">
+                  <div className="aspect-video w-full rounded-lg cc-surface-card overflow-hidden relative flex items-center justify-center border cc-border">
                     {primaryImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -401,17 +398,17 @@ export default function AdminDashboardPage() {
                         className="w-full h-full object-contain p-1.5"
                       />
                     ) : (
-                      <Package className="size-6 text-[#8f7d8c]" />
+                      <Package className="size-6 cc-text-faint" />
                     )}
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-[#fffafa] truncate">
+                    <h3 className="text-xs font-bold cc-text-primary truncate">
                       {prod.title}
                     </h3>
-                    <p className="text-xs font-extrabold text-[#e59bc9]">
+                    <p className="text-xs font-extrabold text-[var(--cc-accent-pink)]">
                       ₱{Number(prod.price).toLocaleString()}
                     </p>
-                    <p className="text-[10px] text-[#8f7d8c] truncate">
+                    <p className="text-[10px] cc-text-faint truncate">
                       Seller:{" "}
                       {prod.profiles?.full_name ||
                         prod.profiles?.username ||

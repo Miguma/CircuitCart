@@ -18,8 +18,8 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"
  * Validate verification document image
  */
 export function validateVerificationFile(file: File): { valid: boolean; error?: string } {
-  if (!file) {
-    return { valid: false, error: "No file provided" };
+  if (!file || file.size === 0) {
+    return { valid: false, error: "Please choose a non-empty image file." };
   }
 
   if (file.size > MAX_FILE_SIZE) {
@@ -235,29 +235,3 @@ export async function reviewSellerVerification(
     };
   }
 }
-
-/**
- * Trigger backend automated verification review for a submitted request
- */
-export async function triggerAutomatedVerification(
-  requestId: string
-): Promise<{ success: boolean; data?: unknown; error?: string }> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase.functions.invoke("process-seller-verification", {
-      body: { requestId },
-    });
-
-    if (error) {
-      console.warn("Automated verification invocation failed:", error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data };
-  } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : "Failed to invoke automated verification.";
-    console.warn("Automated verification error:", err);
-    return { success: false, error: errorMsg };
-  }
-}
-

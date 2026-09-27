@@ -5,6 +5,7 @@ export type UserRole = "buyer" | "seller" | "admin";
 
 export interface UserProfile {
   id: string;
+  email?: string | null;
   full_name: string | null;
   username: string | null;
   avatar_url: string | null;
@@ -213,7 +214,12 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       .eq("id", user.id)
       .single();
 
-    return profile as UserProfile | null;
+    if (!profile) return null;
+
+    return {
+      ...(profile as UserProfile),
+      email: user.email ?? null,
+    };
   } catch {
     return null;
   }

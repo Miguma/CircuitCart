@@ -71,6 +71,44 @@
   --cc-border-light: rgba(46, 30, 48, 0.14);
   --cc-shadow: rgba(19, 12, 20, 0.22);
 
+  /* 3-Mode Theme Tokens: Default (CircuitCart Mauve/Plum) */
+  --cc-shell-bg: linear-gradient(180deg, #8f7375 0%, #3a283e 50%, #19131b 100%);
+  --cc-shell-text: #fffafa;
+  --header-bg: rgba(33, 23, 36, 0.88);
+  --header-border: rgba(255, 255, 255, 0.10);
+  --dropdown-bg: rgba(33, 26, 36, 0.94);
+  --dropdown-border: rgba(255, 255, 255, 0.12);
+  --dialog-overlay: rgba(25, 19, 27, 0.75);
+  --toast-bg: rgba(33, 23, 36, 0.94);
+  --toast-border: rgba(255, 255, 255, 0.14);
+  --toast-text: #fffafa;
+  --showcase-nav-bg: rgba(91, 68, 86, 0.78);
+  --showcase-nav-border: rgba(255, 255, 255, 0.14);
+
+  /* Semantic Theme Surfaces (Default) */
+  --cc-surface-base: #1e1322;
+  --cc-surface-card: #241c27;
+  --cc-surface-secondary: #342339;
+  --cc-surface-tertiary: #19131b;
+  --cc-surface-elevated: #2d1e32;
+
+  /* Semantic Theme Text (Default) */
+  --cc-text-primary: #fffafa;
+  --cc-text-secondary: #d6cbd5;
+  --cc-text-muted: #b9adb6;
+  --cc-text-faint: #8f7d8c;
+  --cc-accent-pink: #e59bc9;
+
+  /* Semantic Theme Borders (Default) */
+  --cc-border: rgba(255, 255, 255, 0.10);
+  --cc-border-subtle: rgba(255, 255, 255, 0.06);
+
+  /* Semantic Theme Inputs (Default) */
+  --cc-input-bg: #342339;
+  --cc-input-border: rgba(255, 255, 255, 0.10);
+  --cc-input-text: #fffafa;
+  --cc-input-placeholder: #b9adb6;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -103,6 +141,174 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+[data-theme="default"] {
+  --cc-shell-bg: linear-gradient(180deg, #8f7375 0%, #3a283e 50%, #19131b 100%);
+  --cc-shell-text: #fffafa;
+  --header-bg: rgba(33, 23, 36, 0.88);
+  --header-border: rgba(255, 255, 255, 0.10);
+  --dropdown-bg: rgba(33, 26, 36, 0.94);
+  --dropdown-border: rgba(255, 255, 255, 0.12);
+  --dialog-overlay: rgba(25, 19, 27, 0.75);
+  --toast-bg: rgba(33, 23, 36, 0.94);
+  --toast-border: rgba(255, 255, 255, 0.14);
+  --toast-text: #fffafa;
+  --showcase-nav-bg: rgba(91, 68, 86, 0.78);
+  --showcase-nav-border: rgba(255, 255, 255, 0.14);
+
+  --cc-surface-base: #1e1322;
+  --cc-surface-card: #241c27;
+  --cc-surface-secondary: #342339;
+  --cc-surface-tertiary: #19131b;
+  --cc-surface-elevated: #2d1e32;
+
+  --cc-text-primary: #fffafa;
+  --cc-text-secondary: #d6cbd5;
+  --cc-text-muted: #b9adb6;
+  --cc-text-faint: #8f7d8c;
+  --cc-accent-pink: #e59bc9;
+
+  --cc-border: rgba(255, 255, 255, 0.10);
+  --cc-border-subtle: rgba(255, 255, 255, 0.06);
+
+  --cc-input-bg: #342339;
+  --cc-input-border: rgba(255, 255, 255, 0.10);
+  --cc-input-text: #fffafa;
+  --cc-input-placeholder: #b9adb6;
+}
+
+[data-theme="dark"] {
+  --cc-shell-bg: linear-gradient(180deg, #160c18 0%, #0d0710 50%, #050306 100%);
+  --cc-shell-text: #fffafa;
+  --header-bg: rgba(16, 10, 19, 0.94);
+  --header-border: rgba(255, 255, 255, 0.08);
+  --dropdown-bg: rgba(19, 11, 22, 0.97);
+  --dropdown-border: rgba(255, 255, 255, 0.10);
+  --dialog-overlay: rgba(8, 4, 10, 0.84);
+  --toast-bg: rgba(19, 11, 22, 0.97);
+  --toast-border: rgba(255, 255, 255, 0.12);
+  --toast-text: #fffafa;
+  --showcase-nav-bg: rgba(26, 15, 30, 0.88);
+  --showcase-nav-border: rgba(255, 255, 255, 0.10);
+
+  --cc-surface-base: #0e0711;
+  --cc-surface-card: #150d18;
+  --cc-surface-secondary: #1e1222;
+  --cc-surface-tertiary: #0a050c;
+  --cc-surface-elevated: #1a0f1e;
+
+  --cc-text-primary: #fffafa;
+  --cc-text-secondary: #d6cbd5;
+  --cc-text-muted: #a99da6;
+  --cc-text-faint: #756773;
+  --cc-accent-pink: #e59bc9;
+
+  --cc-border: rgba(255, 255, 255, 0.08);
+  --cc-border-subtle: rgba(255, 255, 255, 0.05);
+
+  --cc-input-bg: #1a0f1d;
+  --cc-input-border: rgba(255, 255, 255, 0.12);
+  --cc-input-text: #fffafa;
+  --cc-input-placeholder: #8f7d8c;
+}
+
+[data-theme="light"] {
+  --cc-shell-bg: linear-gradient(180deg, #fbf7f9 0%, #f3ebf1 50%, #e9dee7 100%);
+  --cc-shell-text: #1d1720;
+  --header-bg: rgba(255, 255, 255, 0.94);
+  --header-border: rgba(46, 30, 48, 0.10);
+  --dropdown-bg: rgba(255, 255, 255, 0.98);
+  --dropdown-border: rgba(46, 30, 48, 0.12);
+  --dialog-overlay: rgba(29, 23, 32, 0.45);
+  --toast-bg: rgba(255, 255, 255, 0.98);
+  --toast-border: rgba(46, 30, 48, 0.12);
+  --toast-text: #1d1720;
+  --showcase-nav-bg: rgba(255, 255, 255, 0.92);
+  --showcase-nav-border: rgba(46, 30, 48, 0.10);
+
+  --cc-surface-base: #fbf7f9;
+  --cc-surface-card: #ffffff;
+  --cc-surface-secondary: #f5edf4;
+  --cc-surface-tertiary: #ede4ec;
+  --cc-surface-elevated: #ffffff;
+
+  --cc-text-primary: #1d1720;
+  --cc-text-secondary: #493c47;
+  --cc-text-muted: #685a66;
+  --cc-text-faint: #887986;
+  --cc-accent-pink: #9c2c6e;
+
+  --cc-border: rgba(46, 30, 48, 0.12);
+  --cc-border-subtle: rgba(46, 30, 48, 0.08);
+
+  --cc-input-bg: #f4edf3;
+  --cc-input-border: rgba(46, 30, 48, 0.14);
+  --cc-input-text: #1d1720;
+  --cc-input-placeholder: #7a6a78;
+}
+
+.cc-shell {
+  background: var(--cc-shell-bg, linear-gradient(180deg, #8f7375 0%, #3a283e 50%, #19131b 100%));
+  color: var(--cc-shell-text, #fffafa);
+}
+
+/* Reusable Semantic Theme Classes */
+.cc-surface-card {
+  background-color: var(--cc-surface-card) !important;
+  border-color: var(--cc-border) !important;
+}
+
+.cc-surface-secondary {
+  background-color: var(--cc-surface-secondary) !important;
+  border-color: var(--cc-border) !important;
+}
+
+.cc-surface-tertiary {
+  background-color: var(--cc-surface-tertiary) !important;
+}
+
+.cc-surface-elevated {
+  background-color: var(--cc-surface-elevated) !important;
+  border-color: var(--cc-border) !important;
+}
+
+.cc-text-primary {
+  color: var(--cc-text-primary) !important;
+}
+
+.cc-text-secondary {
+  color: var(--cc-text-secondary) !important;
+}
+
+.cc-text-muted {
+  color: var(--cc-text-muted) !important;
+}
+
+.cc-text-faint {
+  color: var(--cc-text-faint) !important;
+}
+
+.cc-text-accent {
+  color: var(--cc-accent-pink) !important;
+}
+
+.cc-border {
+  border-color: var(--cc-border) !important;
+}
+
+.cc-border-subtle {
+  border-color: var(--cc-border-subtle) !important;
+}
+
+.cc-header-input {
+  background-color: var(--cc-input-bg) !important;
+  color: var(--cc-input-text) !important;
+  border-color: var(--cc-input-border) !important;
+}
+
+.cc-header-input::placeholder {
+  color: var(--cc-input-placeholder) !important;
 }
 
 .dark {
@@ -165,55 +371,51 @@ input:-webkit-autofill:active {
 /* REUSABLE GLASSMORPHISM TOKENS & OVERLAY UTILITIES         */
 /* ========================================================= */
 
-/* 1. Marketplace Sticky Header (Subtle Dark Plum Glass) */
+/* 1. Marketplace Sticky Header */
 .glass-marketplace-header {
-  background-color: #211724;
-  background-color: rgba(33, 23, 36, 0.88);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
   backdrop-filter: blur(16px) saturate(120%);
   -webkit-backdrop-filter: blur(16px) saturate(120%);
   box-shadow: 0 10px 30px rgba(18, 10, 20, 0.14);
   transition: border-color 150ms ease-out, background-color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
-/* 2. Showcase Floating Pill Navigation (Lighter Mauve Glass) */
+/* 2. Showcase Floating Pill Navigation */
 .glass-showcase-nav {
-  background-color: #4c3743;
-  background-color: rgba(91, 68, 86, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background-color: var(--showcase-nav-bg);
+  border: 1px solid var(--showcase-nav-border);
   backdrop-filter: blur(14px) saturate(115%);
   -webkit-backdrop-filter: blur(14px) saturate(115%);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
   transition: border-color 150ms ease-out, background-color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
-/* 3. Popovers & Dropdowns (Profile menu, Category selector) */
+/* 3. Popovers & Dropdowns */
 .glass-dropdown {
-  background-color: #211a24;
-  background-color: rgba(33, 26, 36, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: var(--dropdown-bg);
+  border: 1px solid var(--dropdown-border);
   backdrop-filter: blur(14px) saturate(120%);
   -webkit-backdrop-filter: blur(14px) saturate(120%);
   box-shadow: 0 12px 32px rgba(15, 9, 17, 0.35);
   transition: border-color 150ms ease-out, background-color 150ms ease-out;
 }
 
-/* 4. Modal Dialog Overlay (Subtle blurred backdrop behind solid modals) */
+/* 4. Modal Dialog Overlay */
 .glass-dialog-overlay {
-  background-color: rgba(25, 19, 27, 0.75);
+  background-color: var(--dialog-overlay);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: background-color 150ms ease-out;
 }
 
-/* 5. Sonner Toast Notifications (Dark Glass Overlay) */
+/* 5. Sonner Toast Notifications */
 .glass-toast {
-  background-color: #211724 !important;
-  background-color: rgba(33, 23, 36, 0.92) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background-color: var(--toast-bg) !important;
+  border: 1px solid var(--toast-border) !important;
   backdrop-filter: blur(14px) saturate(120%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
-  color: #fffafa !important;
+  color: var(--toast-text) !important;
   box-shadow: 0 10px 30px rgba(18, 10, 20, 0.28) !important;
 }
 
@@ -224,19 +426,19 @@ input:-webkit-autofill:active {
 /* Fallback when backdrop-filter is unsupported */
 @supports not (backdrop-filter: blur(1px)) {
   .glass-marketplace-header {
-    background-color: #211724;
+    background-color: var(--header-bg);
   }
   .glass-showcase-nav {
-    background-color: #4c3743;
+    background-color: var(--showcase-nav-bg);
   }
   .glass-dropdown {
-    background-color: #211a24;
+    background-color: var(--dropdown-bg);
   }
   .glass-dialog-overlay {
-    background-color: rgba(25, 19, 27, 0.88);
+    background-color: var(--dialog-overlay);
   }
   .glass-toast {
-    background-color: #211724 !important;
+    background-color: var(--toast-bg) !important;
   }
 }
 
@@ -251,19 +453,19 @@ input:-webkit-autofill:active {
     -webkit-backdrop-filter: none !important;
   }
   .glass-marketplace-header {
-    background-color: #211724 !important;
+    background-color: var(--header-bg) !important;
   }
   .glass-showcase-nav {
-    background-color: #4c3743 !important;
+    background-color: var(--showcase-nav-bg) !important;
   }
   .glass-dropdown {
-    background-color: #211a24 !important;
+    background-color: var(--dropdown-bg) !important;
   }
   .glass-dialog-overlay {
-    background-color: rgba(25, 19, 27, 0.94) !important;
+    background-color: var(--dialog-overlay) !important;
   }
   .glass-toast {
-    background-color: #211724 !important;
+    background-color: var(--toast-bg) !important;
   }
 }
 
@@ -276,4 +478,350 @@ input:-webkit-autofill:active {
   .glass-toast {
     transition: none !important;
   }
+}
+
+/* ========================================================= */
+/* LIGHT THEME SCOPED OVERRIDES                              */
+/* ========================================================= */
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* 1. Header elements in light mode */
+[data-theme="light"] .glass-marketplace-header {
+  box-shadow: 0 4px 20px rgba(46, 30, 48, 0.08);
+}
+
+[data-theme="light"] .glass-marketplace-header a:not(.bg-\[\#65486f\]),
+[data-theme="light"] .glass-marketplace-header button:not(.bg-\[\#65486f\]):not(.bg-rose-600) {
+  color: #1d1720;
+}
+
+[data-theme="light"] .glass-marketplace-header input {
+  background-color: #f4edf3 !important;
+  color: #1d1720 !important;
+  border-color: rgba(46, 30, 48, 0.14) !important;
+}
+
+[data-theme="light"] .glass-marketplace-header input::placeholder {
+  color: #7a6a78 !important;
+}
+
+/* 2. Dropdown & Popovers in light mode */
+[data-theme="light"] .glass-dropdown {
+  background-color: #ffffff !important;
+  box-shadow: 0 12px 32px rgba(46, 30, 48, 0.16) !important;
+  border-color: rgba(46, 30, 48, 0.12) !important;
+}
+
+[data-theme="light"] .glass-dropdown a,
+[data-theme="light"] .glass-dropdown button:not(.text-rose-400):not(.text-rose-600) {
+  color: #1d1720 !important;
+}
+
+[data-theme="light"] .glass-dropdown a:hover,
+[data-theme="light"] .glass-dropdown button:hover:not(.text-rose-400):not(.text-rose-600) {
+  background-color: #f5edf4 !important;
+}
+
+/* 3. Typography in light mode */
+[data-theme="light"] h1:not(.text-white-forced),
+[data-theme="light"] h2:not(.text-white-forced),
+[data-theme="light"] h3:not(.text-white-forced),
+[data-theme="light"] h4:not(.text-white-forced) {
+  color: #1d1720 !important;
+}
+
+[data-theme="light"] [class*="text-\[\#fffafa\]"],
+[data-theme="light"] .text-\[\#fffafa\],
+[data-theme="light"] .text-white:not(button.bg-\[\#65486f\] *):not(.bg-\[\#65486f\] *):not(.bg-emerald-600 *):not(.bg-rose-600 *):not(.bg-blue-600 *):not(.bg-amber-600 *) {
+  color: #1d1720 !important;
+}
+
+[data-theme="light"] [class*="text-\[\#d6cbd5\]"],
+[data-theme="light"] .text-\[\#d6cbd5\] {
+  color: #493c47 !important;
+}
+
+[data-theme="light"] [class*="text-\[\#b9adb6\]"],
+[data-theme="light"] .text-\[\#b9adb6\] {
+  color: #685a66 !important;
+}
+
+[data-theme="light"] [class*="text-\[\#8f7d8c\]"],
+[data-theme="light"] .text-\[\#8f7d8c\],
+[data-theme="light"] [class*="text-\[\#716872\]"],
+[data-theme="light"] .text-\[\#716872\] {
+  color: #7a6a78 !important;
+}
+
+/* Accessible high-contrast brand pink on light surfaces */
+[data-theme="light"] [class*="text-\[\#e59bc9\]"],
+[data-theme="light"] .text-\[\#e59bc9\] {
+  color: #9c2c6e !important;
+}
+
+/* Accessible high-contrast violet on light surfaces */
+[data-theme="light"] [class*="text-\[\#b78bd7\]"],
+[data-theme="light"] .text-\[\#b78bd7\] {
+  color: #723b9b !important;
+}
+
+/* 4. Wildcard Surface Replacements (Handles opacity modifiers like /90, /80, /40) */
+[data-theme="light"] [class*="bg-\[\#1e1322\]"],
+[data-theme="light"] [class*="bg-\[\#241c27\]"],
+[data-theme="light"] [class*="bg-\[\#211a24\]"],
+[data-theme="light"] [class*="bg-\[\#1a0f1d\]"],
+[data-theme="light"] [class*="bg-\[\#1c121e\]"] {
+  background-color: #ffffff !important;
+}
+
+[data-theme="light"] [class*="bg-\[\#342339\]"],
+[data-theme="light"] [class*="bg-\[\#170c1a\]"],
+[data-theme="light"] [class*="bg-\[\#19131b\]"],
+[data-theme="light"] [class*="bg-\[\#281c2d\]"],
+[data-theme="light"] [class*="bg-\[\#2f1f34\]"] {
+  background-color: #f5edf4 !important;
+}
+
+[data-theme="light"] [class*="bg-\[\#2d192f\]"],
+[data-theme="light"] [class*="bg-\[\#3d2743\]"],
+[data-theme="light"] [class*="bg-\[\#45284f\]"],
+[data-theme="light"] [class*="bg-\[\#54385c\]"] {
+  background-color: #ebdce8 !important;
+}
+
+/* 5. Wildcard Border Replacements */
+[data-theme="light"] [class*="border-white\/"] {
+  border-color: rgba(46, 30, 48, 0.12) !important;
+}
+
+[data-theme="light"] [class*="divide-white\/"] > * {
+  border-color: rgba(46, 30, 48, 0.08) !important;
+}
+
+/* 6. Subtle fills */
+[data-theme="light"] [class*="bg-white\/\[0\.0"] {
+  background-color: rgba(46, 30, 48, 0.04) !important;
+}
+
+[data-theme="light"] [class*="hover\:bg-white\/"]:hover {
+  background-color: rgba(46, 30, 48, 0.07) !important;
+}
+
+/* 7. Inputs, selects, and textareas in light mode */
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #ffffff !important;
+  color: #1d1720 !important;
+  border-color: rgba(46, 30, 48, 0.14) !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #7a6a78 !important;
+}
+
+/* 8. Dialog modals in light mode */
+[data-theme="light"] [role="dialog"],
+[data-theme="light"] [role="dialog"] [class*="bg-\[\#241c27\]"],
+[data-theme="light"] [role="dialog"] [class*="bg-\[\#211a24\]"] {
+  background-color: #ffffff !important;
+  color: #1d1720 !important;
+  border-color: rgba(46, 30, 48, 0.12) !important;
+  box-shadow: 0 20px 48px rgba(46, 30, 48, 0.20) !important;
+}
+
+/* 9. Skeletons in light mode */
+[data-theme="light"] .skeleton-shimmer,
+[data-theme="light"] [data-slot="skeleton"],
+[data-theme="light"] [class*="animate-pulse"] [class*="bg-white\/"] {
+  background-color: #ede4ec !important;
+}
+
+/* 10. CRITICAL PRESERVATION: Solid Buttons & Badges KEEP WHITE TEXT */
+[data-theme="light"] .bg-\[\#65486f\],
+[data-theme="light"] .bg-\[\#65486f\] *,
+[data-theme="light"] button.bg-\[\#65486f\],
+[data-theme="light"] button.bg-\[\#65486f\] *,
+[data-theme="light"] .bg-\[\#7a5985\],
+[data-theme="light"] .bg-\[\#7a5985\] *,
+[data-theme="light"] .bg-emerald-600,
+[data-theme="light"] .bg-emerald-600 *,
+[data-theme="light"] .bg-emerald-700,
+[data-theme="light"] .bg-emerald-700 *,
+[data-theme="light"] .bg-rose-600,
+[data-theme="light"] .bg-rose-600 *,
+[data-theme="light"] .bg-rose-700,
+[data-theme="light"] .bg-rose-700 *,
+[data-theme="light"] .bg-blue-600,
+[data-theme="light"] .bg-blue-600 *,
+[data-theme="light"] .bg-indigo-600,
+[data-theme="light"] .bg-indigo-600 *,
+[data-theme="light"] .bg-purple-600,
+[data-theme="light"] .bg-purple-600 *,
+[data-theme="light"] .bg-amber-600,
+[data-theme="light"] .bg-amber-600 *,
+[data-theme="light"] .bg-amber-700,
+[data-theme="light"] .bg-amber-700 *,
+[data-theme="light"] .bg-\[\#334155\]\/90,
+[data-theme="light"] .bg-\[\#334155\]\/90 * {
+  color: #ffffff !important;
+}
+
+/* 11. Featured marketplace banner: intentional dark hero in every theme.
+   The banner must stay dark with light text even when [data-theme="light"]
+   forces page-level text/surfaces to dark. These ancestor-scoped rules beat
+   the generic light-theme overrides above via higher specificity. */
+[data-theme="light"] .cc-featured-banner {
+  background: linear-gradient(to right, #18131d 0%, #211928 50%, #241a26 100%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+  color-scheme: dark;
+}
+[data-theme="light"] .cc-featured-banner h2 {
+  color: #ffffff !important;
+}
+/* NOTE: never use bare `text-white` inside .cc-featured-banner. The global
+   light-theme `.text-white` override chains six :not() selectors, giving it
+   far higher specificity than any single ancestor-scoped guard can beat.
+   Use `text-[#fffafa]` (restored by the guard below) or `text-white/<alpha>`
+   (untouched by global overrides) instead. */
+[data-theme="light"] .cc-featured-banner [class*="text-[#fffafa]"] {
+  color: #ffffff !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="text-white/30"] {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="text-white/40"] {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="text-white/50"] {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="text-white/60"] {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+[data-theme="light"] .cc-featured-banner .cc-featured-desc {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+[data-theme="light"] .cc-featured-banner .cc-featured-seller,
+[data-theme="light"] .cc-featured-banner [class*="text-[#e59bc9]"] {
+  color: #e59bc9 !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="text-[#d6cbd5]"] {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="text-[#b9adb6]"] {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="bg-[#19131b]"] {
+  background-color: #19131b !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="border-white/"] {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+[data-theme="light"] .cc-featured-banner[class*="border-white/"] {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-theme="light"] .cc-featured-banner [class*="hover:bg-white/"]:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 12. Showcase dark surfaces: intentional dark hero/cards in every theme.
+   Mirrors the .cc-featured-banner approach (see note in section 11): bare
+   `text-white` is never used inside .cc-showcase-dark because the global
+   light-theme `.text-white` override chains six :not() selectors and cannot
+   be beaten by an ancestor-scoped guard. `text-[#fffafa]` is restored below
+   (guard specificity 0-3-0 beats the generic 0-2-0 override), headings are
+   pinned white (tie with the generic heading rule, won by later order), and
+   `text-zinc-400` / eyebrow accent are pinned to their dark-mode values. */
+[data-theme="light"] .cc-showcase-dark {
+  color-scheme: dark;
+}
+[data-theme="light"] .cc-showcase-dark h1,
+[data-theme="light"] .cc-showcase-dark h2,
+[data-theme="light"] .cc-showcase-dark h3,
+[data-theme="light"] .cc-showcase-dark h4 {
+  color: #ffffff !important;
+}
+[data-theme="light"] .cc-showcase-dark [class*="text-[#fffafa]"] {
+  color: #ffffff !important;
+}
+[data-theme="light"] .cc-showcase-dark [class*="text-zinc-400"] {
+  color: #a1a1aa !important;
+}
+[data-theme="light"] .cc-showcase-dark [class*="text-[#a78b9d]"] {
+  color: #a78b9d !important;
+}
+[data-theme="light"] .cc-showcase-dark [class*="border-white/"] {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* 13. Auth pages: intentionally dark primary controls on light pages.
+   The login/register pages are light surfaces, but their primary buttons
+   use a dark `bg-[#201524]` surface whose background is (correctly) left
+   alone by the global theme. Only the label color leaked: bare `text-white`
+   is forced dark by the six-:not() `.text-white` override, which no
+   ancestor-scoped guard can out-specify — so the components use
+   `text-[#fffafa]` here, restored below (guard 0-3-0 beats generic 0-2-0).
+   The disabled `text-[#fffafa]/78` variant is restored second at equal
+   specificity so it keeps its designed translucency. Nested spans inherit;
+   loading spinners carry the class directly. */
+[data-theme="light"] .cc-auth [class*="text-[#fffafa]"] {
+  color: #fffafa !important;
+}
+[data-theme="light"] .cc-auth [class*="text-[#fffafa]/"] {
+  color: rgba(255, 250, 250, 0.78) !important;
+}
+
+/* ========================================================= */
+/* DARK THEME SCOPED OVERRIDES                               */
+/* ========================================================= */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="dark"] [class*="bg-\[\#241c27\]"],
+[data-theme="dark"] [class*="bg-\[\#211a24\]"] {
+  background-color: #150d18 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] [class*="bg-\[\#342339\]"],
+[data-theme="dark"] [class*="bg-\[\#281c2d\]"] {
+  background-color: #1e1222 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] [class*="bg-\[\#1e1322\]"],
+[data-theme="dark"] [class*="bg-\[\#19131b\]"] {
+  background-color: #0e0711 !important;
+}
+
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: #170e1b !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #fffafa !important;
+}
+
+[data-theme="dark"] .skeleton-shimmer,
+[data-theme="dark"] [data-slot="skeleton"] {
+  background-color: #1e1122 !important;
+}
+
+/* Hide Next.js Dev Tools Indicator Overlay */
+nextjs-portal,
+[data-nextjs-dev-tools-button],
+#nextjs-dev-tools,
+#__next-build-watcher {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }

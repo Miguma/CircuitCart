@@ -197,7 +197,7 @@ function SellerOrdersContent() {
         {/* ========================================================= */}
         {/* 1. TOP SUMMARY METRIC COUNTS                              */}
         {/* ========================================================= */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
           {(
             [
               { key: "All", label: "All", count: statusCounts.All, highlight: "" },
@@ -205,6 +205,7 @@ function SellerOrdersContent() {
               { key: "Confirmed", label: "Confirmed", count: statusCounts.Confirmed, highlight: "" },
               { key: "Packed", label: "Packed", count: statusCounts.Packed, highlight: "plum" },
               { key: "Shipped", label: "Shipped", count: statusCounts.Shipped, highlight: "" },
+              { key: "Ready for Meetup", label: "Meetup Ready", count: statusCounts["Ready for Meetup"], highlight: "sky" },
               { key: "Completed", label: "Completed", count: statusCounts.Completed, highlight: "emerald" },
               { key: "Cancelled", label: "Cancelled", count: statusCounts.Cancelled, highlight: "" },
             ] as const
@@ -233,6 +234,8 @@ function SellerOrdersContent() {
                       ? "text-emerald-400"
                       : item.highlight === "plum" && item.count > 0
                       ? "text-[#e59bc9]"
+                      : item.highlight === "sky" && item.count > 0
+                      ? "text-sky-300"
                       : "text-[#fffafa]"
                   }`}
                 >

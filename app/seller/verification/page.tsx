@@ -26,10 +26,12 @@ import {
   uploadVerificationDocument,
   submitSellerVerification,
   validateVerificationFile,
-  triggerAutomatedVerification,
 } from "@/lib/supabase/verification";
 import type { DbSellerVerificationRequest, DbSellerType } from "@/lib/supabase/types";
 import { toast } from "sonner";
+import { IdOcrPanel } from "@/components/verification/id-ocr-panel";
+import { validateIdImage } from "@/lib/verification/ocr";
+import type { OcrCandidates } from "@/lib/verification/ocr-parser";
 
 export default function SellerVerificationPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -55,6 +57,7 @@ export default function SellerVerificationPage() {
 
   // Document Files
   const [frontIdFile, setFrontIdFile] = useState<File | null>(null);
+  const [frontRevision, setFrontRevision] = useState(0);
   const [backIdFile, setBackIdFile] = useState<File | null>(null);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
 
@@ -129,11 +132,12 @@ export default function SellerVerificationPage() {
     }
   };
 
-  const handleFileSelect = (
+  const handleFileSelect = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "front" | "back" | "selfie"
   ) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
 
     const check = validateVerificationFile(file);
@@ -142,11 +146,22 @@ export default function SellerVerificationPage() {
       return;
     }
 
-    if (type === "front") setFrontIdFile(file);
+    try { await validateIdImage(file); }
+    catch { toast.error("Choose a readable JPEG, PNG or WebP image up to 5MB and 40 megapixels."); return; }
+    if (type === "front") { setFrontIdFile(file); setFrontRevision((n) => n + 1); }
     if (type === "back") setBackIdFile(file);
     if (type === "selfie") setSelfieFile(file);
 
     toast.success(`Attached ${file.name}`);
+  };
+
+  const useOcrCandidate = (field: keyof OcrCandidates, value: string) => {
+    const existing = field === "fullName" ? fullName : field === "dateOfBirth" ? dob : idType;
+    if (existing && existing !== value && !window.confirm("Replace this form field with the OCR suggestion? Please check it against your ID.")) return;
+    if (field === "fullName") setFullName(value);
+    if (field === "dateOfBirth") setDob(value);
+    if (field === "idType") setIdType(value);
+    toast.success("Suggestion applied. Please review it before submitting.");
   };
 
   const handleNextFromStep1 = () => {
@@ -257,18 +272,13 @@ export default function SellerVerificationPage() {
         throw new Error(submitRes.error || "Failed to submit verification request.");
       }
 
-      toast.success("Seller verification submitted successfully!");
+      toast.success("Verification submitted for administrator review.");
       setVerification(submitRes.data);
       setIsResubmitting(false);
 
-      // Trigger server-side automated verification review
-      setUploadProgressText("Running automated document verification...");
-      try {
-        await triggerAutomatedVerification(submitRes.data.id);
-      } catch (autoErr) {
-        console.warn("Automated review trigger note:", autoErr);
-      }
-
+      setFrontIdFile(null);
+      setBackIdFile(null);
+      setSelfieFile(null);
       await loadData();
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Failed to submit verification.";
@@ -426,40 +436,7 @@ export default function SellerVerificationPage() {
                   </span>
                 </p>
 
-                {verification?.automated_review_status && (
-                  <span className="text-[11px] font-semibold text-amber-200/90 flex items-center gap-1 self-start sm:self-auto">
-                    {verification.automated_review_status === "queued" && (
-                      <>
-                        <Clock className="size-3 text-amber-400" />
-                        <span>Automated checks queued</span>
-                      </>
-                    )}
-                    {verification.automated_review_status === "processing" && (
-                      <>
-                        <Loader2 className="size-3 animate-spin text-[#e59bc9]" />
-                        <span>Checking your verification documents...</span>
-                      </>
-                    )}
-                    {verification.automated_review_status === "passed" && (
-                      <>
-                        <CheckCircle2 className="size-3 text-emerald-400" />
-                        <span>Verification approved</span>
-                      </>
-                    )}
-                    {verification.automated_review_status === "manual_review" && (
-                      <>
-                        <ShieldCheck className="size-3 text-amber-300" />
-                        <span>Your application requires manual review.</span>
-                      </>
-                    )}
-                    {verification.automated_review_status === "failed" && (
-                      <>
-                        <AlertTriangle className="size-3 text-amber-300" />
-                        <span>We couldn&apos;t complete automated checks. Your application will be reviewed manually.</span>
-                      </>
-                    )}
-                  </span>
-                )}
+                <p className="text-sm cc-text-secondary">Pending administrator review. OCR assistance does not approve or reject your application.</p>
               </div>
               <p className="text-amber-300/80">
                 Our verification compliance team is reviewing your Philippine ID and selfie document. Review usually takes 1–3 business days. You will gain seller access as soon as approved.
@@ -676,8 +653,7 @@ export default function SellerVerificationPage() {
             )}
 
             {/* STEP 2: Government ID */}
-            {currentStep === 2 && (
-              <div className="space-y-5 animate-in fade-in duration-200">
+              <div hidden={currentStep !== 2} className="space-y-5 animate-in fade-in duration-200">
                 <div className="border-b border-white/[0.08] pb-3">
                   <h3 className="text-base font-bold text-[#fffafa]">
                     Step 2: Government-Issued Identity Document
@@ -792,6 +768,9 @@ export default function SellerVerificationPage() {
                   </div>
                 </div>
 
+                {frontIdFile && <IdOcrPanel key={frontRevision} file={frontIdFile} autoScan onUse={useOcrCandidate} />}
+                <p className="text-xs cc-text-muted">Use a suggestion only after checking it. You can edit your name and date of birth in Basic Information and choose your ID type above. OCR is optional; you may continue without it.</p>
+
                 {/* ID Guidance */}
                 <div className="p-3.5 rounded-xl bg-[#281827]/60 border border-white/[0.06] text-xs text-[#b9adb6] space-y-1">
                   <p className="font-bold text-[#fffafa] flex items-center gap-1.5">
@@ -821,8 +800,6 @@ export default function SellerVerificationPage() {
                   </button>
                 </div>
               </div>
-            )}
-
             {/* STEP 3: Selfie Verification */}
             {currentStep === 3 && (
               <div className="space-y-5 animate-in fade-in duration-200">

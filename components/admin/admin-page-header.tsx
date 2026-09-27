@@ -18,22 +18,22 @@ export function AdminPageHeader({
   actions,
 }: AdminPageHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/5">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b cc-border">
       <div>
         {backHref && (
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#b9adb6] hover:text-[#fffafa] transition-colors mb-2"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold cc-text-muted hover:cc-text-primary transition-colors mb-2"
           >
-            <ArrowLeft className="size-3.5 text-[#e59bc9]" />
+            <ArrowLeft className="size-3.5 text-[var(--cc-accent-pink)]" />
             <span>{backLabel}</span>
           </Link>
         )}
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#fffafa] tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-extrabold cc-text-primary tracking-tight">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-xs sm:text-sm text-[#b9adb6] mt-1 leading-relaxed">
+          <p className="text-xs sm:text-sm cc-text-muted mt-1 leading-relaxed">
             {subtitle}
           </p>
         )}

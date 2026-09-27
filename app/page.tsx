@@ -238,17 +238,17 @@ export default function CircuitCartShowcasePage() {
           id="hero"
           className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"
         >
-          <div className="w-full bg-[#1c151e] border border-[#3b2e3c]/60 rounded-[32px] sm:rounded-[44px] overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.35)] h-auto md:h-[clamp(540px,46vw,700px)] min-h-[520px] flex items-center">
+          <div className="cc-showcase-dark w-full bg-[#1c151e] border border-[#3b2e3c]/60 rounded-[32px] sm:rounded-[44px] overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.35)] h-auto md:h-[clamp(540px,46vw,700px)] min-h-[520px] flex items-center">
             <div className="w-full h-full flex flex-col md:flex-row items-center justify-between">
               {/* Left Copy Column (~42% desktop width with generous left padding) */}
               <div className="w-full md:w-[42%] md:flex-none flex flex-col justify-center pl-6 sm:pl-10 md:pl-16 lg:pl-20 pr-6 py-10 md:py-0 z-10 space-y-4">
                 <span className="text-xs sm:text-sm font-semibold tracking-wider text-[#a78b9d] uppercase">
                   Pro.Beyond.
                 </span>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl tracking-tight text-white leading-[1.04]">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl tracking-tight text-[#fffafa] leading-[1.04]">
                   <span className="font-extralight block">iPhone</span>
                   <span className="font-extralight block">14</span>
-                  <span className="font-bold block text-white">Pro</span>
+                  <span className="font-bold block text-[#fffafa]">Pro</span>
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-400 max-w-xs leading-relaxed font-normal pt-1">
                   Created to change everything for the better. For everyone
@@ -256,7 +256,7 @@ export default function CircuitCartShowcasePage() {
                 <div className="pt-2">
                   <Link
                     href="/marketplace"
-                    className="inline-flex items-center justify-center px-6 py-2.5 text-xs sm:text-sm font-semibold text-white bg-transparent border border-zinc-400/50 hover:bg-white/10 hover:border-white rounded-lg transition-all shadow-xs focus-visible:outline-2 focus-visible:outline-white"
+                    className="inline-flex items-center justify-center px-6 py-2.5 text-xs sm:text-sm font-semibold text-[#fffafa] bg-transparent border border-zinc-400/50 hover:bg-white/10 hover:border-white rounded-lg transition-all shadow-xs focus-visible:outline-2 focus-visible:outline-white"
                   >
                     Shop Now
                   </Link>
@@ -358,7 +358,7 @@ export default function CircuitCartShowcasePage() {
               {/* Card 4: Apple Vision Pro (Bottom Beside AirPods under PlayStation) */}
               <div
                 style={{ transitionDelay: bentoVisible ? "120ms" : "0ms" }}
-                className={`sm:[grid-area:vision] order-4 sm:order-none min-w-0 min-h-0 bg-[#2f2f31] rounded-[clamp(22px,2vw,32px)] overflow-hidden relative flex flex-row items-center shadow-xs transition-all duration-500 ease-out motion-reduce:transition-none motion-reduce:transform-none group min-h-[160px] sm:min-h-[180px] lg:min-h-0 z-0 ${
+                className={`sm:[grid-area:vision] order-4 sm:order-none min-w-0 min-h-0 bg-[#2f2f31] rounded-[clamp(22px,2vw,32px)] overflow-hidden relative flex flex-row items-center shadow-xs transition-all duration-500 ease-out motion-reduce:transition-none motion-reduce:transform-none group min-h-[160px] sm:min-h-[180px] lg:min-h-0 z-0 cc-showcase-dark ${
                   bentoVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[14px]"
                 }`}
               >
@@ -376,7 +376,7 @@ export default function CircuitCartShowcasePage() {
 
                 {/* Right Light Text (Starts ~48% from left) */}
                 <div className="ml-[48%] pr-4 sm:pr-6 py-3 space-y-1 z-20 relative">
-                  <h3 className="text-[clamp(16px,1.3vw,22px)] text-white leading-tight font-normal">
+                  <h3 className="text-[clamp(16px,1.3vw,22px)] text-[#fffafa] leading-tight font-normal">
                     <span className="block">Apple</span>
                     <span className="block">Vision <span className="font-medium">Pro</span></span>
                   </h3>
@@ -588,12 +588,12 @@ export default function CircuitCartShowcasePage() {
           id="discounts"
           className="w-[92vw] max-w-[1600px] mx-auto px-1 sm:px-2"
         >
-          <div className="w-full bg-[#1c151e] border border-[#3b2e3c]/60 rounded-3xl p-8 sm:p-10 space-y-6 shadow-xl">
+          <div className="cc-showcase-dark w-full bg-[#1c151e] border border-[#3b2e3c]/60 rounded-3xl p-8 sm:p-10 space-y-6 shadow-xl">
             <div className="text-center space-y-2">
               <span className="inline-block px-3 py-1 bg-[#544061] text-pink-200 text-xs font-bold rounded-full uppercase tracking-wider">
                 Special Promotion
               </span>
-              <h2 className="text-3xl font-extrabold text-white tracking-tight">
+              <h2 className="text-3xl font-extrabold text-[#fffafa] tracking-tight">
                 Discounts up to -50% with CircuitCart
               </h2>
               <p className="text-xs text-zinc-400 max-w-md mx-auto">
@@ -607,7 +607,7 @@ export default function CircuitCartShowcasePage() {
                   key={`disc-${p.id}`}
                   className="bg-[#241b26] border border-[#3d2f40] rounded-2xl p-4 text-center space-y-3"
                 >
-                  <div className="text-xs font-bold text-white line-clamp-1">
+                  <div className="text-xs font-bold text-[#fffafa] line-clamp-1">
                     {p.name}
                   </div>
                   <div className="text-base font-extrabold text-pink-300">
@@ -615,7 +615,7 @@ export default function CircuitCartShowcasePage() {
                   </div>
                   <Link
                     href="/login"
-                    className="w-full h-8 inline-flex items-center justify-center text-xs font-semibold bg-[#544061] text-white hover:bg-[#684d72] rounded-xl transition-all"
+                    className="w-full h-8 inline-flex items-center justify-center text-xs font-semibold bg-[#544061] text-[#fffafa] hover:bg-[#684d72] rounded-xl transition-all"
                   >
                     Buy Now
                   </Link>
@@ -680,7 +680,7 @@ export default function CircuitCartShowcasePage() {
       {/* ========================================================= */}
       {/* 8. FOOTER */}
       {/* ========================================================= */}
-      <footer className="w-full bg-[#18111a] border-t border-[#2d1f2e] pt-12 pb-8 mt-12 text-zinc-400 text-xs">
+      <footer className="cc-showcase-dark w-full bg-[#18111a] border-t border-[#2d1f2e] pt-12 pb-8 mt-12 text-zinc-400 text-xs">
         <div className="w-[92vw] max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-[#2d1f2e]">
             <div className="md:col-span-5 space-y-3">
@@ -713,7 +713,7 @@ export default function CircuitCartShowcasePage() {
                   <circle cx="8" cy="16.5" r="1.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
                   <circle cx="15" cy="16.5" r="1.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
                 </svg>
-                <span className="text-xl font-bold tracking-tight text-white">
+                <span className="text-xl font-bold tracking-tight text-[#fffafa]">
                   Circuit<span className="text-pink-300">Cart</span>
                 </span>
               </Link>
@@ -723,7 +723,7 @@ export default function CircuitCartShowcasePage() {
             </div>
 
             <div className="md:col-span-3 space-y-2">
-              <h4 className="font-bold text-white uppercase tracking-wider">
+              <h4 className="font-bold text-[#fffafa] uppercase tracking-wider">
                 Quick Navigation
               </h4>
               <ul className="space-y-1.5">
@@ -751,19 +751,19 @@ export default function CircuitCartShowcasePage() {
             </div>
 
             <div className="md:col-span-4 space-y-2">
-              <h4 className="font-bold text-white uppercase tracking-wider">
+              <h4 className="font-bold text-[#fffafa] uppercase tracking-wider">
                 Account Actions
               </h4>
               <div className="flex items-center gap-3 pt-1">
                 <Link
                   href="/login"
-                  className="px-4 py-2 bg-[#261a28] border border-[#3b2a3d] text-white hover:bg-[#3b2a3d] rounded-xl transition-colors"
+                  className="px-4 py-2 bg-[#261a28] border border-[#3b2a3d] text-[#fffafa] hover:bg-[#3b2a3d] rounded-xl transition-colors"
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/register"
-                  className="px-4 py-2 bg-[#544061] text-white hover:bg-[#684d72] rounded-xl transition-colors"
+                  className="px-4 py-2 bg-[#544061] text-[#fffafa] hover:bg-[#684d72] rounded-xl transition-colors"
                 >
                   Create account
                 </Link>
