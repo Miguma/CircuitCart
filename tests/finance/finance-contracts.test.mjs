@@ -154,8 +154,10 @@ describe("Multi-seller accounting", () => {
 
 describe("Failure simulation — no payout/commission on failed payment", () => {
   it("aborted checkout must not produce a paid receipt", () => {
-    // After abort_failed_online_checkout, status becomes 'failed'
-    const failedReceipt = { success: false, status: "failed", paymentTransactionId: "tx-1", orderIds: [] };
+    // After repaired abort_failed_online_checkout, the released transaction
+    // remains terminal 'cancelled' (never 'failed', per
+    // online_inventory_release_terminal) with stock/cart restored.
+    const failedReceipt = { success: false, status: "cancelled", paymentTransactionId: "tx-1", orderIds: [] };
     assert.equal(matchesFinancialReceipt(failedReceipt, "tx-1", ["order-1"]), false,
       "Failed transaction must not pass receipt check");
   });
@@ -265,18 +267,18 @@ describe("Seller cannot release own payout", () => {
 
 // ─── TEST 10: Admin payout state transitions ──────────────────────────────────
 
-describe("Admin payout transitions", () => {
+describe("Admin payout transitions (seller-led flow)", () => {
   const validTransitions = {
-    pending: ["eligible", "held"],
-    eligible: ["processing", "held"],
+    pending: ["held"],
+    eligible: ["held"],
     held: ["eligible"],
-    processing: ["released", "failed"],
+    processing: ["released", "failed", "held"],
   };
   const invalidTransitions = {
-    pending: ["processing", "released", "failed"],
-    eligible: ["pending", "released", "failed"],
-    held: ["processing", "released", "failed"],
-    processing: ["pending", "eligible", "held"],
+    pending: ["eligible", "processing", "released", "failed"],
+    eligible: ["processing", "released", "failed", "pending"],
+    held: ["processing", "released", "failed", "pending"],
+    processing: ["pending", "eligible"],
     released: ["pending", "eligible", "processing", "held", "failed"],
   };
 

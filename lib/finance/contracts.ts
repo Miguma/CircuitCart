@@ -28,8 +28,8 @@ export const payoutAccountInput = z.object({
 });
 
 export const payoutActions: Record<string, { status: string; label: string }[]> = {
-  pending: [{ status: "eligible", label: "Mark eligible" }, { status: "held", label: "Hold" }],
-  eligible: [{ status: "processing", label: "Start processing" }, { status: "held", label: "Hold" }],
-  held: [{ status: "eligible", label: "Resume" }],
-  processing: [{ status: "released", label: "Mark released (simulated)" }, { status: "failed", label: "Mark failed" }],
+  pending: [{ status: "held", label: "Hold" }],
+  eligible: [{ status: "held", label: "Hold" }],
+  held: [{ status: "eligible", label: "Restore / resume" }],
+  processing: [{ status: "released", label: "Mark released (simulated)" }, { status: "held", label: "Hold" }, { status: "failed", label: "Mark failed" }],
 };

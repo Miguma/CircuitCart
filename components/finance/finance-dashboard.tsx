@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useState } from "react";
 import { Landmark, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { financeUnavailable, loadFinanceSummary, loadPayouts, money, requestSellerPayout, type FinanceSummary, type PayoutRow } from "@/lib/finance/client";
 import { payoutActions, percentToBps } from "@/lib/finance/contracts";
@@ -15,6 +16,15 @@ type FetchState =
   | { phase: "error"; message: string }
   | { phase: "ready"; summary: FinanceSummary; rows: PayoutRow[] };
 
+// Seller-friendly payout status labels (display only — database statuses unchanged).
+const payoutStatusLabels: Record<string, string> = {
+  pending: "On hold",
+  eligible: "Available",
+  processing: "Payout requested",
+  released: "Released",
+  held: "Admin hold",
+};
+
 function fetchReducer(_: FetchState, action: FetchState): FetchState { return action; }
 
 export function FinanceDashboard({ admin = false, history = true }: { admin?: boolean; history?: boolean }) {
@@ -24,6 +34,8 @@ export function FinanceDashboard({ admin = false, history = true }: { admin?: bo
   const [notice, setNotice] = useState("");
   const [rate, setRate] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
+  const [payoutConfirm, setPayoutConfirm] = useState<PayoutRow | null>(null);
+  const [requestingId, setRequestingId] = useState<string | null>(null);
   const load = useCallback(() => setRefreshTick((t) => t + 1), []);
 
   useEffect(() => {
@@ -59,16 +71,18 @@ export function FinanceDashboard({ admin = false, history = true }: { admin?: bo
   }
 
   async function requestPayout(row: PayoutRow) {
-    if (!window.confirm(`Request simulated payout of ${money(row.net_amount)} to your saved payout account?`)) return;
-    setBusy(true); setNotice("");
+    if (requestingId) return;
+    setRequestingId(row.id);
+    setNotice("");
     try {
       await requestSellerPayout(row.id);
+      setPayoutConfirm(null);
       load();
-      setNotice("Payout requested. CircuitCart marked it as processing for admin release. No real money was transferred.");
+      toast.success("Payout requested successfully.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Payout request failed.");
     } finally {
-      setBusy(false);
+      setRequestingId(null);
     }
   }
 
@@ -89,7 +103,9 @@ export function FinanceDashboard({ admin = false, history = true }: { admin?: bo
     [admin ? "Gross marketplace volume" : "Gross marketplace sales", summary.totals.gross, "Ledger-backed sales before fees, including shipping."],
     [admin ? "Platform commission revenue" : "Platform fees", summary.totals.fees, "Recorded commission: collected + receivable, not gross sales."],
     [admin ? "Total seller net earnings" : "Net earnings", summary.totals.net, "Gross less recorded fees; not a bank balance."],
-    ["Pending payout", summary.payouts.pending, "Paid online orders awaiting completion."],
+    ...(admin
+      ? [["Pending payout", summary.payouts.pending, "Paid online orders awaiting completion."]] as [string, number, string][]
+      : [["Funds on hold", summary.payouts.pending, "Buyer payment received. Seller earnings are held until the order is delivered and completed."]] as [string, number, string][]),
     ["Available / eligible", summary.payouts.eligible, "Completed orders eligible for simulated payout."],
     ["Released (simulated)", summary.payouts.released, "Bookkeeping only. Not deposited into a bank."],
     [admin ? "Commission receivable" : "Offline commission due", summary.totals.receivable, "Seller-direct cash fees owed, not collected."],
@@ -126,19 +142,63 @@ export function FinanceDashboard({ admin = false, history = true }: { admin?: bo
       {history && <div className={`${financePanel} min-w-0`}>
         <h3 className="mb-4 font-bold">{admin ? "Payout management" : "Payout history"}</h3>
         {rows.length===0 ? <p className="text-sm text-[#b9adb6]">No payouts on this page. COD and meetup cash do not create platform payouts.</p> : <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs"><thead className="border-b border-white/15 text-[#b9adb6]"><tr>{["Order / seller","Gross / fee / net","Destination","Status","Dates",...(!admin?["Action"]:["Actions"])].map(h=><th key={h} className="p-3 font-medium">{h}</th>)}</tr></thead>
+          <table className="w-full text-left text-xs"><thead className="border-b border-white/15 text-[#b9adb6]"><tr>{["Order / seller","Gross / fee / net","Destination","Status","Dates"].map(h=><th key={h} className="p-3 font-medium">{h}</th>)}<th className="sticky right-0 z-10 bg-[#211826] p-3 font-medium shadow-[-8px_0_16px_rgba(0,0,0,0.35)]">{admin?"Actions":"Action"}</th></tr></thead>
             <tbody>{rows.map(row=><tr key={row.id} className="border-b border-white/10 align-top">
               <td className="p-3"><p className="font-semibold">CC-{row.order_id.slice(0,8).toUpperCase()}</p><p className="mt-1">{row.shop_name}</p>{admin&&<p>{row.seller_name || "Seller"}</p>}<p className="mt-1 text-[#b9adb6]">{row.payment_method === "demo_card" ? "Demo Card · sandbox" : "Maya · sandbox"}</p></td>
               <td className="whitespace-nowrap p-3 tabular-nums"><p>Gross {money(row.gross_amount)}</p><p>Fee {money(row.platform_fee)}</p><p className="font-semibold text-[#e59bc9]">Net {money(row.net_amount)}</p><p className="mt-1 text-[#b9adb6]">{row.commission_rate_bps===null ? "Historical rate not recorded" : `${(row.commission_rate_bps/100).toFixed(2)}% subtotal fee`}</p></td>
               <td className="p-3">{row.account_last4 ? <><p>{row.bank_name}</p><p>{row.account_name}</p><p>••••••••{row.account_last4}</p></> : "No saved account"}</td>
-              <td className="p-3"><span className="rounded-full bg-white/10 px-2 py-1 capitalize">{row.status}</span>{row.status==="released"&&<p className="mt-2 text-[#b9adb6]">Simulated payout</p>}</td>
+              <td className="p-3"><span className="rounded-full bg-white/10 px-2 py-1">{payoutStatusLabels[row.status] ?? row.status}</span>{row.status==="released"&&<p className="mt-2 text-[#b9adb6]">Simulated payout</p>}</td>
               <td className="whitespace-nowrap p-3 text-[#b9adb6]">{([["Created",row.created_at],["Eligible",row.eligible_at],["Released",row.released_at]]).map(([label,date])=><p key={label}>{label}: {date ? new Date(date).toLocaleDateString("en-PH") : "—"}</p>)}</td>
-              {admin ? <td className="p-3"><div className="flex min-w-40 flex-col gap-2">{(payoutActions[row.status]||[]).map(action=><button key={action.status} className={financeButton} disabled={busy || (action.status!=="held" && row.order_status!=="completed")} onClick={()=>void changeStatus(row,action.status)}>{action.label}</button>)}</div></td>
-                : <td className="p-3">{row.status === "eligible" ? <button className={financeButton} disabled={busy || !row.account_last4 || row.order_status !== "completed"} onClick={()=>void requestPayout(row)}>Request payout</button> : <span className="text-[#b9adb6]">{row.status === "pending" ? "Available after order completion" : row.status === "processing" ? "Awaiting admin release" : row.status === "released" ? "Released" : "—"}</span>}</td>}
+              {admin ? <td className="sticky right-0 bg-[#211826] p-3 shadow-[-8px_0_16px_rgba(0,0,0,0.35)]"><div className="flex min-w-40 flex-col gap-2">
+                {row.status === "pending" && <p className="text-[11px] leading-relaxed text-[#b9adb6]">On hold — awaiting buyer completion. Eligibility is automatic.</p>}
+                {row.status === "eligible" && <p className="text-[11px] leading-relaxed text-[#b9adb6]">Available to seller — awaiting payout request.</p>}
+                {(payoutActions[row.status]||[]).map(action=><button key={action.status} className={financeButton} disabled={busy || (action.status!=="held" && row.order_status!=="completed")} onClick={()=>void changeStatus(row,action.status)}>{action.label}</button>)}
+              </div></td>
+                : <td className="sticky right-0 bg-[#211826] p-3 shadow-[-8px_0_16px_rgba(0,0,0,0.35)]">{(() => {
+                  if (row.status === "eligible" && row.account_last4) {
+                    const disabled = busy || requestingId !== null || row.order_status !== "completed";
+                    return <button className={financeButton} disabled={disabled} onClick={() => setPayoutConfirm(row)}>Request payout</button>;
+                  }
+                  if (row.status === "eligible") {
+                    return <button className={financeButton} disabled>Add payout account first</button>;
+                  }
+                  return <span className="text-[#b9adb6]">{row.status === "pending" ? "Available after buyer confirms completion." : row.status === "processing" ? "Awaiting administrator release." : row.status === "released" ? "Released" : row.status === "held" ? "This payout is currently held by an administrator." : row.status === "failed" ? "Payout failed." : "—"}</span>;
+                })()}</td>}
             </tr>)}</tbody></table>
         </div>}
         <div className="mt-4 flex items-center justify-between gap-3"><button className={financeButton} disabled={offset===0 || busy} onClick={()=>setOffset(Math.max(0,offset-50))}>Previous</button><span className="text-xs text-[#b9adb6]">Page {offset/50+1} · 50 per page</span><button className={financeButton} disabled={rows.length<50 || busy} onClick={()=>setOffset(offset+50)}>Next</button></div>
       </div>}
+      {payoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[#1e1322] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-bold text-white">Request payout</h3>
+            <p className="text-xs text-[#b9adb6] leading-relaxed">
+              Request payout of {money(payoutConfirm.net_amount)} to {payoutConfirm.bank_name ?? "your saved account"} ending in {payoutConfirm.account_last4}?
+            </p>
+            <p className="text-xs text-[#8f7d8c] leading-relaxed">
+              Sandbox bookkeeping only. No real money will be transferred.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setPayoutConfirm(null)}
+                disabled={requestingId === payoutConfirm.id}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#b9adb6] hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void requestPayout(payoutConfirm)}
+                disabled={requestingId === payoutConfirm.id}
+                className="px-4 py-2 rounded-xl bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold transition-colors disabled:opacity-50"
+              >
+                Request payout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>}
   </section>;
 }

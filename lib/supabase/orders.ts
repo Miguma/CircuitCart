@@ -386,6 +386,34 @@ export async function getSellerOrders(): Promise<SellerOrder[]> {
 }
 
 /**
+ * Buyer confirms receipt of an order (delivery shipped / meetup ready).
+ * Server-gated via buyer_confirm_order_received RPC; returns idempotent
+ * success for repeat confirmations by the same buyer.
+ */
+export async function buyerConfirmOrderReceived(
+  orderId: string
+): Promise<{ orderId: string; alreadyCompleted: boolean }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error("You must be logged in to confirm receipt.");
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("buyer_confirm_order_received", {
+    p_order_id: orderId,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Failed to confirm receipt.");
+  }
+
+  return {
+    orderId: (data as { orderId?: string })?.orderId || orderId,
+    alreadyCompleted: Boolean((data as { alreadyCompleted?: boolean })?.alreadyCompleted),
+  };
+}
+
+/**
  * Cancels an order and transactionally restores product inventory
  */
 export async function cancelBuyerOrder(orderId: string, reason?: string): Promise<void> {

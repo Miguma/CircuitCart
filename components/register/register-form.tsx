@@ -73,6 +73,19 @@ export function RegisterForm({
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [isConfirmationResending, setIsConfirmationResending] = useState(false);
   const [confirmationResentSuccess, setConfirmationResentSuccess] = useState(false);
+  // Short UX-only cooldown after a successful resend so the button cannot be
+  // hammered. This does NOT override Supabase's server-side rate limit.
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const RESEND_COOLDOWN_SECONDS = 30;
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setTimeout(
+      () => setResendCooldown((prev) => Math.max(0, prev - 1)),
+      1000
+    );
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
   const [formHasSubmittedError, setFormHasSubmittedError] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
@@ -195,7 +208,7 @@ export function RegisterForm({
   });
 
   const handleResendRegistrationConfirmation = async () => {
-    if (!registeredEmail) return;
+    if (!registeredEmail || isConfirmationResending || resendCooldown > 0) return;
     setIsConfirmationResending(true);
     setConfirmationResentSuccess(false);
     try {
@@ -203,6 +216,7 @@ export function RegisterForm({
       setIsConfirmationResending(false);
       if (res.success) {
         setConfirmationResentSuccess(true);
+        setResendCooldown(RESEND_COOLDOWN_SECONDS);
         toast.success("Confirmation email resent. Check your inbox.");
       } else {
         toast.error(res.error || "Failed to resend confirmation email.");
@@ -307,7 +321,7 @@ export function RegisterForm({
           <Button
             type="button"
             variant="outline"
-            disabled={isConfirmationResending}
+            disabled={isConfirmationResending || resendCooldown > 0}
             onClick={handleResendRegistrationConfirmation}
             className="w-full h-[44px] text-xs font-semibold text-[#6e546f] border-[#dfd3d7] hover:bg-[#f7f2f4] hover:text-[#201524] rounded-xl transition-all"
           >
@@ -316,6 +330,8 @@ export function RegisterForm({
                 <Loader2 className="size-4 animate-spin text-[#6e546f]" />
                 Resending…
               </span>
+            ) : resendCooldown > 0 ? (
+              `Resend available in ${resendCooldown}s`
             ) : (
               "Resend confirmation email"
             )}

@@ -16,10 +16,13 @@ import {
   Star,
   Copy,
   Check,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import {
   getBuyerOrders,
   cancelBuyerOrder,
+  buyerConfirmOrderReceived,
   formatOrderReference,
   formatPaymentMethodLabel,
   formatPaymentStatusLabel,
@@ -115,6 +118,9 @@ export default function OrdersPage() {
   const [activeFilter, setActiveFilter] = useState<OrderFilter>("All");
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [messagingOrderId, setMessagingOrderId] = useState<string | null>(null);
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+  const [confirmOrder, setConfirmOrder] = useState<OrderWithItems | null>(null);
+  const [reportOrder, setReportOrder] = useState<OrderWithItems | null>(null);
   const [itemReviews, setItemReviews] = useState<Record<string, DbReview>>({});
   const [selectedReviewItem, setSelectedReviewItem] = useState<{
     item: DbOrderItem;
@@ -228,6 +234,29 @@ export default function OrdersPage() {
       const msg = err instanceof Error ? err.message : "Failed to open conversation.";
       toast.error(msg);
       setMessagingOrderId(null);
+    }
+  };
+
+  // Buyer receipt confirmation: delivery ships first, meetup readies first.
+  const canConfirmReceipt = (order: OrderWithItems) =>
+    (order.delivery_method === "delivery" && order.status === "shipped") ||
+    (order.delivery_method === "meetup" && order.status === "ready");
+
+  const handleConfirmReceipt = async (orderId: string) => {
+    if (confirmingOrderId) return;
+    setConfirmingOrderId(orderId);
+    try {
+      await buyerConfirmOrderReceived(orderId);
+      const fresh = await getBuyerOrders();
+      setOrders(fresh);
+      fetchCompletedOrderReviews(fresh);
+      setConfirmOrder(null);
+      toast.success("Order completed. Thank you for confirming receipt.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to confirm receipt.";
+      toast.error(msg);
+    } finally {
+      setConfirmingOrderId(null);
     }
   };
 
@@ -577,6 +606,32 @@ export default function OrdersPage() {
                         <span>Message Seller</span>
                       </button>
 
+                      {canConfirmReceipt(order) && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={confirmingOrderId === order.id}
+                            onClick={() => setConfirmOrder(order)}
+                            className="px-3 py-1.5 text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {confirmingOrderId === order.id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="size-3.5" />
+                            )}
+                            <span>Confirm Item Received</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReportOrder(order)}
+                            className="px-3 py-1.5 text-xs font-semibold bg-white/[0.05] hover:bg-white/10 text-[#b9adb6] hover:text-white border border-white/10 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                          >
+                            <AlertTriangle className="size-3.5" />
+                            <span>Report a Problem</span>
+                          </button>
+                        </>
+                      )}
+
                       {order.status === "pending" && (
                         <button
                           type="button"
@@ -607,6 +662,83 @@ export default function OrdersPage() {
           CircuitCart verified receipts: Sellers update fulfillment status in real time upon confirmation and dispatch.
         </span>
       </div>
+
+      {/* Confirm Receipt Dialog */}
+      {confirmOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[#1e1322] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-2.5 text-emerald-400">
+              <CheckCircle2 className="size-5 shrink-0" />
+              <h3 className="text-base font-bold text-white">
+                Confirm that you received this order?
+              </h3>
+            </div>
+            <p className="text-xs text-[#b9adb6] leading-relaxed">
+              This will complete the order and make the seller&apos;s held earnings eligible for payout.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setConfirmOrder(null)}
+                disabled={confirmingOrderId === confirmOrder.id}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#b9adb6] hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmReceipt(confirmOrder.id)}
+                disabled={confirmingOrderId === confirmOrder.id}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {confirmingOrderId === confirmOrder.id && (
+                  <Loader2 className="size-3.5 animate-spin" />
+                )}
+                <span>Yes, I Received It</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report a Problem Dialog (simple tonight: message seller, payout stays on hold) */}
+      {reportOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[#1e1322] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-2.5 text-amber-400">
+              <AlertTriangle className="size-5 shrink-0" />
+              <h3 className="text-base font-bold text-white">
+                Report a Problem
+              </h3>
+            </div>
+            <p className="text-xs text-[#b9adb6] leading-relaxed">
+              Your seller payout will remain on hold while the order is incomplete.
+              Please contact the seller through CircuitCart Messages or contact an administrator.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setReportOrder(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#b9adb6] hover:text-white hover:bg-white/5 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const orderId = reportOrder.id;
+                  setReportOrder(null);
+                  void handleMessageSeller(orderId);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold transition-colors flex items-center gap-2"
+              >
+                <MessageSquare className="size-3.5" />
+                <span>Message Seller</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Write / Edit Review Modal */}
       <ReviewDialog

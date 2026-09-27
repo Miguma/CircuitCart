@@ -244,27 +244,23 @@ export function SellerOrderDetailDrawer({
 
             {order.status === "Shipped" && (
               <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => onUpdateStatus(order.id, "Completed")}
-                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <CheckCircle2 className="size-4" />
-                  <span>Mark Order as Delivered & Completed</span>
-                </button>
+                <div className="p-2.5 rounded-xl bg-sky-950/40 border border-sky-500/20 text-xs text-sky-300 flex items-center gap-2">
+                  <Clock className="size-4 shrink-0 text-sky-400" />
+                  <span>
+                    Waiting for buyer to confirm delivery.
+                  </span>
+                </div>
               </div>
             )}
 
             {order.status === "Ready for Meetup" && (
               <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => onUpdateStatus(order.id, "Completed")}
-                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <CheckCircle2 className="size-4" />
-                  <span>Confirm Meetup Handover & Complete</span>
-                </button>
+                <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/20 text-xs text-purple-300 flex items-center gap-2">
+                  <Clock className="size-4 shrink-0 text-purple-400" />
+                  <span>
+                    Waiting for buyer to confirm meetup handover.
+                  </span>
+                </div>
               </div>
             )}
 

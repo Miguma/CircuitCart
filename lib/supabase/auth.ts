@@ -1,5 +1,6 @@
 import { createClient } from "./client";
 import type { User } from "@supabase/supabase-js";
+import { mapResendError, mapSignupError } from "./auth-errors";
 
 export type UserRole = "buyer" | "seller" | "admin";
 
@@ -93,9 +94,10 @@ export async function signUpWithEmail(
     });
 
     if (error) {
+      // Never expose raw Supabase strings (e.g. "email rate limit exceeded").
       return {
         success: false,
-        error: error.message || "Registration failed. Please try again.",
+        error: mapSignupError(error),
       };
     }
 
@@ -141,7 +143,7 @@ export async function resendConfirmationEmail(
     if (error) {
       return {
         success: false,
-        error: error.message || "Failed to resend confirmation email.",
+        error: mapResendError(error),
       };
     }
 
