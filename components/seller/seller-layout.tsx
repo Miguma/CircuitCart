@@ -20,6 +20,7 @@ const MANAGEMENT_LINKS = [
   { href: "/marketplace/messages", label: "Messages" },
   { href: "/seller/shop", label: "My Shop" },
   { href: "/seller/analytics", label: "Analytics" },
+  { href: "/seller/payouts", label: "Payouts" },
   { href: "/seller/verification", label: "Verification" },
 ];
 

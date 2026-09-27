@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { matchesFinancialReceipt } from "@/lib/finance/contracts";
 
 /**
  * CircuitCart — Demo Card Sandbox Payment (ACADEMIC DEFENSE ONLY)
@@ -19,7 +20,7 @@ const demoConfirmSchema = z.object({
   buyerNote: z.string().max(1000).optional().nullable(),
   cardLast4: z.string().regex(/^\d{4}$/),
   simulateFailure: z.boolean().optional(),
-});
+}).strict();
 
 function jsonResponse(data: unknown, status = 200) {
   return NextResponse.json(data, {
@@ -50,12 +51,15 @@ function rpcError(code: string, message: string) {
     return jsonResponse({ error: "Your session expired. Sign in again." }, 401);
   }
   return jsonResponse(
-    { error: "Demo payment is unavailable. Your cart was preserved — please try again." },
+    { success: false, error: "Unable to verify payment. Check your orders before retrying; the checkout may need reconciliation." },
     503
   );
 }
 
 export async function POST(request: NextRequest) {
+  if (request.headers.get("origin") !== new URL(request.url).origin || request.headers.get("sec-fetch-site") === "cross-site") {
+    return jsonResponse({ error: "Invalid request origin." }, 403);
+  }
   // Demo method must be explicitly enabled; otherwise it does not exist.
   if (process.env.NEXT_PUBLIC_DEMO_PAYMENT_ENABLED !== "true") {
     return jsonResponse({ error: "Demo payment is not available." }, 503);
@@ -79,9 +83,9 @@ export async function POST(request: NextRequest) {
     }
     const input = parsed.data;
 
-    // Failure simulation is a development-only defense tool.
+    // Failure simulation is strictly development-only and never production.
     const simulateFailure =
-      input.simulateFailure === true && process.env.NODE_ENV !== "production";
+      input.simulateFailure === true && process.env.NODE_ENV === "development";
 
     const attemptUuid = input.attemptId || crypto.randomUUID();
 
@@ -109,18 +113,22 @@ export async function POST(request: NextRequest) {
     }
 
     const paymentTransactionId: string = checkoutRes.paymentTransactionId;
-
-    // 2. Demo realism: brief processing window (client shows its own state too).
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const orderIds: string[] = Array.isArray(checkoutRes.orderIds) ? checkoutRes.orderIds : [];
+    if (!z.uuid().safeParse(paymentTransactionId).success || !z.array(z.uuid()).min(1).safeParse(orderIds).success) {
+      return rpcError("", "");
+    }
 
     // Read the server-generated DEMO reference so confirmation evidence
     // carries it (never a UUID) into orders.payment_reference.
-    const { data: pendingTx } = await supabase
+    const { data: pendingTx, error: pendingErr } = await supabase
       .from("payment_transactions")
-      .select("transaction_reference")
+      .select("transaction_reference, provider, sandbox, status")
       .eq("id", paymentTransactionId)
       .eq("buyer_id", user.id)
       .maybeSingle();
+    if (pendingErr || !pendingTx || pendingTx.provider !== "circuitcart_sandbox" || pendingTx.sandbox !== true) {
+      return rpcError("", "");
+    }
     const demoReference: string | null =
       pendingTx?.transaction_reference || null;
 
@@ -128,9 +136,10 @@ export async function POST(request: NextRequest) {
     //     restored, orders cancelled, transaction marked failed. No paid
     //     record is ever created on this path.
     if (simulateFailure) {
-      await supabase.rpc("abort_failed_online_checkout", {
+      const { data: aborted, error: abortError } = await supabase.rpc("abort_failed_online_checkout", {
         p_payment_transaction_id: paymentTransactionId,
       });
+      if (abortError || aborted !== true) return rpcError("", "");
       return jsonResponse({
         success: false,
         simulated: true,
@@ -141,14 +150,14 @@ export async function POST(request: NextRequest) {
 
     // 3b. Confirm payment: marks transaction paid, orders paid + confirmed,
     //     creates seller payouts and buyer/seller notifications.
-    const { error: confirmErr } = await supabase.rpc("confirm_online_payment", {
+    const { data: confirmed, error: confirmErr } = await supabase.rpc("confirm_online_payment", {
       p_payment_transaction_id: paymentTransactionId,
       p_provider_payment_id: demoReference,
       p_provider_checkout_id: attemptUuid,
       p_receipt_number: demoReference,
     });
 
-    if (confirmErr) {
+    if (confirmErr || !matchesFinancialReceipt(confirmed, paymentTransactionId, orderIds)) {
       // Never leave a stuck reservation: release stock and restore the cart.
       try {
         await supabase.rpc("abort_failed_online_checkout", {
@@ -157,7 +166,7 @@ export async function POST(request: NextRequest) {
       } catch {
         /* Abort is best-effort; recovery endpoints can still settle. */
       }
-      return rpcError(confirmErr.code || "", confirmErr.message || "");
+      return rpcError(confirmErr?.code || "", confirmErr?.message || "");
     }
 
     // 4. Read back the buyer-owned sandbox record for the receipt.
@@ -168,19 +177,17 @@ export async function POST(request: NextRequest) {
       .eq("buyer_id", user.id)
       .maybeSingle();
 
-    if (txErr || !tx) {
-      return jsonResponse(
-        { error: "Payment confirmed but the receipt could not be loaded. Check your orders page." },
-        503
-      );
-    }
-
-    const orderIds: string[] = Array.isArray(checkoutRes.orderIds)
-      ? checkoutRes.orderIds
-      : [];
+    // A narrow ownership-checked RPC verifies all child orders, payouts and commissions.
+    // Buyers do not receive SELECT access to seller financial accounts.
+    const { data: receipt, error: receiptError } = await supabase.rpc("get_payment_financial_receipt", {
+      p_payment_transaction_id: paymentTransactionId,
+    });
+    if (txErr || !tx || tx.status !== "paid" || receiptError ||
+        !matchesFinancialReceipt(receipt, paymentTransactionId, orderIds)) return rpcError("", "");
 
     return jsonResponse({
       success: true,
+      paymentStatus: "paid",
       sandbox: true,
       provider: "circuitcart_sandbox",
       paymentMethod: "demo_card",
@@ -191,11 +198,9 @@ export async function POST(request: NextRequest) {
       reference: tx.transaction_reference,
       cardLast4: tx.card_last4,
     });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Demo payment failed.";
-    console.error("Demo Card Sandbox Error:", message);
+  } catch {
     return jsonResponse(
-      { error: "Demo payment is unavailable. Your cart was preserved — please try again." },
+      { success: false, error: "Payment could not be verified. Check your orders before retrying." },
       500
     );
   }

@@ -55,9 +55,9 @@ import { toast } from "sonner";
 
 const onlinePreviewEnabled = process.env.NEXT_PUBLIC_ONLINE_CHECKOUT_FOUNDATION_ENABLED === "true";
 const demoPaymentEnabled = isDemoPaymentEnabled();
-// Failure simulation toggle is strictly development-only (never production).
+// Failure simulation toggle renders strictly in development (never production).
 const demoSimulationAllowed =
-  demoPaymentEnabled && process.env.NODE_ENV !== "production";
+  demoPaymentEnabled && process.env.NODE_ENV === "development";
 
 function CartItemSkeleton() {
   return (
@@ -257,14 +257,10 @@ export default function CartPage() {
     }
   };
 
+  // Defense build: buyers choose only between Demo Card (sandbox) and cash.
+  // Maya/manual-transfer methods keep full backend + history support but are
+  // hidden from this selection. Restore them here if needed later.
   const paymentOptions = React.useMemo(() => {
-    const mayaOption = {
-      id: "maya_online" as DbPaymentMethod,
-      title: "Maya",
-      subtitle: "Secure Sandbox Checkout",
-      icon: <CreditCard className="size-4 text-[#e59bc9]" />,
-    };
-
     // Demo Card is a separate offline sandbox method (academic defense only).
     const demoOption = {
       id: "demo_card" as DbPaymentMethod,
@@ -272,55 +268,23 @@ export default function CartPage() {
       subtitle: "Sandbox payment — no real money will be charged",
       icon: <CreditCard className="size-4 text-[#e59bc9]" />,
     };
-    const withDemo = <T extends { id: DbPaymentMethod }>(list: T[]): T[] =>
-      demoPaymentEnabled
-        ? [list[0], demoOption as unknown as T, ...list.slice(1)]
-        : list;
 
-    if (deliveryMethod === "delivery") {
-      return withDemo([
-        mayaOption,
-        {
-          id: "cash_on_delivery" as DbPaymentMethod,
-          title: "Cash on Delivery (COD)",
-          subtitle: "Pay in cash directly to courier upon delivery",
-          icon: <Banknote className="size-4 text-[#e59bc9]" />,
-        },
-        {
-          id: "manual_gcash" as DbPaymentMethod,
-          title: "GCash (Manual Transfer)",
-          subtitle: "Direct e-wallet transfer; verify receipt via chat",
-          icon: <Smartphone className="size-4 text-[#e59bc9]" />,
-        },
-        {
-          id: "manual_maya" as DbPaymentMethod,
-          title: "Maya (Manual Transfer)",
-          subtitle: "Direct e-wallet transfer; verify receipt via chat",
-          icon: <CreditCard className="size-4 text-[#e59bc9]" />,
-        },
-      ]);
-    }
-    return withDemo([
-      mayaOption,
-      {
-        id: "cash_on_meetup" as DbPaymentMethod,
-        title: "Cash on Meetup",
-        subtitle: "Pay in cash in-person upon meeting the seller",
-        icon: <Banknote className="size-4 text-[#e59bc9]" />,
-      },
-      {
-        id: "manual_gcash" as DbPaymentMethod,
-        title: "GCash (Manual Transfer)",
-        subtitle: "Direct e-wallet transfer; verify receipt via chat",
-        icon: <Smartphone className="size-4 text-[#e59bc9]" />,
-      },
-      {
-        id: "manual_maya" as DbPaymentMethod,
-        title: "Maya (Manual Transfer)",
-        subtitle: "Direct e-wallet transfer; verify receipt via chat",
-        icon: <CreditCard className="size-4 text-[#e59bc9]" />,
-      },
-    ]);
+    const cashOption =
+      deliveryMethod === "delivery"
+        ? {
+            id: "cash_on_delivery" as DbPaymentMethod,
+            title: "Cash on Delivery (COD)",
+            subtitle: "Pay in cash directly to courier upon delivery",
+            icon: <Banknote className="size-4 text-[#e59bc9]" />,
+          }
+        : {
+            id: "cash_on_meetup" as DbPaymentMethod,
+            title: "Cash on Meetup",
+            subtitle: "Pay in cash in-person upon meeting the seller",
+            icon: <Banknote className="size-4 text-[#e59bc9]" />,
+          };
+
+    return demoPaymentEnabled ? [demoOption, cashOption] : [cashOption];
   }, [deliveryMethod]);
 
   const formatPrice = (price: number) =>
@@ -507,12 +471,15 @@ export default function CartPage() {
 
         const demoData = await demoRes.json().catch(() => ({}));
 
-        if (!demoRes.ok || !demoData.success) {
-          // Server rolled back (stock released, cart restored) on failure.
+        if (!demoRes.ok || demoData.success !== true || demoData.paymentStatus !== "paid") {
+          // Failure may require reconciliation; do not assume rollback succeeded.
+          // Reload cart state, then close the modal so the buyer returns to
+          // a healthy cart view instead of a stale "Unable to calculate total".
           await refreshCart({ preserveOnError: true }).catch(() => {});
           const failureMsg =
-            demoData.error || "Demo payment failed. Your cart was preserved.";
-          setDemoFormError(failureMsg);
+            demoData.error || "Payment could not be verified. Check your orders before retrying.";
+          setDemoFormError(null);
+          setIsCheckoutOpen(false);
           throw new Error(failureMsg);
         }
 
@@ -1053,31 +1020,6 @@ export default function CartPage() {
                   })}
                 </div>
 
-                {/* Maya Sandbox Notice */}
-                {paymentMethod === "maya_online" && (
-                  <div className="mt-2.5 p-3 bg-[#342339]/60 border border-emerald-500/30 rounded-xl text-xs space-y-1 animate-in fade-in duration-150">
-                    <div className="font-semibold text-emerald-300 flex items-center gap-1.5">
-                      <ShieldCheck className="size-3.5 text-emerald-400 shrink-0" />
-                      <span>Maya Sandbox Checkout</span>
-                    </div>
-                    <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
-                      You will be redirected to the official Maya Sandbox hosted checkout to test online payment. No real currency will be processed.
-                    </p>
-                  </div>
-                )}
-
-                {/* Manual E-Wallet Notice */}
-                {(paymentMethod === "manual_gcash" || paymentMethod === "manual_maya") && (
-                  <div className="mt-2.5 p-3 bg-[#342339]/60 border border-[#e59bc9]/30 rounded-xl text-xs space-y-1 animate-in fade-in duration-150">
-                    <div className="font-semibold text-white flex items-center gap-1.5">
-                      <Info className="size-3.5 text-[#e59bc9] shrink-0" />
-                      <span>Manual Payment Verification Required</span>
-                    </div>
-                    <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
-                      Manual payment verification will be required. You and the seller will coordinate payment confirmation and receipt verification via CircuitCart chat. Your order will be placed with payment status <strong>pending</strong>.
-                    </p>
-                  </div>
-                )}
                 {/* Demo Card Sandbox Notice + Card Form */}
                 {demoPaymentEnabled && paymentMethod === "demo_card" && (
                   <div className="mt-2.5 space-y-3 animate-in fade-in duration-150">

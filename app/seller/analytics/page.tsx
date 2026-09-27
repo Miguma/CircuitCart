@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { SellerLayout } from "@/components/seller/seller-layout";
+import { FinanceDashboard } from "@/components/finance/finance-dashboard";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { getSellerProducts } from "@/lib/supabase/products";
 import { getSellerOrders } from "@/lib/supabase/orders";
@@ -84,6 +85,7 @@ export default function SellerAnalyticsPage() {
       subtitle="Shop performance, real completed sales volume, and inventory distribution."
       showAddProduct={true}
     >
+      <FinanceDashboard history={false} />
       {isLoading ? (
         <div className="p-16 text-center flex flex-col items-center justify-center gap-3 bg-[#1e1322]/80 border border-white/[0.08] rounded-2xl">
           <Loader2 className="size-7 text-[#e59bc9] animate-spin" />

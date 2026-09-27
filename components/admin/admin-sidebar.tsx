@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   Building2,
   FileText,
+  Landmark,
   Settings,
   ArrowLeft,
   LogOut,
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/shops", label: "Shops", icon: Building2 },
   { href: "/admin/reports", label: "Reports", icon: FileText },
+  { href: "/admin/finance", label: "Finance", icon: Landmark },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

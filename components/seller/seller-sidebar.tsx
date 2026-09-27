@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   MessageSquare,
   BarChart3,
+  Landmark,
   Store,
   ShieldCheck,
   Settings,
@@ -47,6 +48,7 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
   const isVerified = shop?.is_verified ?? false;
 
   const mainNavItems = [
+    { label: "Payouts", href: "/seller/payouts", icon: Landmark, badge: null },
     {
       label: "Overview",
       href: "/seller",

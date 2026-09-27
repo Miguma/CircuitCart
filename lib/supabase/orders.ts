@@ -57,7 +57,7 @@ export function formatPaymentStatusLabel(
   if (status === "paid") return "Paid";
   if (status === "failed") return "Failed";
   if (status === "refunded") return "Refunded";
-  if (method === "maya_online") return "Awaiting Payment";
+  if (method === "maya_online" || method === "demo_card") return "Awaiting Payment";
   if ((method === "manual_gcash" || method === "manual_maya") && status === "pending") {
     return "Pending Verification";
   }
@@ -71,7 +71,8 @@ export function getPaymentExplanation(
   method?: DbPaymentMethod | null,
   status?: DbPaymentStatus | null
 ): string {
-  if (status === "paid") return "Payment confirmed.";
+  if (status === "paid") return method === "demo_card"
+    ? "Demo sandbox payment confirmed — no real money was charged." : "Payment confirmed.";
   if (status === "failed") return "Payment was not completed.";
   if (status === "refunded") return "Payment refunded.";
 
@@ -79,7 +80,7 @@ export function getPaymentExplanation(
     case "maya_online":
       return "Awaiting verified online payment. Do not fulfill this order yet.";
     case "demo_card":
-      return "Demo sandbox payment confirmed — no real money was charged.";
+      return "Demo payment pending — awaiting confirmation. Do not fulfill this order yet.";
     case "cash_on_delivery":
       return "Payment due upon delivery.";
     case "cash_on_meetup":
