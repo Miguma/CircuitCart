@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
 import { Landmark, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { financeUnavailable, loadFinanceSummary, loadPayouts, money, type FinanceSummary, type PayoutRow } from "@/lib/finance/client";
+import { financeUnavailable, loadFinanceSummary, loadPayouts, money, requestSellerPayout, type FinanceSummary, type PayoutRow } from "@/lib/finance/client";
 import { payoutActions, percentToBps } from "@/lib/finance/contracts";
 
 export const financePanel = "rounded-2xl border border-white/10 bg-[#211826] p-5 sm:p-6 text-[#fffafa]";
@@ -57,6 +57,21 @@ export function FinanceDashboard({ admin = false, history = true }: { admin?: bo
     } catch { setNotice("Payout not updated. Check the current status, completed order, and saved payout account, then refresh."); }
     finally { setBusy(false); }
   }
+
+  async function requestPayout(row: PayoutRow) {
+    if (!window.confirm(`Request simulated payout of ${money(row.net_amount)} to your saved payout account?`)) return;
+    setBusy(true); setNotice("");
+    try {
+      await requestSellerPayout(row.id);
+      load();
+      setNotice("Payout requested. CircuitCart marked it as processing for admin release. No real money was transferred.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Payout request failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveRate(event: React.FormEvent) {
     event.preventDefault();
     const bps = percentToBps(rate);
@@ -111,14 +126,15 @@ export function FinanceDashboard({ admin = false, history = true }: { admin?: bo
       {history && <div className={`${financePanel} min-w-0`}>
         <h3 className="mb-4 font-bold">{admin ? "Payout management" : "Payout history"}</h3>
         {rows.length===0 ? <p className="text-sm text-[#b9adb6]">No payouts on this page. COD and meetup cash do not create platform payouts.</p> : <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs"><thead className="border-b border-white/15 text-[#b9adb6]"><tr>{["Order / seller","Gross / fee / net","Destination","Status","Dates",...(admin?["Actions"]:[])].map(h=><th key={h} className="p-3 font-medium">{h}</th>)}</tr></thead>
+          <table className="w-full text-left text-xs"><thead className="border-b border-white/15 text-[#b9adb6]"><tr>{["Order / seller","Gross / fee / net","Destination","Status","Dates",...(!admin?["Action"]:["Actions"])].map(h=><th key={h} className="p-3 font-medium">{h}</th>)}</tr></thead>
             <tbody>{rows.map(row=><tr key={row.id} className="border-b border-white/10 align-top">
               <td className="p-3"><p className="font-semibold">CC-{row.order_id.slice(0,8).toUpperCase()}</p><p className="mt-1">{row.shop_name}</p>{admin&&<p>{row.seller_name || "Seller"}</p>}<p className="mt-1 text-[#b9adb6]">{row.payment_method === "demo_card" ? "Demo Card · sandbox" : "Maya · sandbox"}</p></td>
               <td className="whitespace-nowrap p-3 tabular-nums"><p>Gross {money(row.gross_amount)}</p><p>Fee {money(row.platform_fee)}</p><p className="font-semibold text-[#e59bc9]">Net {money(row.net_amount)}</p><p className="mt-1 text-[#b9adb6]">{row.commission_rate_bps===null ? "Historical rate not recorded" : `${(row.commission_rate_bps/100).toFixed(2)}% subtotal fee`}</p></td>
               <td className="p-3">{row.account_last4 ? <><p>{row.bank_name}</p><p>{row.account_name}</p><p>••••••••{row.account_last4}</p></> : "No saved account"}</td>
               <td className="p-3"><span className="rounded-full bg-white/10 px-2 py-1 capitalize">{row.status}</span>{row.status==="released"&&<p className="mt-2 text-[#b9adb6]">Simulated payout</p>}</td>
               <td className="whitespace-nowrap p-3 text-[#b9adb6]">{([["Created",row.created_at],["Eligible",row.eligible_at],["Released",row.released_at]]).map(([label,date])=><p key={label}>{label}: {date ? new Date(date).toLocaleDateString("en-PH") : "—"}</p>)}</td>
-              {admin&&<td className="p-3"><div className="flex min-w-40 flex-col gap-2">{(payoutActions[row.status]||[]).map(action=><button key={action.status} className={financeButton} disabled={busy || (action.status!=="held" && row.order_status!=="completed")} onClick={()=>void changeStatus(row,action.status)}>{action.label}</button>)}</div></td>}
+              {admin ? <td className="p-3"><div className="flex min-w-40 flex-col gap-2">{(payoutActions[row.status]||[]).map(action=><button key={action.status} className={financeButton} disabled={busy || (action.status!=="held" && row.order_status!=="completed")} onClick={()=>void changeStatus(row,action.status)}>{action.label}</button>)}</div></td>
+                : <td className="p-3">{row.status === "eligible" ? <button className={financeButton} disabled={busy || !row.account_last4 || row.order_status !== "completed"} onClick={()=>void requestPayout(row)}>Request payout</button> : <span className="text-[#b9adb6]">{row.status === "pending" ? "Available after order completion" : row.status === "processing" ? "Awaiting admin release" : row.status === "released" ? "Released" : "—"}</span>}</td>}
             </tr>)}</tbody></table>
         </div>}
         <div className="mt-4 flex items-center justify-between gap-3"><button className={financeButton} disabled={offset===0 || busy} onClick={()=>setOffset(Math.max(0,offset-50))}>Previous</button><span className="text-xs text-[#b9adb6]">Page {offset/50+1} · 50 per page</span><button className={financeButton} disabled={rows.length<50 || busy} onClick={()=>setOffset(offset+50)}>Next</button></div>
