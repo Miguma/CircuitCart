@@ -29,7 +29,8 @@ export function PrivateOfferPanel({ conversationId, productId, listingPrice, sto
   ), [offers, productId]);
 
   const submit = async () => {
-    const unitPrice = Number(price); const count = Number(quantity);
+    const unitPrice = Math.round(Number(price) * 100) / 100;
+    const count = Number(quantity);
     if (!Number.isInteger(count) || count < 1 || count > stock || !Number.isFinite(unitPrice) || unitPrice <= 0) {
       toast.error("Enter a valid price and available quantity."); return;
     }
