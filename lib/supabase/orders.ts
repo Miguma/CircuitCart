@@ -55,6 +55,7 @@ export function formatPaymentStatusLabel(
   method?: DbPaymentMethod | null
 ): string {
   if (status === "paid") return "Paid";
+  if (status === "partially_paid") return "50% Deposit Paid";
   if (status === "failed") return "Failed";
   if (status === "refunded") return "Refunded";
   if (method === "maya_online" || method === "demo_card") return "Awaiting Payment";
@@ -73,6 +74,7 @@ export function getPaymentExplanation(
 ): string {
   if (status === "paid") return method === "demo_card"
     ? "Demo sandbox payment confirmed — no real money was charged." : "Payment confirmed.";
+  if (status === "partially_paid") return "The 50% meetup deposit is verified. Pay the remaining balance directly to the seller at handover.";
   if (status === "failed") return "Payment was not completed.";
   if (status === "refunded") return "Payment refunded.";
 
@@ -100,6 +102,8 @@ export function mapDbPaymentStatusToSeller(status?: DbPaymentStatus | null): Pay
   switch (status) {
     case "paid":
       return "Paid";
+    case "partially_paid":
+      return "Deposit Paid";
     case "failed":
       return "Failed";
     case "refunded":
@@ -373,7 +377,13 @@ export async function getSellerOrders(): Promise<SellerOrder[]> {
               }
             : undefined,
         paymentMethod: formatPaymentMethodLabel(raw.payment_method),
-        awaitingOnlinePayment: raw.payment_method === "maya_online" && raw.payment_status !== "paid" && raw.status !== "cancelled",
+        depositAmount: raw.deposit_amount == null ? undefined : Number(raw.deposit_amount),
+        balanceDue: raw.deposit_amount == null ? undefined : Number(raw.balance_due),
+        balanceReceivedAt: raw.balance_received_at || undefined,
+        awaitingOnlinePayment:
+          ["maya_online", "demo_card"].includes(raw.payment_method) &&
+          !["paid", "partially_paid"].includes(raw.payment_status) &&
+          raw.status !== "cancelled",
         paymentStatus: mapDbPaymentStatusToSeller(raw.payment_status),
         status: mapDbStatusToSellerStatus(raw.status, raw.delivery_method),
         placedAt: dateStr,
@@ -383,6 +393,11 @@ export async function getSellerOrders(): Promise<SellerOrder[]> {
     console.warn("Error in getSellerOrders:", err);
     return [];
   }
+}
+
+export async function confirmMeetupBalance(orderId: string): Promise<void> {
+  const { data, error } = await createClient().rpc("confirm_meetup_balance", { p_order_id: orderId });
+  if (error || data !== true) throw new Error(error?.message || "Failed to confirm meetup balance.");
 }
 
 /**
@@ -423,6 +438,18 @@ export async function cancelBuyerOrder(orderId: string, reason?: string): Promis
   }
 
   const supabase = createClient();
+  const { data: order } = await supabase
+    .from("orders")
+    .select("deposit_amount,payment_status")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (order?.deposit_amount != null && order.payment_status === "partially_paid") {
+    const { data, error } = await supabase.rpc("refund_meetup_deposit", { p_order_id: orderId });
+    if (error || data !== true) throw new Error(error?.message || "Failed to cancel and refund meetup deposit.");
+    return;
+  }
+
   const { error } = await supabase.rpc("cancel_order", {
     p_order_id: orderId,
     p_reason: reason?.trim() || null,

@@ -88,12 +88,14 @@ export interface DbCartItem {
   user_id: string;
   product_id: string;
   quantity: number;
+  offer_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CartItemWithProduct extends DbCartItem {
   products?: ProductWithRelations | null;
+  chat_offers?: Pick<DbChatOffer, "id" | "unit_price" | "status" | "expires_at"> | null;
 }
 
 export interface DbFavorite {
@@ -128,6 +130,7 @@ export type DbPaymentMethod = DbLegacyPaymentMethod | "maya_online" | "demo_card
 
 export type DbPaymentStatus =
   | "pending"
+  | "partially_paid"
   | "paid"
   | "failed"
   | "refunded";
@@ -146,6 +149,10 @@ export interface DbOrder {
   payment_status: DbPaymentStatus;
   payment_reference: string | null;
   payment_transaction_id: string | null;
+  deposit_amount: number | null;
+  balance_due: number;
+  balance_received_at: string | null;
+  deposit_refunded_at: string | null;
   courier_name: string | null;
   tracking_number: string | null;
   shipping_name: string | null;
@@ -253,6 +260,29 @@ export interface DbMessage {
   body: string;
   created_at: string;
   read_at: string | null;
+}
+
+export type DbChatOfferStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "withdrawn"
+  | "reserved"
+  | "consumed";
+
+export interface DbChatOffer {
+  id: string;
+  conversation_id: string;
+  buyer_id: string;
+  seller_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  status: DbChatOfferStatus;
+  expires_at: string;
+  checkout_transaction_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MessageWithSender extends DbMessage {

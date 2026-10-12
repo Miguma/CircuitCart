@@ -28,6 +28,7 @@ import {
   updateSellerOrderStatus,
   cancelBuyerOrder,
   mapSellerStatusToDbStatus,
+  confirmMeetupBalance,
 } from "@/lib/supabase/orders";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -182,6 +183,17 @@ function SellerOrdersContent() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to cancel order.";
       toast.error(msg);
+    }
+  };
+
+  const handleConfirmMeetupBalance = async (orderId: string) => {
+    try {
+      await confirmMeetupBalance(orderId);
+      const fresh = await getSellerOrders();
+      setOrders(fresh);
+      toast.success("Remaining meetup payment confirmed.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to confirm meetup payment.");
     }
   };
 
@@ -536,6 +548,7 @@ function SellerOrdersContent() {
         }}
         onUpdateStatus={handleUpdateStatus}
         onCancelOrder={handleCancelOrder}
+        onConfirmMeetupBalance={handleConfirmMeetupBalance}
       />
     </SellerLayout>
   );

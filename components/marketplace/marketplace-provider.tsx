@@ -29,6 +29,7 @@ import { toast } from "sonner";
 export interface CartItem {
   product: Product;
   quantity: number;
+  offerId?: string;
 }
 
 interface MarketplaceContextType {

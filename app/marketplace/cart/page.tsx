@@ -223,6 +223,7 @@ export default function CartPage() {
     deliveryMethod: DbDeliveryMethod;
     paymentMethod: DbPaymentMethod;
     grandTotal: number;
+    amountPaid?: number;
     shippingName?: string;
     shippingAddress?: string;
     demo?: {
@@ -250,10 +251,10 @@ export default function CartPage() {
 
   const handleDeliveryMethodChange = (newMethod: DbDeliveryMethod) => {
     setDeliveryMethod(newMethod);
-    if (newMethod === "delivery" && paymentMethod === "cash_on_meetup") {
+    if (newMethod === "meetup") {
+      setPaymentMethod("demo_card");
+    } else if (paymentMethod === "cash_on_meetup") {
       setPaymentMethod("cash_on_delivery");
-    } else if (newMethod === "meetup" && paymentMethod === "cash_on_delivery") {
-      setPaymentMethod("cash_on_meetup");
     }
   };
 
@@ -269,21 +270,14 @@ export default function CartPage() {
       icon: <CreditCard className="size-4 text-[#e59bc9]" />,
     };
 
-    const cashOption =
-      deliveryMethod === "delivery"
-        ? {
+    const cashOption = {
             id: "cash_on_delivery" as DbPaymentMethod,
             title: "Cash on Delivery (COD)",
             subtitle: "Pay in cash directly to courier upon delivery",
             icon: <Banknote className="size-4 text-[#e59bc9]" />,
-          }
-        : {
-            id: "cash_on_meetup" as DbPaymentMethod,
-            title: "Cash on Meetup",
-            subtitle: "Pay in cash in-person upon meeting the seller",
-            icon: <Banknote className="size-4 text-[#e59bc9]" />,
           };
 
+    if (deliveryMethod === "meetup") return demoPaymentEnabled ? [demoOption] : [];
     return demoPaymentEnabled ? [demoOption, cashOption] : [cashOption];
   }, [deliveryMethod]);
 
@@ -291,7 +285,8 @@ export default function CartPage() {
     new Intl.NumberFormat("en-PH", {
       style: "currency",
       currency: "PHP",
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(price);
 
   // Group cart items by shop/seller for accurate multi-order & shipping fee calculation
@@ -352,6 +347,12 @@ export default function CartPage() {
   }, [cartItems, sellerGroups]);
 
   const overallGrandTotal = checkoutDisplayTotal;
+  // The database creates one order per seller and rounds each order's deposit.
+  const meetupDeposit = sellerGroups.reduce(
+    (sum, group) => sum + Math.round(Number(group.subtotal) * 50),
+    0
+  ) / 100;
+  const meetupBalance = checkoutDisplayTotal - meetupDeposit;
 
   const getFallbackIcon = (category: string) => {
     switch (category) {
@@ -488,7 +489,8 @@ export default function CartPage() {
           sellerCount,
           deliveryMethod,
           paymentMethod,
-          grandTotal: Number(demoData.amount) || overallGrandTotal,
+          grandTotal: overallGrandTotal,
+          amountPaid: Number(demoData.amount) || (deliveryMethod === "meetup" ? meetupDeposit : overallGrandTotal),
           shippingName: shippingName.trim() || undefined,
           shippingAddress: shippingAddress.trim() || undefined,
           demo: {
@@ -706,6 +708,16 @@ export default function CartPage() {
                         ({formatPrice(item.product.price)} each)
                       </span>
                     )}
+                    {item.offerId && (
+                      <div className="mt-1 text-[10px] font-semibold text-emerald-300">
+                        Private offer · quantity locked
+                        {item.product.originalPrice ? (
+                          <span className="ml-2 font-normal text-[#8f7d8c] line-through">
+                            {formatPrice(item.product.originalPrice * item.quantity)}
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -717,7 +729,7 @@ export default function CartPage() {
                       aria-label={`Decrease quantity of ${item.product.name}`}
                       onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                       className="size-7 rounded-lg bg-[#241c27] hover:bg-[#45304b] text-white flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
-                      disabled={item.quantity <= 1}
+                      disabled={item.quantity <= 1 || Boolean(item.offerId)}
                     >
                       <Minus className="size-3.5" />
                     </button>
@@ -730,7 +742,7 @@ export default function CartPage() {
                       type="button"
                       aria-label={`Increase quantity of ${item.product.name}`}
                       onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      disabled={item.product.stock !== undefined && item.quantity >= item.product.stock}
+                      disabled={Boolean(item.offerId) || (item.product.stock !== undefined && item.quantity >= item.product.stock)}
                       className="size-7 rounded-lg bg-[#241c27] hover:bg-[#45304b] text-white flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <Plus className="size-3.5" />
@@ -1018,6 +1030,11 @@ export default function CartPage() {
                       </button>
                     );
                   })}
+                  {deliveryMethod === "meetup" && paymentOptions.length === 0 && (
+                    <p className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-[11px] text-amber-200">
+                      Meetup checkout needs the Demo Card sandbox payment option. Enable it before placing this order.
+                    </p>
+                  )}
                 </div>
 
                 {/* Demo Card Sandbox Notice + Card Form */}
@@ -1138,8 +1155,15 @@ export default function CartPage() {
 
               {/* Total & Action */}
               <div className="pt-3 border-t border-white/10 space-y-3">
+                {deliveryMethod === "meetup" && (
+                  <div className="rounded-xl border border-[#e59bc9]/25 bg-[#e59bc9]/5 p-3 text-xs text-[#d6cbd5] space-y-1">
+                    <div className="flex justify-between"><span>50% downpayment now</span><strong className="text-[#e59bc9]">{formatPrice(meetupDeposit)}</strong></div>
+                    <div className="flex justify-between"><span>Remaining cash at meetup</span><strong>{formatPrice(meetupBalance)}</strong></div>
+                    <p className="pt-1 text-[10px] text-[#9f919d]">The seller confirms the remaining payment after you inspect the item.</p>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-xs text-[#d6cbd5]">
-                  <span>Total Amount Due:</span>
+                  <span>{deliveryMethod === "meetup" ? "Order Total:" : "Total Amount Due:"}</span>
                   <span className="text-base font-extrabold text-[#e59bc9]">
                     {checkoutDisplayTotal > 0 ? formatPrice(checkoutDisplayTotal) : "Unable to calculate total"}
                   </span>
@@ -1147,7 +1171,7 @@ export default function CartPage() {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting || checkoutDisplayTotal <= 0 || cartItems.length === 0}
+                  disabled={isSubmitting || checkoutDisplayTotal <= 0 || cartItems.length === 0 || (deliveryMethod === "meetup" && !demoPaymentEnabled)}
                   className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
@@ -1162,7 +1186,7 @@ export default function CartPage() {
                       {paymentMethod === "maya_online"
                         ? `Pay ${formatPrice(checkoutDisplayTotal)} with Maya`
                         : paymentMethod === "demo_card"
-                        ? `Pay ${formatPrice(checkoutDisplayTotal)} with Demo Card`
+                        ? `Pay ${formatPrice(deliveryMethod === "meetup" ? meetupDeposit : checkoutDisplayTotal)} with Demo Card`
                         : `Place Order (${formatPrice(checkoutDisplayTotal)})`}
                     </span>
                   )}
@@ -1204,7 +1228,7 @@ export default function CartPage() {
                     {isManualPayment
                       ? "Order Created — Payment Required"
                       : isDemoPayment
-                      ? "Payment successful"
+                      ? confirmation.deliveryMethod === "meetup" ? "Deposit successful" : "Payment successful"
                       : "Order Placed Successfully"}
                   </h2>
                   <p className="text-xs text-[#b9adb6] mt-1 max-w-sm mx-auto">
@@ -1213,7 +1237,9 @@ export default function CartPage() {
                         ? "Your order has been created, but your GCash payment has not been verified yet."
                         : "Your order has been created, but your Maya payment has not been verified yet."
                       : isDemoPayment
-                      ? "Demo transaction — no real money was charged."
+                      ? confirmation.deliveryMethod === "meetup"
+                        ? "Your 50% meetup deposit was recorded in the sandbox. Pay the balance to the seller at handover."
+                        : "Demo transaction — no real money was charged."
                       : confirmation.deliveryMethod === "meetup"
                       ? "Your order has been placed. Payment will be handed over to the seller in cash during meetup."
                       : confirmation.orderIds.length > 1
@@ -1271,7 +1297,7 @@ export default function CartPage() {
                       }`}
                     >
                       {isDemoPayment
-                        ? formatPaymentStatusLabel("paid", confirmation.paymentMethod)
+                        ? formatPaymentStatusLabel(confirmation.deliveryMethod === "meetup" ? "partially_paid" : "paid", confirmation.paymentMethod)
                         : formatPaymentStatusLabel("pending", confirmation.paymentMethod)}
                     </span>
                   </div>
@@ -1300,11 +1326,23 @@ export default function CartPage() {
                   )}
 
                   <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between font-bold">
-                    <span className="text-white">Total Amount Due:</span>
+                    <span className="text-white">Order Total:</span>
                     <span className="text-base text-[#e59bc9]">
                       {formatPrice(confirmation.grandTotal)}
                     </span>
                   </div>
+                  {isDemoPayment && confirmation.deliveryMethod === "meetup" && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#b9adb6]">Deposit Paid:</span>
+                        <span className="font-bold text-emerald-300">{formatPrice(confirmation.amountPaid || 0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#b9adb6]">Cash Due at Meetup:</span>
+                        <span className="font-bold text-white">{formatPrice(confirmation.grandTotal - (confirmation.amountPaid || 0))}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Contextual Payment Explanation Box */}
@@ -1334,10 +1372,9 @@ export default function CartPage() {
                       <span>Sandbox Receipt — No Real Payment</span>
                     </div>
                     <p className="text-[11px] text-[#d6cbd5] leading-relaxed">
-                      This order was paid with the Demo Card sandbox provider.
-                      No real money was charged and no external gateway was
-                      contacted. Only the last 4 card digits were kept for this
-                      receipt.
+                      {confirmation.deliveryMethod === "meetup"
+                        ? "The 50% deposit was recorded with the Demo Card sandbox provider. Pay the remaining cash only after inspecting the item at meetup. No real money was charged."
+                        : "This order was paid with the Demo Card sandbox provider. No real money was charged and no external gateway was contacted. Only the last 4 card digits were kept for this receipt."}
                     </p>
                   </div>
                 ) : (

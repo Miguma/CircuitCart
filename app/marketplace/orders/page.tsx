@@ -240,7 +240,7 @@ export default function OrdersPage() {
   // Buyer receipt confirmation: delivery ships first, meetup readies first.
   const canConfirmReceipt = (order: OrderWithItems) =>
     (order.delivery_method === "delivery" && order.status === "shipped") ||
-    (order.delivery_method === "meetup" && order.status === "ready");
+    (order.delivery_method === "meetup" && order.status === "ready" && Boolean(order.balance_received_at));
 
   const handleConfirmReceipt = async (orderId: string) => {
     if (confirmingOrderId) return;
@@ -590,6 +590,14 @@ export default function OrdersPage() {
                       </span>
                     </div>
 
+                    {order.deposit_amount !== null && (
+                      <div className="min-w-48 rounded-xl border border-[#e59bc9]/20 bg-[#e59bc9]/5 p-2.5 text-[11px] text-[#d6cbd5] space-y-1">
+                        <div className="flex justify-between gap-4"><span>50% deposit</span><strong>{formatPrice(Number(order.deposit_amount))}</strong></div>
+                        <div className="flex justify-between gap-4"><span>Meetup balance</span><strong>{formatPrice(Number(order.balance_due))}</strong></div>
+                        <p className="text-[10px] text-[#9f919d]">{order.balance_received_at ? "Seller confirmed the balance." : "Balance awaiting seller confirmation."}</p>
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <button
                         type="button"
@@ -674,7 +682,7 @@ export default function OrdersPage() {
               </h3>
             </div>
             <p className="text-xs text-[#b9adb6] leading-relaxed">
-              This will complete the order and make the seller&apos;s held earnings eligible for payout.
+              This confirms that you received the item and completes the order. For meetup orders, the seller must confirm the remaining cash balance first.
             </p>
             <div className="flex items-center justify-end gap-3 pt-1">
               <button
