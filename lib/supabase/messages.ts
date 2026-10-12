@@ -4,6 +4,7 @@ import {
   DbMessage,
   MessageWithSender,
   ConversationWithDetails,
+  DbChatOffer,
 } from "./types";
 
 /**
@@ -20,6 +21,52 @@ export function formatMessageDateGroup(dateStr: string): string {
   if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
 
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+export async function getConversationOffers(conversationId: string): Promise<DbChatOffer[]> {
+  const { data, error } = await createClient()
+    .from("chat_offers")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message || "Failed to load private offers.");
+  return (data || []) as DbChatOffer[];
+}
+
+export async function sendChatOffer(
+  conversationId: string,
+  productId: string,
+  quantity: number,
+  unitPrice: number,
+  expiresHours = 24
+): Promise<string> {
+  const { data, error } = await createClient().rpc("send_chat_offer", {
+    p_conversation_id: conversationId,
+    p_product_id: productId,
+    p_quantity: quantity,
+    p_unit_price: unitPrice,
+    p_expires_hours: expiresHours,
+  });
+  if (error || !data) throw new Error(error?.message || "Failed to send private offer.");
+  return data as string;
+}
+
+export async function respondChatOffer(offerId: string, action: "accept" | "decline" | "withdraw") {
+  const { data, error } = await createClient().rpc("respond_chat_offer", {
+    p_offer_id: offerId,
+    p_action: action,
+  });
+  if (error || data !== true) throw new Error(error?.message || "Failed to update offer.");
+}
+
+export function subscribeToOffers(conversationId: string, onChange: () => void): () => void {
+  const supabase = createClient();
+  const channel = supabase.channel(`offers:${conversationId}`).on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "chat_offers", filter: `conversation_id=eq.${conversationId}` },
+    onChange
+  ).subscribe();
+  return () => { supabase.removeChannel(channel); };
 }
 
 /**

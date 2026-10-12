@@ -42,6 +42,7 @@ interface SellerOrderDetailDrawerProps {
     courierName?: string
   ) => void;
   onCancelOrder: (orderId: string, reason: string) => void;
+  onConfirmMeetupBalance: (orderId: string) => void;
 }
 
 export function SellerOrderDetailDrawer({
@@ -50,6 +51,7 @@ export function SellerOrderDetailDrawer({
   onClose,
   onUpdateStatus,
   onCancelOrder,
+  onConfirmMeetupBalance,
 }: SellerOrderDetailDrawerProps) {
   const router = useRouter();
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -258,9 +260,14 @@ export function SellerOrderDetailDrawer({
                 <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/20 text-xs text-purple-300 flex items-center gap-2">
                   <Clock className="size-4 shrink-0 text-purple-400" />
                   <span>
-                    Waiting for buyer to confirm meetup handover.
+                    {order.balanceReceivedAt ? "Balance confirmed. Waiting for the buyer to confirm handover." : "Collect the remaining meetup balance, then confirm it below."}
                   </span>
                 </div>
+                {!order.balanceReceivedAt && order.depositAmount !== undefined && (
+                  <button type="button" onClick={() => onConfirmMeetupBalance(order.id)} className="mt-2 w-full rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-600">
+                    Confirm remaining ₱{Number(order.balanceDue || 0).toLocaleString()} received
+                  </button>
+                )}
               </div>
             )}
 
@@ -551,6 +558,13 @@ export function SellerOrderDetailDrawer({
                 ₱{order.total.toLocaleString()}
               </span>
             </div>
+            {order.depositAmount !== undefined && (
+              <div className="rounded-xl border border-[#e59bc9]/20 bg-[#e59bc9]/5 p-2.5 text-[11px] text-[#d6cbd5] space-y-1">
+                <div className="flex justify-between"><span>50% deposit</span><strong>₱{order.depositAmount.toLocaleString()}</strong></div>
+                <div className="flex justify-between"><span>Meetup balance</span><strong>₱{Number(order.balanceDue || 0).toLocaleString()}</strong></div>
+                <p className="text-[#9f919d]">{order.balanceReceivedAt ? "Seller confirmed the cash balance." : "Cash balance still awaiting seller confirmation."}</p>
+              </div>
+            )}
 
             <div className="pt-2 flex items-center justify-between text-[11px] text-[#b9adb6]">
               <span className="flex items-center gap-1.5">

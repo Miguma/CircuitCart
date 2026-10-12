@@ -14,7 +14,7 @@ export type OrderStatus =
   | "Refunded";
 
 export type FulfillmentMethod = "Delivery" | "Meetup";
-export type PaymentStatus = "Paid" | "Pending" | "Failed" | "Refunded";
+export type PaymentStatus = "Paid" | "Deposit Paid" | "Pending" | "Failed" | "Refunded";
 export type ListingStatus = "Active" | "Draft" | "Sold Out" | "Archived" | "Reserved";
 
 export interface OrderItem {
@@ -63,6 +63,9 @@ export interface SellerOrder {
     buyerNotes?: string;
   };
   paymentMethod: string;
+  depositAmount?: number;
+  balanceDue?: number;
+  balanceReceivedAt?: string;
   awaitingOnlinePayment?: boolean;
   paymentStatus: PaymentStatus;
   status: OrderStatus;

@@ -44,6 +44,7 @@ function rpcError(code: string, message: string) {
     "Recipient, phone and address are required for delivery.",
     "Checkout details exceed the allowed length.",
     "Demo card last4 digits are required.",
+    "Private offer expired or changed. Return to chat and accept a valid offer.",
   ];
   if (code === "P0001" && safeMessages.includes(message)) {
     return jsonResponse({ error: message }, 409);

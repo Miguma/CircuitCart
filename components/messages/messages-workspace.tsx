@@ -43,6 +43,7 @@ import { getProductImageUrl } from "@/lib/supabase/storage";
 import { formatOrderReference } from "@/lib/supabase/orders";
 import { mapDbProductToMarketplaceProduct } from "@/lib/marketplace/product-adapter";
 import { toast } from "sonner";
+import { PrivateOfferPanel } from "@/components/messages/private-offer-panel";
 
 function MessagesContent() {
   const router = useRouter();
@@ -802,6 +803,16 @@ function MessagesContent() {
                 })
               )}
             </div>
+
+            {activeConversation.products && (
+              <PrivateOfferPanel
+                conversationId={activeConversation.id}
+                productId={activeConversation.products.id}
+                listingPrice={Number(activeConversation.products.price)}
+                stock={Number(activeConversation.products.stock)}
+                isSeller={isSelling}
+              />
+            )}
 
             {/* Quick Replies Row */}
             <div className="px-4 py-2 cc-surface-card border-t cc-border overflow-x-auto scrollbar-none no-scrollbar flex items-center gap-1.5 shrink-0">

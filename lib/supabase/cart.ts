@@ -23,8 +23,15 @@ export async function getCartItems(options?: { throwOnError?: boolean }): Promis
         user_id,
         product_id,
         quantity,
+        offer_id,
         created_at,
         updated_at,
+        chat_offers (
+          id,
+          unit_price,
+          status,
+          expires_at
+        ),
         products (
           *,
           shops (
@@ -63,11 +70,17 @@ export async function getCartItems(options?: { throwOnError?: boolean }): Promis
     for (const raw of data as unknown as CartItemWithProduct[]) {
       if (raw.products) {
         const product = mapDbProductToMarketplaceProduct(raw.products);
+        const offer = raw.chat_offers;
+        if (offer?.status === "accepted" && new Date(offer.expires_at).getTime() > Date.now()) {
+          product.originalPrice = product.price;
+          product.price = Number(offer.unit_price);
+        }
         const stockLimit = Math.max(1, product.stock ?? 1);
         const validQuantity = Math.max(1, Math.min(raw.quantity, stockLimit));
         items.push({
           product,
           quantity: validQuantity,
+          offerId: offer?.status === "accepted" ? offer.id : undefined,
         });
       }
     }
