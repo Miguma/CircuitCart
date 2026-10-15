@@ -29,6 +29,7 @@ import {
   Package,
   Clock,
   Tag,
+  AlertTriangle,
 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
 import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
@@ -53,6 +54,7 @@ import {
   maskDemoCard,
 } from "@/lib/payments/demo";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const onlinePreviewEnabled = process.env.NEXT_PUBLIC_ONLINE_CHECKOUT_FOUNDATION_ENABLED === "true";
 const demoPaymentEnabled = isDemoPaymentEnabled();
@@ -371,6 +373,13 @@ export default function CartPage() {
     }, 0);
   }, [cartItems]);
 
+  const unconfirmedPriceChangeItems = React.useMemo(() => {
+    return cartItems.filter(
+      (item) => item.offer && !item.offer.isValid && !item.offer.isDismissed
+    );
+  }, [cartItems]);
+  const hasUnconfirmedPriceChanges = unconfirmedPriceChangeItems.length > 0;
+
   const getFallbackIcon = (category: string) => {
     switch (category) {
       case "Laptops":
@@ -392,6 +401,12 @@ export default function CartPage() {
     e.preventDefault();
     if (submitLock.current || recoveryState !== "idle") return;
     if (cartItems.length === 0) return;
+
+    if (hasUnconfirmedPriceChanges) {
+      toast.error("Please review and confirm price updates for items with expired or withdrawn offers before placing your order.");
+      setIsCheckoutOpen(false);
+      return;
+    }
 
     if (deliveryMethod === "delivery") {
       if (!shippingName.trim()) {
@@ -439,6 +454,9 @@ export default function CartPage() {
           await refreshCart({ preserveOnError: true }).catch(() => {});
           if (data.recoveryRequired === true) {
             setRecoveryState("error");
+          }
+          if (String(data.error).includes("Private offer expired or changed")) {
+            throw new Error("A private offer expired or changed during checkout. Payment initialization was stopped. Please review the updated catalog price.");
           }
           throw new Error(data.error || "Failed to initialize Maya Sandbox checkout.");
         }
@@ -498,6 +516,9 @@ export default function CartPage() {
             demoData.error || "Payment could not be verified. Check your orders before retrying.";
           setDemoFormError(null);
           setIsCheckoutOpen(false);
+          if (String(failureMsg).includes("Private offer expired or changed")) {
+            throw new Error("A private offer expired or changed during checkout. Payment initialization was stopped. Please review the updated catalog price.");
+          }
           throw new Error(failureMsg);
         }
 
@@ -566,7 +587,13 @@ export default function CartPage() {
       setConfirmation(confirmationData);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Checkout failed. Please try again.";
-      toast.error(msg);
+      if (msg.includes("Private offer expired or changed")) {
+        setIsCheckoutOpen(false);
+        await refreshCart({ preserveOnError: true }).catch(() => {});
+        toast.error("A private offer expired or changed during checkout. Payment initialization was stopped. Please review the updated catalog price.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       submitLock.current = false;
       setIsSubmitting(false);
@@ -674,6 +701,17 @@ export default function CartPage() {
         <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Cart Items List (8 cols) */}
           <div className="lg:col-span-8 space-y-4">
+            {hasUnconfirmedPriceChanges && (
+              <div role="alert" className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-200 space-y-1 shadow-md">
+                <div className="font-bold flex items-center gap-1.5 text-amber-300">
+                  <AlertTriangle className="size-4" />
+                  <span>Price Confirmation Required</span>
+                </div>
+                <p className="text-[#d6cbd5] leading-relaxed">
+                  One or more items in your cart had negotiated private offers that are no longer available (expired or withdrawn). You must explicitly confirm the original catalog price on the item(s) below before proceeding to checkout.
+                </p>
+              </div>
+            )}
             {cartItems.map((item) => (
               <div
                 key={item.product.id}
@@ -748,36 +786,38 @@ export default function CartPage() {
                   </div>
 
                   {item.offer && !item.offer.isValid && (
-                    <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="text-amber-200">
-                          <span className="font-bold">
-                            Negotiated offer {item.offer.isWithdrawn ? "withdrawn" : item.offer.isDeclined ? "declined" : "expired"}.
-                          </span>{" "}
-                          Standard catalog price of {formatPrice(item.product.price)} applies.
-                        </div>
+                    <div className="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2.5">
+                      <div className="text-amber-200">
+                        <strong className="font-bold text-amber-300 block mb-1">
+                          Negotiated discount is no longer available.
+                        </strong>
+                        The private offer {item.offer.isWithdrawn ? "was withdrawn by the seller" : item.offer.isDeclined ? "was declined" : "has expired"}.
+                        To purchase this item, you must confirm that you accept the original catalog price of{" "}
+                        <span className="font-extrabold text-white">{formatPrice(item.product.price)}</span>.
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
                         <button
                           type="button"
                           onClick={() => void dismissOffer(item.product.id, item.offer?.id)}
-                          className="text-[#d6cbd5] hover:text-white p-0.5 rounded cursor-pointer"
-                          aria-label="Dismiss notice"
+                          className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-[#1e1322] text-xs font-bold transition-colors cursor-pointer"
                         >
-                          <X className="size-3.5" />
+                          Confirm Original Price ({formatPrice(item.product.price)})
                         </button>
-                      </div>
-                      <div className="flex items-center gap-3 pt-0.5">
                         <Link
                           href={item.offer.conversationId ? `/messages?conversationId=${item.offer.conversationId}` : "/messages"}
-                          className="text-[11px] font-semibold text-[#e59bc9] hover:underline flex items-center gap-1"
+                          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors flex items-center gap-1"
                         >
-                          Request new offer in chat →
+                          Request New Offer in Chat →
                         </Link>
                         <button
                           type="button"
-                          onClick={() => void dismissOffer(item.product.id, item.offer?.id)}
-                          className="text-[11px] text-[#b9adb6] hover:text-white underline cursor-pointer"
+                          onClick={() => {
+                            removeFromCart(item.product.id);
+                            toast.info(`Removed "${item.product.name}" from cart.`);
+                          }}
+                          className="text-xs text-[#d6cbd5] hover:text-rose-300 ml-auto cursor-pointer"
                         >
-                          Dismiss notice
+                          Remove item
                         </button>
                       </div>
                     </div>
@@ -898,11 +938,30 @@ export default function CartPage() {
               <div className="pt-2 space-y-3">
                 <button
                   type="button"
-                  onClick={() => setIsCheckoutOpen(true)}
-                  className="w-full py-3 bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-semibold rounded-xl transition-colors text-center shadow-xs cursor-pointer focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
+                  disabled={hasUnconfirmedPriceChanges}
+                  onClick={() => {
+                    if (hasUnconfirmedPriceChanges) {
+                      toast.error("Please confirm the updated catalog price on item(s) above before checkout.");
+                      return;
+                    }
+                    setIsCheckoutOpen(true);
+                  }}
+                  className={cn(
+                    "w-full py-3 text-white text-xs font-semibold rounded-xl transition-colors text-center shadow-xs focus-visible:outline-2 focus-visible:outline-[#e59bc9]",
+                    hasUnconfirmedPriceChanges
+                      ? "bg-amber-600/50 hover:bg-amber-600/60 cursor-not-allowed opacity-80"
+                      : "bg-[#65486f] hover:bg-[#7a5985] cursor-pointer"
+                  )}
                 >
-                  Proceed to Checkout
+                  {hasUnconfirmedPriceChanges
+                    ? "Review Price Updates Above"
+                    : "Proceed to Checkout"}
                 </button>
+                {hasUnconfirmedPriceChanges && (
+                  <p className="text-[11px] text-amber-300 text-center">
+                    Please confirm the updated catalog price on item(s) above before checkout.
+                  </p>
+                )}
               </div>
 
               {/* Guarantees */}

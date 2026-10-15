@@ -92,6 +92,8 @@ export interface CartOfferDetails {
   isExpired: boolean;
   isWithdrawn: boolean;
   isDeclined?: boolean;
+  isDismissed?: boolean;
+  priceChanged?: boolean;
   isValid: boolean;
   conversationId?: string | null;
 }
