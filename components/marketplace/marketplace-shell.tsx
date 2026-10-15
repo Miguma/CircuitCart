@@ -9,6 +9,7 @@ import { MarketplaceHeader } from "./marketplace-header";
 import { MarketplaceFooter } from "./marketplace-footer";
 import { MarketplaceMobileNav } from "./marketplace-mobile-nav";
 import { QuickViewDialog } from "./quick-view-dialog";
+import { GuidedTourController } from "@/components/tour";
 
 function SearchNavigationSync() {
   const pathname = usePathname();
@@ -22,7 +23,11 @@ function SearchNavigationSync() {
 }
 
 function MarketplaceShellContent({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isMarketplaceRoute = pathname === "/marketplace" || pathname.startsWith("/marketplace");
+  const isSellerRoute = pathname === "/seller" || pathname.startsWith("/seller");
   const { quickViewProduct, setQuickViewProduct, isFavorite, toggleFavorite, addToCart } = useMarketplace();
+
   return (
     <div className="min-h-screen w-full overflow-x-clip cc-shell flex flex-col font-sans transition-colors duration-200">
       <Suspense fallback={null}><SearchNavigationSync /></Suspense>
@@ -31,6 +36,11 @@ function MarketplaceShellContent({ children }: { children: React.ReactNode }) {
       <div id="marketplace-content" tabIndex={-1} className="flex-1 w-full pb-[calc(4.75rem+env(safe-area-inset-bottom))] animate-in fade-in duration-150 focus:outline-none motion-reduce:animate-none md:pb-0">{children}</div>
       <MarketplaceFooter />
       <MarketplaceMobileNav />
+      {isMarketplaceRoute && !isSellerRoute && (
+        <Suspense fallback={null}>
+          <GuidedTourController tourId="buyer" triggerLabel="Tour Marketplace" />
+        </Suspense>
+      )}
       <QuickViewDialog product={quickViewProduct} isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)}
         isWishlisted={quickViewProduct ? isFavorite(quickViewProduct.id) : false} onToggleWishlist={toggleFavorite}
         onAddToCart={async (product) => {

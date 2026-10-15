@@ -26,14 +26,40 @@ interface AdminSidebarProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/verifications", label: "Verifications", icon: ShieldCheck },
+  {
+    href: "/admin",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    exact: true,
+    dataTour: "admin-overview",
+  },
+  {
+    href: "/admin/verifications",
+    label: "Verifications",
+    icon: ShieldCheck,
+    dataTour: "admin-verifications",
+  },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/sellers", label: "Sellers", icon: Store },
-  { href: "/admin/products", label: "Products", icon: Package },
-  { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
+  {
+    href: "/admin/products",
+    label: "Products",
+    icon: Package,
+    dataTour: "admin-products",
+  },
+  {
+    href: "/admin/orders",
+    label: "Orders",
+    icon: ShoppingBag,
+    dataTour: "admin-orders",
+  },
   { href: "/admin/shops", label: "Shops", icon: Building2 },
-  { href: "/admin/reports", label: "Reports", icon: FileText },
+  {
+    href: "/admin/reports",
+    label: "Reports",
+    icon: FileText,
+    dataTour: "admin-reports",
+  },
   { href: "/admin/finance", label: "Finance", icon: Landmark },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
@@ -98,6 +124,7 @@ export function AdminSidebar({ profile, onNavigate }: AdminSidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              data-tour={item.dataTour}
               onClick={onNavigate}
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 isActive

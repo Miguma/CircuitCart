@@ -231,7 +231,7 @@ export default function MarketplacePage() {
       {/* ========================================================= */}
       {/* 4. PRODUCT CATALOGUE + NON-MODAL SIDE-BY-SIDE FILTER PANEL*/}
       {/* ========================================================= */}
-      <div className="flex flex-col lg:flex-row items-start gap-6 relative">
+      <div data-tour="marketplace-products" className="flex flex-col lg:flex-row items-start gap-6 relative">
         {/* Left / Main Product Grid (Reflows seamlessly when filter opens) */}
         <div className="flex-1 w-full min-w-0 transition-all duration-300">
           {isLoading ? (

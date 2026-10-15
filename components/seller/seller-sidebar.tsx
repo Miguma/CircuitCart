@@ -54,24 +54,28 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
       href: "/seller",
       icon: LayoutDashboard,
       badge: null,
+      dataTour: "seller-overview",
     },
     {
       label: "Products",
       href: "/seller/products",
       icon: Package,
       badge: null,
+      dataTour: "seller-products",
     },
     {
       label: "Orders",
       href: "/seller/orders",
       icon: ShoppingBag,
       badge: null,
+      dataTour: "seller-orders",
     },
     {
       label: "Messages",
       href: "/seller/messages",
       icon: MessageSquare,
       badge: null,
+      dataTour: "seller-messages",
     },
     {
       label: "Analytics",
@@ -86,12 +90,14 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
       label: "Shop Profile",
       href: "/seller/shop",
       icon: Store,
+      dataTour: "seller-shop",
     },
     {
       label: "Verification",
       href: "/seller/verification",
       icon: ShieldCheck,
       isVerified,
+      dataTour: "seller-verification",
     },
     {
       label: "Settings",
@@ -199,6 +205,7 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.dataTour}
                 onClick={onCloseMobile}
                 className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all group ${
                   isActive
@@ -245,6 +252,7 @@ export function SellerSidebar({ onCloseMobile }: SellerSidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.dataTour}
                 onClick={onCloseMobile}
                 className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all group ${
                   isActive

@@ -114,6 +114,7 @@ export function MarketplaceHeader({
           {/* Logo / Brand Mark */}
           <Link
             href="/marketplace"
+            data-tour="marketplace-brand"
             className="inline-flex items-center gap-2 select-none focus-visible:outline-2 focus-visible:outline-[#e59bc9] rounded-xs shrink-0 group"
           >
             <svg
@@ -152,6 +153,7 @@ export function MarketplaceHeader({
           {/* DESKTOP SEARCH BAR (Clean, lightweight, single-purpose without redundant dropdown) */}
           <form
             onSubmit={handleSearchSubmit}
+            data-tour="marketplace-search"
             className="hidden md:flex items-center flex-1 max-w-2xl relative"
           >
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#b9adb6] pointer-events-none" />
@@ -178,6 +180,7 @@ export function MarketplaceHeader({
             {/* Favorites Button */}
             <Link
               href={userId ? "/marketplace/favorites" : "/login?redirectTo=/marketplace/favorites"}
+              data-tour="marketplace-favorites"
               className="relative hidden p-2 cc-text-primary hover:text-[#e59bc9] hover:cc-surface-secondary rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] md:inline-flex"
               aria-label={userId ? `Favorites with ${favorites.length} items` : "Log in to view favorites"}
             >
@@ -192,6 +195,7 @@ export function MarketplaceHeader({
             {/* Cart Button */}
             <Link
               href={userId ? "/marketplace/cart" : "/login?redirectTo=/marketplace/cart"}
+              data-tour="marketplace-cart"
               className="relative hidden p-2 cc-text-primary hover:text-[#e59bc9] hover:cc-surface-secondary rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9] md:inline-flex"
               aria-label={userId ? `Cart with ${totalCartCount} items` : "Log in to view cart"}
             >
@@ -206,6 +210,7 @@ export function MarketplaceHeader({
             {/* Messages Button */}
             <Link
               href="/marketplace/messages"
+              data-tour="marketplace-messages"
               className="relative hidden sm:inline-flex p-2 cc-text-primary hover:text-[#e59bc9] hover:cc-surface-secondary rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
               aria-label="Messages"
             >
@@ -250,6 +255,7 @@ export function MarketplaceHeader({
                 <button
                   ref={userButtonRef}
                   type="button"
+                  data-tour="marketplace-account"
                   aria-haspopup="menu"
                   aria-expanded={showUserMenu}
                   onClick={() => setShowUserMenu((prev) => !prev)}

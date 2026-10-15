@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminSidebar } from "./admin-sidebar";
 import { AdminHeader } from "./admin-header";
@@ -8,6 +8,7 @@ import { getCurrentUserProfile, type UserProfile } from "@/lib/supabase/auth";
 import { isAdmin } from "@/lib/supabase/admin";
 import { ShieldAlert, Loader2, X } from "lucide-react";
 import Link from "next/link";
+import { GuidedTourController } from "@/components/tour";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -135,6 +136,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {children}
         </main>
       </div>
+
+      <Suspense fallback={null}>
+        <GuidedTourController
+          tourId="admin"
+          triggerLabel="Tour Admin"
+        />
+      </Suspense>
     </div>
   );
 }
