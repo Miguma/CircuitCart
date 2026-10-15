@@ -52,7 +52,10 @@ export default function MarketplacePage() {
       setProductsList(dbProducts || []);
     } catch (err: unknown) {
       console.error("Could not fetch Supabase marketplace listings:", err);
-      const msg = "Failed to load marketplace products. Please try again.";
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to load marketplace products. Please try again.";
       setLoadError(msg);
       setProductsList([]);
       toast.error(msg);
@@ -73,7 +76,10 @@ export default function MarketplacePage() {
       .catch((err) => {
         if (active) {
           console.error("Could not fetch Supabase marketplace listings:", err);
-          const msg = "Failed to load marketplace products. Please try again.";
+          const msg =
+            err instanceof Error
+              ? err.message
+              : "Failed to load marketplace products. Please try again.";
           setLoadError(msg);
           setProductsList([]);
           setIsLoading(false);

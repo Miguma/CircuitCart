@@ -23,12 +23,66 @@ import type {
 } from "./types";
 
 /**
- * Fetches all active products for the public marketplace
+ * Fetches all active products for the public marketplace.
+ *
+ * Migration Compatibility:
+ * 1. Post-migration: Strictly requires status = 'active' AND verification_status = 'approved'.
+ * 2. Pre-migration: If the database schema has not applied the AI verification migration yet
+ *    (PostgREST error 42703 'undefined_column' on verification_status), falls back to the
+ *    legacy schema condition (status = 'active') so existing products remain viewable during
+ *    pre-migration development.
+ * 3. Error Safety: Database errors (network, auth, down) are logged and thrown rather than
+ *    silently swallowed into empty arrays, allowing the UI to render the dedicated error state.
+ *    No unconditional fallback is ever used.
  */
 export async function getMarketplaceProducts(): Promise<Product[]> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
+  const supabase = createClient();
+
+  // Primary post-migration query: require status = 'active' AND verification_status = 'approved'
+  const { data, error } = await supabase
+    .from("products")
+    .select(`
+      *,
+      shops (
+        id,
+        name,
+        slug,
+        is_verified,
+        location
+      ),
+      profiles (
+        id,
+        full_name,
+        avatar_url
+      ),
+      product_images (
+        id,
+        storage_path,
+        sort_order
+      )
+    `)
+    .eq("status", "active")
+    .eq("verification_status", "approved")
+    .gt("stock", 0)
+    .order("created_at", { ascending: false });
+
+  if (!error && data) {
+    return (data as ProductWithRelations[]).map(mapDbProductToMarketplaceProduct);
+  }
+
+  // Check if error specifically indicates 'verification_status' column does not exist (pre-migration DB)
+  const isMissingVerificationColumn =
+    error?.code === "42703" ||
+    (typeof error?.message === "string" &&
+      error.message.toLowerCase().includes("verification_status") &&
+      error.message.toLowerCase().includes("does not exist"));
+
+  if (isMissingVerificationColumn) {
+    console.info(
+      "[Marketplace] Pre-migration schema detected: 'verification_status' column does not exist. Using legacy active products filter."
+    );
+
+    const legacyResponse = await supabase
       .from("products")
       .select(`
         *,
@@ -54,16 +108,26 @@ export async function getMarketplaceProducts(): Promise<Product[]> {
       .gt("stock", 0)
       .order("created_at", { ascending: false });
 
-    if (error || !data) {
-      console.warn("Failed to fetch marketplace products from Supabase:", error?.message);
-      return [];
+    if (legacyResponse.error) {
+      console.error(
+        "Supabase marketplace fetch error (legacy schema):",
+        legacyResponse.error
+      );
+      throw new Error(
+        `Failed to fetch marketplace products: ${legacyResponse.error.message}`
+      );
     }
 
-    return (data as ProductWithRelations[]).map(mapDbProductToMarketplaceProduct);
-  } catch (err) {
-    console.warn("Error in getMarketplaceProducts:", err);
-    return [];
+    return ((legacyResponse.data || []) as ProductWithRelations[]).map(
+      mapDbProductToMarketplaceProduct
+    );
   }
+
+  // Real database error (network, down, auth, or unexpected error)
+  console.error("Supabase marketplace fetch error:", error);
+  throw new Error(
+    `Failed to fetch marketplace products: ${error?.message || "Database query failed"}`
+  );
 }
 
 /**
@@ -74,47 +138,70 @@ export async function getProductById(id: string): Promise<{
   raw: ProductWithRelations;
   images: string[];
 } | null> {
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select(`
-        *,
-        shops (
-          id,
-          name,
-          slug,
-          description,
-          is_verified,
-          location
-        ),
-        profiles (
-          id,
-          full_name,
-          avatar_url
-        ),
-        product_images (
-          id,
-          storage_path,
-          sort_order
-        )
-      `)
-      .eq("id", id)
-      .maybeSingle();
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(`
+      *,
+      shops (
+        id,
+        name,
+        slug,
+        description,
+        is_verified,
+        location
+      ),
+      profiles (
+        id,
+        full_name,
+        avatar_url
+      ),
+      product_images (
+        id,
+        storage_path,
+        sort_order
+      )
+    `)
+    .eq("id", id)
+    .maybeSingle();
 
-    if (error || !data) return null;
-
-    const raw = data as ProductWithRelations;
-    const product = mapDbProductToMarketplaceProduct(raw);
-
-    const sortedImages = [...(raw.product_images || [])]
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((img) => getProductImageUrl(img.storage_path));
-
-    return { product, raw, images: sortedImages };
-  } catch {
-    return null;
+  if (error) {
+    console.error("Supabase getProductById error:", error);
+    throw new Error(`Failed to fetch product details: ${error.message}`);
   }
+
+  if (!data) return null;
+
+  const raw = data as ProductWithRelations;
+
+  // Schema-aware public visibility check:
+  // Post-migration: Must be status === 'active' AND verification_status === 'approved'.
+  // Pre-migration (verification_status is not a column on the row): Must be status === 'active'.
+  const hasVerificationColumn =
+    "verification_status" in raw &&
+    raw.verification_status !== undefined &&
+    raw.verification_status !== null;
+
+  const isPubliclyVisible = hasVerificationColumn
+    ? raw.status === "active" && raw.verification_status === "approved"
+    : raw.status === "active";
+
+  if (!isPubliclyVisible) {
+    const currentUser = await getCurrentUser().catch(() => null);
+    const isOwner = currentUser?.id === raw.seller_id;
+    const isAdmin = currentUser?.email === "admin@circuitcart.com";
+    if (!isOwner && !isAdmin) {
+      return null;
+    }
+  }
+
+  const product = mapDbProductToMarketplaceProduct(raw);
+
+  const sortedImages = [...(raw.product_images || [])]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((img) => getProductImageUrl(img.storage_path));
+
+  return { product, raw, images: sortedImages };
 }
 
 /**
@@ -178,30 +265,55 @@ export async function createProduct(
   const cleanTitle = input.title.trim();
   const slugBase = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const slug = `${slugBase}-${crypto.randomUUID().slice(0, 6)}`;
-  const status: DbProductStatus = input.status || "draft";
-  const publishedAt = status === "active" ? new Date().toISOString() : null;
+  // New listings start as draft pending AI product verification
+  const status: DbProductStatus = "draft";
 
   // 1. Insert product row
-  const { data: productData, error: productError } = await supabase
+  const baseProductPayload = {
+    seller_id: user.id,
+    shop_id: shop.id,
+    title: cleanTitle,
+    slug,
+    category: input.category,
+    condition: input.condition,
+    price: input.price,
+    original_price: input.original_price || null,
+    stock: input.stock,
+    specs: input.specs?.trim() || null,
+    description: input.description?.trim() || null,
+    location: input.location?.trim() || shop.location || "Cebu City, Central Visayas",
+    status,
+    published_at: null,
+  };
+
+  let productData: DbProduct | null = null;
+  let productError: { message?: string; code?: string } | null = null;
+
+  const insertWithVerification = await supabase
     .from("products")
     .insert({
-      seller_id: user.id,
-      shop_id: shop.id,
-      title: cleanTitle,
-      slug,
-      category: input.category,
-      condition: input.condition,
-      price: input.price,
-      original_price: input.original_price || null,
-      stock: input.stock,
-      specs: input.specs?.trim() || null,
-      description: input.description?.trim() || null,
-      location: input.location?.trim() || shop.location || "Cebu City, Central Visayas",
-      status,
-      published_at: publishedAt,
+      ...baseProductPayload,
+      verification_status: "pending",
     })
     .select()
     .single();
+
+  if (
+    insertWithVerification.error &&
+    (insertWithVerification.error.code === "42703" ||
+      insertWithVerification.error.message?.includes("verification_status"))
+  ) {
+    const fallbackInsert = await supabase
+      .from("products")
+      .insert(baseProductPayload)
+      .select()
+      .single();
+    productData = fallbackInsert.data as DbProduct | null;
+    productError = fallbackInsert.error;
+  } else {
+    productData = insertWithVerification.data as DbProduct | null;
+    productError = insertWithVerification.error;
+  }
 
   if (productError || !productData) {
     throw new Error(`Failed to create product: ${productError?.message || "Database insert error"}`);
@@ -468,17 +580,11 @@ export async function updateProductStatus(
 export async function deleteProduct(productId: string): Promise<void> {
   const supabase = createClient();
 
-  // Fetch images to delete from storage
+  // Capture image paths before the product (and its product_images rows) is removed
   const { data: images } = await supabase
     .from("product_images")
     .select("storage_path")
     .eq("product_id", productId);
-
-  if (images && images.length > 0) {
-    for (const img of images) {
-      await deleteProductImage(img.storage_path);
-    }
-  }
 
   const { error } = await supabase
     .from("products")
@@ -487,6 +593,15 @@ export async function deleteProduct(productId: string): Promise<void> {
 
   if (error) {
     throw new Error(`Failed to delete product: ${error.message}`);
+  }
+
+  // Storage RLS only permits deleting objects that no product_images row references,
+  // so cleanup must run after the cascade. Paths still used by a duplicated listing
+  // are intentionally retained by the policy.
+  if (images && images.length > 0) {
+    for (const img of images) {
+      await deleteProductImage(img.storage_path);
+    }
   }
 }
 
@@ -521,26 +636,51 @@ export async function duplicateProduct(productId: string): Promise<string> {
   const slugBase = cloneTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const slug = `${slugBase}-${crypto.randomUUID().slice(0, 6)}`;
 
-  const { data: cloned, error: cloneError } = await supabase
+  const baseClonePayload = {
+    seller_id: user.id,
+    shop_id: original.shop_id,
+    title: cloneTitle,
+    slug,
+    category: original.category,
+    condition: original.condition,
+    price: original.price,
+    original_price: original.original_price,
+    stock: original.stock,
+    specs: original.specs,
+    description: original.description,
+    location: original.location,
+    status: "draft" as const,
+    published_at: null,
+  };
+
+  let cloned: DbProduct | null = null;
+  let cloneError: { message?: string; code?: string } | null = null;
+
+  const cloneWithVerification = await supabase
     .from("products")
     .insert({
-      seller_id: user.id,
-      shop_id: original.shop_id,
-      title: cloneTitle,
-      slug,
-      category: original.category,
-      condition: original.condition,
-      price: original.price,
-      original_price: original.original_price,
-      stock: original.stock,
-      specs: original.specs,
-      description: original.description,
-      location: original.location,
-      status: "draft",
-      published_at: null,
+      ...baseClonePayload,
+      verification_status: "pending",
     })
     .select()
     .single();
+
+  if (
+    cloneWithVerification.error &&
+    (cloneWithVerification.error.code === "42703" ||
+      cloneWithVerification.error.message?.includes("verification_status"))
+  ) {
+    const fallbackClone = await supabase
+      .from("products")
+      .insert(baseClonePayload)
+      .select()
+      .single();
+    cloned = fallbackClone.data as DbProduct | null;
+    cloneError = fallbackClone.error;
+  } else {
+    cloned = cloneWithVerification.data as DbProduct | null;
+    cloneError = cloneWithVerification.error;
+  }
 
   if (cloneError || !cloned) {
     throw new Error(`Failed to clone product: ${cloneError?.message || "Database error"}`);
@@ -559,3 +699,40 @@ export async function duplicateProduct(productId: string): Promise<string> {
 
   return cloned.id;
 }
+
+export interface VerifyProductResponse {
+  success: boolean;
+  decision: "TECH_APPROVED" | "NON_TECH_REJECTED" | "UNCERTAIN";
+  status: "approved" | "rejected" | "uncertain";
+  productStatus: "active" | "draft";
+  confidence: number;
+  reason: string;
+  suggestedCategory?: string | null;
+  flaggedReasons?: string[];
+  modelUsed?: string;
+  contentHash?: string;
+  error?: string;
+  retryAfterSeconds?: number;
+}
+
+/**
+ * Triggers server-side AI product verification for a product listing.
+ */
+export async function verifyProductWithAi(
+  productId: string,
+  imagePreviews?: string[]
+): Promise<VerifyProductResponse> {
+  const res = await fetch(`/api/products/${encodeURIComponent(productId)}/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imagePreviews }),
+  });
+
+  const data = await res.json().catch(() => ({ error: "Failed to parse response." }));
+  if (!res.ok) {
+    throw new Error(data.error || `Verification failed with status ${res.status}`);
+  }
+
+  return data as VerifyProductResponse;
+}
+
