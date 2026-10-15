@@ -26,6 +26,35 @@ export function GuidedTourController({
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
   const [isTourActive, setIsTourActive] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isButtonDismissed, setIsButtonDismissed] = useState(false);
+
+  // Check if floating tour button has been dismissed for this role & user
+  useEffect(() => {
+    try {
+      let userSuffix = "";
+      const authKey = Object.keys(localStorage).find(
+        (k) => k.startsWith("sb-") && k.endsWith("-auth-token")
+      );
+      if (authKey) {
+        const raw = localStorage.getItem(authKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.user?.id) {
+            userSuffix = `_${parsed.user.id}`;
+          }
+        }
+      }
+      const isDismissed =
+        localStorage.getItem(`circuitcart_tour_${tourId}_button_dismissed${userSuffix}`) === "true" ||
+        localStorage.getItem(`circuitcart_tour_${tourId}_button_dismissed`) === "true";
+      if (isDismissed) {
+        const timer = setTimeout(() => setIsButtonDismissed(true), 0);
+        return () => clearTimeout(timer);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [tourId]);
 
   // Check URL param ?tour=1 or ?tour=buyer/seller/admin
   useEffect(() => {
@@ -73,6 +102,29 @@ export function GuidedTourController({
     }
   }, [storageKey]);
 
+  const handleDismissButton = useCallback(() => {
+    setIsButtonDismissed(true);
+    try {
+      let userSuffix = "";
+      const authKey = Object.keys(localStorage).find(
+        (k) => k.startsWith("sb-") && k.endsWith("-auth-token")
+      );
+      if (authKey) {
+        const raw = localStorage.getItem(authKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.user?.id) {
+            userSuffix = `_${parsed.user.id}`;
+          }
+        }
+      }
+      localStorage.setItem(`circuitcart_tour_${tourId}_button_dismissed${userSuffix}`, "true");
+      localStorage.setItem(`circuitcart_tour_${tourId}_button_dismissed`, "true");
+    } catch {
+      // Ignore storage errors
+    }
+  }, [tourId]);
+
   const handleCloseTour = useCallback(() => {
     setIsTourActive(false);
     try {
@@ -102,8 +154,14 @@ export function GuidedTourController({
 
   return (
     <>
-      {/* Persistent floating replay button */}
-      <TourTriggerButton label={triggerLabel} onClick={handleStartTour} />
+      {/* Floating tour replay trigger button with dismiss option */}
+      {!isButtonDismissed && (
+        <TourTriggerButton
+          label={triggerLabel}
+          onClick={handleStartTour}
+          onDismiss={handleDismissButton}
+        />
+      )}
 
       {/* Welcome first-time prompt dialog */}
       <WelcomeTourDialog
