@@ -83,6 +83,19 @@ export interface UpdateProductInput extends Partial<CreateProductInput> {
   id: string;
 }
 
+export interface CartOfferDetails {
+  id: string;
+  unitPrice: number;
+  quantity: number;
+  status: string;
+  expiresAt: string;
+  isExpired: boolean;
+  isWithdrawn: boolean;
+  isDeclined?: boolean;
+  isValid: boolean;
+  conversationId?: string | null;
+}
+
 export interface DbCartItem {
   id: string;
   user_id: string;
@@ -95,7 +108,10 @@ export interface DbCartItem {
 
 export interface CartItemWithProduct extends DbCartItem {
   products?: ProductWithRelations | null;
-  chat_offers?: Pick<DbChatOffer, "id" | "unit_price" | "status" | "expires_at"> | null;
+  chat_offers?: (Pick<DbChatOffer, "id" | "unit_price" | "status" | "expires_at"> & {
+    quantity?: number;
+    conversation_id?: string;
+  }) | null;
 }
 
 export interface DbFavorite {

@@ -44,6 +44,7 @@ function rpcError(code: string, message: string) {
     "Online checkout limit reached. Try again later.", "Online checkout supports up to 100 cart items.",
     "Reservation expired. Recover payment status before retrying.",
     "Checkout not found.", "Checkout cannot be cancelled without payment reconciliation.",
+    "Private offer expired or changed. Return to chat and accept a valid offer.",
   ];
   if (code === "P0001" && safeMessages.includes(message)) return respond({ error: message }, 409);
   if (code === "42501" || code === "PGRST301") return respond({ error: "Your session expired. Sign in again." }, 401);

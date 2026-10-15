@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   Package,
   Clock,
+  Tag,
 } from "lucide-react";
 import { useMarketplace } from "@/components/marketplace/marketplace-provider";
 import { useMarketplaceAccount } from "@/components/marketplace/marketplace-account";
@@ -141,7 +142,14 @@ export default function CartPage() {
     resetLocalCart,
     totalCartCount,
     cartSubtotal,
+    dismissOffer,
   } = useMarketplace();
+
+  React.useEffect(() => {
+    if (userId) {
+      void refreshCart({ preserveOnError: true });
+    }
+  }, [userId, refreshCart]);
 
   React.useEffect(() => {
     if (!isAccountLoading && !userId) {
@@ -353,6 +361,15 @@ export default function CartPage() {
     0
   ) / 100;
   const meetupBalance = checkoutDisplayTotal - meetupDeposit;
+
+  const offerSavingsTotal = React.useMemo(() => {
+    return cartItems.reduce((acc, item) => {
+      if (item.offerId && item.product.originalPrice && item.product.originalPrice > item.product.price) {
+        return acc + (item.product.originalPrice - item.product.price) * item.quantity;
+      }
+      return acc;
+    }, 0);
+  }, [cartItems]);
 
   const getFallbackIcon = (category: string) => {
     switch (category) {
@@ -709,16 +726,62 @@ export default function CartPage() {
                       </span>
                     )}
                     {item.offerId && (
-                      <div className="mt-1 text-[10px] font-semibold text-emerald-300">
-                        Private offer · quantity locked
-                        {item.product.originalPrice ? (
-                          <span className="ml-2 font-normal text-[#8f7d8c] line-through">
-                            {formatPrice(item.product.originalPrice * item.quantity)}
-                          </span>
-                        ) : null}
+                      <div className="mt-1 space-y-0.5">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-bold text-emerald-300">
+                          <span>Negotiated Offer Applied</span>
+                          {item.product.originalPrice && item.product.originalPrice > item.product.price ? (
+                            <span className="text-emerald-400 font-extrabold">
+                              (Save {formatPrice((item.product.originalPrice - item.product.price) * item.quantity)})
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="text-[10px] text-[#b9adb6]">
+                          Quantity locked to offer ({item.quantity})
+                          {item.product.originalPrice ? (
+                            <span className="ml-2 text-[#8f7d8c] line-through">
+                              Orig: {formatPrice(item.product.originalPrice * item.quantity)}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     )}
                   </div>
+
+                  {item.offer && !item.offer.isValid && (
+                    <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-amber-200">
+                          <span className="font-bold">
+                            Negotiated offer {item.offer.isWithdrawn ? "withdrawn" : item.offer.isDeclined ? "declined" : "expired"}.
+                          </span>{" "}
+                          Standard catalog price of {formatPrice(item.product.price)} applies.
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void dismissOffer(item.product.id, item.offer?.id)}
+                          className="text-[#d6cbd5] hover:text-white p-0.5 rounded cursor-pointer"
+                          aria-label="Dismiss notice"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-3 pt-0.5">
+                        <Link
+                          href={item.offer.conversationId ? `/messages?conversationId=${item.offer.conversationId}` : "/messages"}
+                          className="text-[11px] font-semibold text-[#e59bc9] hover:underline flex items-center gap-1"
+                        >
+                          Request new offer in chat →
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void dismissOffer(item.product.id, item.offer?.id)}
+                          className="text-[11px] text-[#b9adb6] hover:text-white underline cursor-pointer"
+                        >
+                          Dismiss notice
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Quantity Controls & Remove */}
@@ -779,6 +842,16 @@ export default function CartPage() {
                     {formatPrice(cartSubtotal)}
                   </span>
                 </div>
+
+                {offerSavingsTotal > 0 && (
+                  <div className="flex items-center justify-between text-emerald-400">
+                    <span className="flex items-center gap-1">
+                      <Tag className="size-3.5" />
+                      <span>Negotiated Savings</span>
+                    </span>
+                    <span className="font-semibold">-{formatPrice(offerSavingsTotal)}</span>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-[#d6cbd5]">
                   <span>Estimated Visayas Delivery</span>
@@ -1160,6 +1233,15 @@ export default function CartPage() {
                     <div className="flex justify-between"><span>50% downpayment now</span><strong className="text-[#e59bc9]">{formatPrice(meetupDeposit)}</strong></div>
                     <div className="flex justify-between"><span>Remaining cash at meetup</span><strong>{formatPrice(meetupBalance)}</strong></div>
                     <p className="pt-1 text-[10px] text-[#9f919d]">The seller confirms the remaining payment after you inspect the item.</p>
+                  </div>
+                )}
+                {offerSavingsTotal > 0 && (
+                  <div className="flex items-center justify-between text-xs text-emerald-400">
+                    <span className="flex items-center gap-1">
+                      <Tag className="size-3" />
+                      <span>Negotiated Savings:</span>
+                    </span>
+                    <span className="font-semibold">-{formatPrice(offerSavingsTotal)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-xs text-[#d6cbd5]">

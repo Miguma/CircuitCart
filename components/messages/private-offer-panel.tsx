@@ -42,7 +42,14 @@ export function PrivateOfferPanel({ conversationId, productId, listingPrice, sto
 
   const respond = async (action: "accept" | "decline" | "withdraw") => {
     if (!current) return; setBusy(true);
-    try { await respondChatOffer(current.id, action); await load(); toast.success(action === "accept" ? "Offer accepted and added to your cart." : "Offer updated."); }
+    try {
+      await respondChatOffer(current.id, action);
+      await load();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("circuitcart:cart-updated"));
+      }
+      toast.success(action === "accept" ? "Offer accepted and added to your cart." : "Offer updated.");
+    }
     catch (error) { toast.error(error instanceof Error ? error.message : "Offer update failed."); }
     finally { setBusy(false); }
   };

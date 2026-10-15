@@ -19,6 +19,7 @@ export async function createTestDatabase() {
   };
   await load(new URL('../finance/bootstrap.sql', import.meta.url));
   await load(new URL('../../supabase/schema.sql', import.meta.url));
+  await db.exec(`alter table if exists public.orders add column if not exists completed_at timestamptz;`);
   const directory = new URL('../../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(directory)).filter(f => f.endsWith('.sql')).sort()) {
     await load(new URL(file, directory));

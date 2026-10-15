@@ -18,18 +18,21 @@ import {
   updateCartItemQuantity,
   removeCartItem,
   clearCart as clearSupabaseCart,
+  dismissCartOffer,
 } from "@/lib/supabase/cart";
 import {
   getFavorites,
   toggleFavorite as toggleSupabaseFavorite,
 } from "@/lib/supabase/favorites";
 import { getUnreadNotificationCount } from "@/lib/supabase/notifications";
+import { CartOfferDetails } from "@/lib/supabase/types";
 import { toast } from "sonner";
 
 export interface CartItem {
   product: Product;
   quantity: number;
   offerId?: string;
+  offer?: CartOfferDetails;
 }
 
 interface MarketplaceContextType {
@@ -53,6 +56,7 @@ interface MarketplaceContextType {
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+  dismissOffer: (productId: string, offerId?: string) => Promise<void>;
   refreshCart: (options?: { preserveOnError?: boolean }) => Promise<void>;
   resetLocalCart: () => void;
   totalCartCount: number;
@@ -245,6 +249,19 @@ export function MarketplaceProvider({
     [favorites]
   );
 
+  const refreshCart = useCallback(async (options?: { preserveOnError?: boolean }) => {
+    try {
+      const items = await getCartItems({ throwOnError: options?.preserveOnError });
+      setCartItems(items || []);
+    } catch (err) {
+      console.warn("Could not refresh cart from Supabase:", err);
+      if (options?.preserveOnError) throw err;
+      setCartItems([]);
+    } finally {
+      setIsCartLoading(false);
+    }
+  }, []);
+
   // Cart handlers
   const addToCart = useCallback(
     async (product: Product, quantity = 1): Promise<boolean> => {
@@ -285,6 +302,7 @@ export function MarketplaceProvider({
 
       try {
         await addCartItem(product.id, quantity);
+        await refreshCart({ preserveOnError: true });
         return true;
       } catch (err: unknown) {
         // Rollback
@@ -295,7 +313,7 @@ export function MarketplaceProvider({
         return false;
       }
     },
-    [cartItems, userId, router]
+    [cartItems, userId, router, refreshCart]
   );
 
   const removeFromCart = useCallback(
@@ -368,18 +386,27 @@ export function MarketplaceProvider({
     }
   }, [cartItems]);
 
-  const refreshCart = useCallback(async (options?: { preserveOnError?: boolean }) => {
-    try {
-      const items = await getCartItems({ throwOnError: options?.preserveOnError });
-      setCartItems(items || []);
-    } catch (err) {
-      console.warn("Could not refresh cart from Supabase:", err);
-      if (options?.preserveOnError) throw err;
-      setCartItems([]);
-    } finally {
-      setIsCartLoading(false);
-    }
-  }, []);
+  const dismissOffer = useCallback(
+    async (productId: string, offerId?: string) => {
+      try {
+        await dismissCartOffer(productId, offerId);
+        await refreshCart({ preserveOnError: true });
+      } catch (err: unknown) {
+        console.warn("Failed to dismiss offer:", err);
+      }
+    },
+    [refreshCart]
+  );
+
+  useEffect(() => {
+    const handleCartSync = () => {
+      void refreshCart({ preserveOnError: true });
+    };
+    window.addEventListener("circuitcart:cart-updated", handleCartSync);
+    return () => {
+      window.removeEventListener("circuitcart:cart-updated", handleCartSync);
+    };
+  }, [refreshCart]);
 
   const resetLocalCart = useCallback(() => {
     setCartItems([]);
@@ -413,6 +440,7 @@ export function MarketplaceProvider({
       removeFromCart,
       updateQuantity,
       clearCart,
+      dismissOffer,
       refreshCart,
       resetLocalCart,
       totalCartCount,
@@ -434,6 +462,7 @@ export function MarketplaceProvider({
       removeFromCart,
       updateQuantity,
       clearCart,
+      dismissOffer,
       refreshCart,
       resetLocalCart,
       totalCartCount,
