@@ -107,6 +107,8 @@ export function mapDbProductToSellerProductItem(
     price: Number(dbProduct.price),
     stock: dbProduct.stock,
     status: mapDbStatusToListingStatus(dbProduct.status),
+    verificationStatus: dbProduct.verification_status || "pending",
+    verificationReason: dbProduct.verification_reason || null,
     views: 0,
     soldCount: 0,
     updatedAt: formattedDate,

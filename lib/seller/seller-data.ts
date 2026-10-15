@@ -79,6 +79,8 @@ export interface SellerOrder {
   cancelReason?: string;
 }
 
+export type SellerVerificationStatus = "approved" | "pending" | "rejected" | "uncertain";
+
 export interface SellerProductItem {
   id: string;
   name: string;
@@ -86,6 +88,8 @@ export interface SellerProductItem {
   price: number;
   stock: number;
   status: ListingStatus;
+  verificationStatus?: SellerVerificationStatus;
+  verificationReason?: string | null;
   views: number;
   soldCount: number;
   updatedAt: string;

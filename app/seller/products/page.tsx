@@ -15,6 +15,9 @@ import {
   Archive,
   Trash2,
   Loader2,
+  Sparkles,
+  ShieldAlert,
+  AlertTriangle,
 } from "lucide-react";
 import { SellerLayout } from "@/components/seller/seller-layout";
 import {
@@ -28,6 +31,7 @@ import {
   updateProductStatus,
   duplicateProduct,
 } from "@/lib/supabase/products";
+import { VerificationModal } from "@/components/seller/verification-modal";
 import { toast } from "sonner";
 
 export default function SellerProductsPage() {
@@ -36,6 +40,10 @@ export default function SellerProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [activeVerification, setActiveVerification] = useState<{
+    productId: string;
+    productTitle: string;
+  } | null>(null);
 
   const refreshProducts = useCallback(async () => {
     setIsLoading(true);
@@ -114,21 +122,10 @@ export default function SellerProductsPage() {
         await refreshProducts();
         setActiveMenuId(null);
         toast.success(`Duplicated "${prod.name}" as a draft.`);
-      } catch {
-        // Fallback local duplicate if offline/demo
-        const timestamp = Date.now();
-        const newProd: SellerProductItem = {
-          ...prod,
-          id: `prod-${timestamp}`,
-          name: `${prod.name} (Copy)`,
-          status: "Draft",
-          views: 0,
-          soldCount: 0,
-          updatedAt: "Just now",
-        };
-        setProducts((prev) => [newProd, ...prev]);
+      } catch (err: unknown) {
         setActiveMenuId(null);
-        toast.success(`Duplicated "${prod.name}" as a draft.`);
+        const msg = err instanceof Error ? err.message : "Failed to duplicate product.";
+        toast.error(msg);
       }
     },
     [refreshProducts]
@@ -136,32 +133,42 @@ export default function SellerProductsPage() {
 
   const handleArchive = React.useCallback(
     async (id: string, currentStatus: ListingStatus) => {
-      const newStatus = currentStatus === "Archived" ? "Active" : "Archived";
-      const dbStatus = newStatus === "Active" ? "active" : "archived";
+      const prod = products.find((p) => p.id === id);
+      const isArchived = currentStatus === "Archived";
+      // An unapproved listing cannot be directly activated; restore to draft instead
+      const newStatus = isArchived
+        ? prod?.verificationStatus === "approved"
+          ? "Active"
+          : "Draft"
+        : "Archived";
+      const dbStatus =
+        newStatus === "Active"
+          ? "active"
+          : newStatus === "Draft"
+          ? "draft"
+          : "archived";
 
       try {
         await updateProductStatus(id, dbStatus);
         await refreshProducts();
         setActiveMenuId(null);
-        toast.info(`Listing status updated to ${newStatus}.`);
-      } catch {
-        // Fallback local status change
-        setProducts((prev) =>
-          prev.map((p) =>
-            p.id === id
-              ? {
-                  ...p,
-                  status: newStatus,
-                  updatedAt: "Just now",
-                }
-              : p
-          )
-        );
+        if (isArchived && newStatus === "Draft") {
+          toast.info(
+            `Restored "${prod?.name || "listing"}" as a draft (Pending AI verification).`
+          );
+        } else {
+          toast.info(`Listing status updated to ${newStatus}.`);
+        }
+      } catch (err: unknown) {
         setActiveMenuId(null);
-        toast.info(`Listing status updated to ${newStatus}.`);
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Failed to update listing status.";
+        toast.error(msg);
       }
     },
-    [refreshProducts]
+    [products, refreshProducts]
   );
 
   const handleDelete = React.useCallback(
@@ -174,11 +181,10 @@ export default function SellerProductsPage() {
         await refreshProducts();
         setActiveMenuId(null);
         toast.success(`Removed "${name}" from your listings.`);
-      } catch {
-        // Fallback local delete
-        setProducts((prev) => prev.filter((p) => p.id !== id));
+      } catch (err: unknown) {
         setActiveMenuId(null);
-        toast.success(`Removed "${name}" from your listings.`);
+        const msg = err instanceof Error ? err.message : "Failed to delete product.";
+        toast.error(msg);
       }
     },
     [refreshProducts]
@@ -209,6 +215,53 @@ export default function SellerProductsPage() {
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/10 border border-white/10 text-[#b9adb6]">
             Archived
+          </span>
+        );
+    }
+  };
+
+  const getVerificationBadge = (prod: SellerProductItem) => {
+    const vStatus = prod.verificationStatus || "approved";
+    switch (vStatus) {
+      case "approved":
+        return (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/60 border border-emerald-500/30 text-emerald-300"
+            title={prod.verificationReason || "AI Verified Technology Product"}
+          >
+            <Sparkles className="size-2.5 text-emerald-400" />
+            Approved
+          </span>
+        );
+      case "rejected":
+        return (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-950/60 border border-rose-500/30 text-rose-300 cursor-help"
+            title={prod.verificationReason || "Rejected: Non-technology listing"}
+          >
+            <ShieldAlert className="size-2.5 text-rose-400" />
+            Rejected
+          </span>
+        );
+      case "uncertain":
+        return (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-950/60 border border-amber-500/30 text-amber-300 cursor-help"
+            title={prod.verificationReason || "Needs review or clearer specifications"}
+          >
+            <AlertTriangle className="size-2.5 text-amber-400" />
+            Uncertain
+          </span>
+        );
+      case "pending":
+      default:
+        return (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#45284f] border border-[#e59bc9]/30 text-[#e59bc9]"
+            title="Awaiting AI product verification"
+          >
+            <Sparkles className="size-2.5 text-[#e59bc9]" />
+            Pending Review
           </span>
         );
     }
@@ -400,7 +453,10 @@ export default function SellerProductsPage() {
 
                         {/* Status Column */}
                         <td className="py-4 px-4">
-                          {getStatusBadge(prod.status)}
+                          <div className="flex flex-col gap-1 items-start">
+                            {getStatusBadge(prod.status)}
+                            {getVerificationBadge(prod)}
+                          </div>
                         </td>
 
                         {/* Views Column */}
@@ -424,6 +480,23 @@ export default function SellerProductsPage() {
                         {/* Actions Column */}
                         <td className="py-4 px-5 text-right relative">
                           <div className="flex items-center justify-end gap-1.5">
+                            {prod.verificationStatus !== "approved" && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActiveVerification({
+                                    productId: prod.id,
+                                    productTitle: prod.name,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 h-8 px-2 rounded-lg bg-[#65486f]/50 hover:bg-[#7a5985] text-white border border-[#e59bc9]/30 text-[11px] font-semibold transition-colors cursor-pointer"
+                                title="Run AI product verification"
+                              >
+                                <Sparkles className="size-3 text-[#e59bc9]" />
+                                <span>Verify</span>
+                              </button>
+                            )}
+
                             <Link
                               href={`/marketplace/products/${prod.id}`}
                               className="size-8 rounded-lg bg-white/[0.04] hover:bg-white/10 border border-white/[0.08] flex items-center justify-center text-[#b9adb6] hover:text-white transition-colors"
@@ -455,6 +528,23 @@ export default function SellerProductsPage() {
 
                               {activeMenuId === prod.id && (
                                 <div className="absolute right-0 top-9 w-36 bg-[#281827] border border-white/10 rounded-xl shadow-2xl p-1 z-30 animate-in fade-in zoom-in-95 duration-150 text-left">
+                                  {prod.verificationStatus !== "approved" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMenuId(null);
+                                        setActiveVerification({
+                                          productId: prod.id,
+                                          productTitle: prod.name,
+                                        });
+                                      }}
+                                      className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#e59bc9] hover:text-white hover:bg-[#65486f]/30 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      <Sparkles className="size-3" />
+                                      <span>Verify with AI</span>
+                                    </button>
+                                  )}
+
                                   <Link
                                     href={`/seller/products/${prod.id}/edit`}
                                     className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#d6cbd5] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
@@ -532,7 +622,10 @@ export default function SellerProductsPage() {
                           </p>
                         </div>
                       </div>
-                      {getStatusBadge(prod.status)}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {getStatusBadge(prod.status)}
+                        {getVerificationBadge(prod)}
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between text-xs py-1 border-t border-b border-white/[0.04]">
@@ -556,7 +649,23 @@ export default function SellerProductsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-1">
+                    <div className="flex items-center justify-end gap-2 pt-1 flex-wrap">
+                      {prod.verificationStatus !== "approved" && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveVerification({
+                              productId: prod.id,
+                              productTitle: prod.name,
+                            })
+                          }
+                          className="px-2.5 py-1.5 rounded-lg bg-[#65486f]/50 hover:bg-[#7a5985] border border-[#e59bc9]/30 text-xs font-semibold text-white flex items-center gap-1 cursor-pointer"
+                        >
+                          <Sparkles className="size-3 text-[#e59bc9]" />
+                          <span>Verify</span>
+                        </button>
+                      )}
+
                       <Link
                         href={`/marketplace/products/${prod.id}`}
                         className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-semibold text-[#d6cbd5] hover:text-white"
@@ -592,6 +701,20 @@ export default function SellerProductsPage() {
           )}
         </div>
       </div>
+
+      <VerificationModal
+        isOpen={Boolean(activeVerification)}
+        productId={activeVerification?.productId || null}
+        productTitle={activeVerification?.productTitle || ""}
+        onClose={() => {
+          setActiveVerification(null);
+          refreshProducts();
+        }}
+        onSuccess={() => {
+          setActiveVerification(null);
+          refreshProducts();
+        }}
+      />
     </SellerLayout>
   );
 }

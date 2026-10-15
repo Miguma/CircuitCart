@@ -19,6 +19,7 @@ import { CATEGORIES } from "@/components/marketplace/marketplace-data";
 import { createProduct, updateProduct } from "@/lib/supabase/products";
 import { validateProductImage } from "@/lib/supabase/storage";
 import type { DbProductCondition, DbProductStatus } from "@/lib/supabase/types";
+import { VerificationModal } from "./verification-modal";
 import { toast } from "sonner";
 
 export interface ExistingImageItem {
@@ -91,6 +92,16 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
 
   const [removedStoragePaths, setRemovedStoragePaths] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verifyModalState, setVerifyModalState] = useState<{
+    isOpen: boolean;
+    productId: string | null;
+    productTitle: string;
+    imagePreviews?: string[];
+  }>({
+    isOpen: false,
+    productId: null,
+    productTitle: "",
+  });
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -176,7 +187,7 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
           .filter((img): img is Extract<FormImage, { kind: "new" }> => img.kind === "new")
           .map((img) => img.file);
 
-        await createProduct(
+        const { id: createdId } = await createProduct(
           {
             title: title.trim(),
             category,
@@ -194,9 +205,23 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
 
         if (isDraft) {
           toast.success(`Saved "${title}" as a draft.`);
-        } else {
-          toast.success(`Published "${title}" to CircuitCart marketplace!`);
+          router.push("/seller/products");
+          router.refresh();
+          return;
         }
+
+        // Active publishing: trigger interactive AI verification modal
+        const previewUrls = images.map((img) =>
+          img.kind === "existing" ? img.url : img.previewUrl
+        );
+        setIsSubmitting(false);
+        setVerifyModalState({
+          isOpen: true,
+          productId: createdId,
+          productTitle: title.trim(),
+          imagePreviews: previewUrls,
+        });
+        return;
       } else {
         if (!initialData?.id) {
           throw new Error("Missing product ID for edit mode.");
@@ -239,11 +264,26 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
           removedStoragePaths,
         });
 
-        toast.success(`Successfully saved changes for "${title.trim()}"!`);
-      }
+        if (isDraft) {
+          toast.success(`Saved changes for "${title.trim()}" as a draft.`);
+          router.push("/seller/products");
+          router.refresh();
+          return;
+        }
 
-      router.push("/seller/products");
-      router.refresh();
+        // Active save: trigger verification to confirm status and update public state
+        const previewUrls = images.map((img) =>
+          img.kind === "existing" ? img.url : img.previewUrl
+        );
+        setIsSubmitting(false);
+        setVerifyModalState({
+          isOpen: true,
+          productId: initialData.id,
+          productTitle: title.trim(),
+          imagePreviews: previewUrls,
+        });
+        return;
+      }
     } catch (err: unknown) {
       const errorMsg =
         err instanceof Error
@@ -257,7 +297,8 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
   };
 
   return (
-    <form
+    <>
+      <form
       onSubmit={(e) => handleSubmit(e, false)}
       className="bg-[#1e1322]/85 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl"
     >
@@ -566,14 +607,31 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
           <span>
             {isSubmitting
               ? mode === "create"
-                ? "Publishing..."
-                : "Saving changes..."
+                ? "Submitting for Verification..."
+                : "Saving & Verifying..."
               : mode === "create"
-              ? "Publish Listing"
-              : "Save Changes"}
+              ? "Verify & Publish"
+              : "Save & Verify"}
           </span>
         </button>
       </div>
     </form>
+
+    <VerificationModal
+      isOpen={verifyModalState.isOpen}
+      productId={verifyModalState.productId}
+      productTitle={verifyModalState.productTitle}
+      imagePreviews={verifyModalState.imagePreviews}
+      onClose={() => {
+        const prodId = verifyModalState.productId;
+        setVerifyModalState((prev) => ({ ...prev, isOpen: false }));
+        if (prodId) {
+          toast.info("Listing saved as draft (Pending AI verification).");
+          router.push("/seller/products");
+          router.refresh();
+        }
+      }}
+    />
+  </>
   );
 }

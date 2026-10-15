@@ -2,6 +2,8 @@ export type DbUserRole = "buyer" | "seller" | "admin";
 export type DbShopStatus = "active" | "vacation" | "suspended";
 export type DbProductStatus = "draft" | "active" | "sold_out" | "archived";
 export type DbProductCondition = "New" | "Like New" | "Good" | "Fair";
+export type DbVerificationStatus = "pending" | "approved" | "rejected" | "uncertain";
+export type VerificationDecision = "TECH_APPROVED" | "NON_TECH_REJECTED" | "UNCERTAIN";
 
 export interface DbProfile {
   id: string;
@@ -44,12 +46,33 @@ export interface DbProduct {
   original_price: number | null;
   stock: number;
   status: DbProductStatus;
+  verification_status?: DbVerificationStatus;
+  verification_reason?: string | null;
+  verification_content_hash?: string | null;
+  verified_at?: string | null;
+  verified_by_model?: string | null;
+  grace_expires_at?: string | null;
   location: string | null;
   rating?: number;
   review_count?: number;
   created_at: string;
   updated_at: string;
   published_at: string | null;
+}
+
+export interface DbProductVerification {
+  id: string;
+  product_id: string;
+  seller_id: string;
+  decision: VerificationDecision;
+  confidence: number | null;
+  reason: string;
+  suggested_category: string | null;
+  flagged_reasons: string[];
+  content_hash: string;
+  model_used: string;
+  raw_response?: unknown;
+  created_at: string;
 }
 
 export interface DbProductImage {
@@ -77,6 +100,7 @@ export interface CreateProductInput {
   description?: string;
   location?: string;
   status?: DbProductStatus;
+  verification_status?: DbVerificationStatus;
 }
 
 export interface UpdateProductInput extends Partial<CreateProductInput> {
