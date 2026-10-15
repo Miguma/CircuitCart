@@ -43,6 +43,7 @@ export function MarketplaceMobileNav() {
             <Link
               key={item.href}
               href={item.href}
+              data-tour={item.label === "Saved" ? "marketplace-favorites" : undefined}
               aria-current={active ? "page" : undefined}
               className={`relative flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl text-[9px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e59bc9] ${
                 active
@@ -81,6 +82,7 @@ export function MarketplaceMobileNav() {
             <Link
               key={item.href}
               href={item.href}
+              data-tour={item.label === "Cart" ? "marketplace-cart" : "marketplace-account"}
               aria-current={active ? "page" : undefined}
               className={`relative flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl text-[9px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e59bc9] ${
                 active

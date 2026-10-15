@@ -244,6 +244,7 @@ export function MarketplaceHeader({
               <div className="pl-1 border-l border-white/10 flex items-center">
                 <Link
                   href="/login"
+                  data-tour="marketplace-account"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#65486f] hover:bg-[#7a5985] text-white text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#e59bc9]"
                 >
                   <User className="size-3.5" />
@@ -372,7 +373,11 @@ export function MarketplaceHeader({
 
         {/* ROW 2: Mobile Search Bar */}
         <div className="flex items-center pb-1.5 md:hidden">
-          <form onSubmit={handleSearchSubmit} className="relative w-full">
+          <form
+            onSubmit={handleSearchSubmit}
+            data-tour="marketplace-search"
+            className="relative w-full"
+          >
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#b9adb6]" />
             <input
               type="text"

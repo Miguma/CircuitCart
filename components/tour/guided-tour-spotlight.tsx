@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   X,
   ChevronRight,
@@ -49,6 +49,36 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Compass,
 };
 
+function isElementVisible(el: HTMLElement | null): boolean {
+  if (!el || !el.isConnected) return false;
+  const style = window.getComputedStyle(el);
+  if (
+    style.display === "none" ||
+    style.visibility === "hidden" ||
+    style.opacity === "0" ||
+    el.hidden
+  ) {
+    return false;
+  }
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return false;
+  }
+  return true;
+}
+
+function findVisibleElement(selector: string): HTMLElement | null {
+  if (!selector) return null;
+  const elements = document.querySelectorAll(selector);
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i] as HTMLElement;
+    if (isElementVisible(el)) {
+      return el;
+    }
+  }
+  return null;
+}
+
 export function GuidedTourSpotlight({
   tour,
   currentStepIndex,
@@ -59,7 +89,6 @@ export function GuidedTourSpotlight({
 }: GuidedTourSpotlightProps) {
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
   const [isCenteredFallback, setIsCenteredFallback] = useState(false);
-  const tooltipRef = useRef<HTMLDivElement>(null);
 
   const currentStep: TourStep | undefined = tour.steps[currentStepIndex];
   const totalSteps = tour.steps.length;
@@ -73,7 +102,7 @@ export function GuidedTourSpotlight({
       return;
     }
 
-    const el = document.querySelector(currentStep.target) as HTMLElement | null;
+    const el = findVisibleElement(currentStep.target);
     if (!el) {
       setTargetRect(null);
       setIsCenteredFallback(true);
@@ -81,25 +110,33 @@ export function GuidedTourSpotlight({
     }
 
     // Scroll into view if needed
-    const rect = el.getBoundingClientRect();
+    const rawRect = el.getBoundingClientRect();
     const isOutOfView =
-      rect.top < 60 ||
-      rect.bottom > window.innerHeight - 60 ||
-      rect.left < 0 ||
-      rect.right > window.innerWidth;
+      rawRect.top < 64 ||
+      rawRect.bottom > window.innerHeight - 64 ||
+      rawRect.left < 0 ||
+      rawRect.right > window.innerWidth;
 
     if (isOutOfView) {
-      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      el.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
     }
 
-    const updatedRect = el.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      setTargetRect(null);
+      setIsCenteredFallback(true);
+      return;
+    }
+
     const padding = 8;
+    // Clamp height for tall elements (such as product catalogue container) to spotlight top portion
+    const clampedHeight = Math.min(rect.height, Math.max(80, window.innerHeight * 0.52));
 
     setTargetRect({
-      top: Math.max(0, updatedRect.top - padding),
-      left: Math.max(0, updatedRect.left - padding),
-      width: updatedRect.width + padding * 2,
-      height: updatedRect.height + padding * 2,
+      top: Math.max(0, rect.top - padding),
+      left: Math.max(0, rect.left - padding),
+      width: rect.width + padding * 2,
+      height: clampedHeight + padding * 2,
     });
     setIsCenteredFallback(false);
   }, [isOpen, currentStep]);
@@ -107,8 +144,8 @@ export function GuidedTourSpotlight({
   useEffect(() => {
     if (!isOpen) return;
 
-    // Initial positioning with slight delay to allow smooth scroll
-    const timer = setTimeout(updatePosition, 100);
+    // Initial positioning
+    const timer = setTimeout(updatePosition, 80);
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);
 
@@ -146,85 +183,119 @@ export function GuidedTourSpotlight({
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === totalSteps - 1;
 
-  // Tooltip positioning logic
+  // Viewport-aware tooltip positioning logic
   const calculateTooltipStyle = (): React.CSSProperties => {
+    const cardWidth = Math.min(380, window.innerWidth - 32);
+    const cardHeight = 230;
+    const gap = 12;
+    const edgeMargin = 16;
+
     if (isCenteredFallback || !targetRect) {
       return {
         position: "fixed",
         top: "50%",
         left: "50%",
         transform: "translate(-50%, -50%)",
+        width: `${cardWidth}px`,
+        maxWidth: "calc(100vw - 32px)",
+        maxHeight: "calc(100vh - 32px)",
         zIndex: 100000,
       };
     }
 
-    const tooltipWidth = 360;
-    const tooltipHeight = 220;
-    const margin = 14;
+    const targetBottom = targetRect.top + targetRect.height;
+    const targetCenterX = targetRect.left + targetRect.width / 2;
 
-    let top = targetRect.top + targetRect.height + margin;
-    let left = targetRect.left;
+    // Viewport space calculations
+    const spaceBelow = window.innerHeight - targetBottom - gap - edgeMargin;
+    const spaceAbove = targetRect.top - gap - edgeMargin;
 
-    // Check bottom space
-    if (top + tooltipHeight > window.innerHeight - 20) {
-      // Position above if space allows
-      if (targetRect.top - tooltipHeight - margin > 20) {
-        top = targetRect.top - tooltipHeight - margin;
+    let top: number;
+    const preferred = currentStep?.preferredPlacement || "bottom";
+
+    if (preferred === "top") {
+      if (spaceAbove >= cardHeight) {
+        top = targetRect.top - gap - cardHeight;
+      } else if (spaceBelow >= cardHeight) {
+        top = targetBottom + gap;
       } else {
-        // Fallback to center vertically
-        top = Math.max(20, (window.innerHeight - tooltipHeight) / 2);
+        top = spaceBelow >= spaceAbove ? targetBottom + gap : targetRect.top - gap - cardHeight;
+      }
+    } else {
+      // Preferred "bottom" or side
+      if (spaceBelow >= cardHeight) {
+        top = targetBottom + gap;
+      } else if (spaceAbove >= cardHeight) {
+        top = targetRect.top - gap - cardHeight;
+      } else {
+        top = Math.max(edgeMargin, (window.innerHeight - cardHeight) / 2);
       }
     }
 
-    // Check right space
-    if (left + tooltipWidth > window.innerWidth - 16) {
-      left = Math.max(16, window.innerWidth - tooltipWidth - 16);
+    // Strictly clamp top inside viewport
+    top = Math.min(
+      Math.max(edgeMargin, top),
+      Math.max(edgeMargin, window.innerHeight - cardHeight - edgeMargin)
+    );
+
+    // Horizontal positioning: align with respect to viewport position
+    let left: number;
+    if (targetCenterX > window.innerWidth * 0.6) {
+      // Target is on the right side of the screen -> align right edges
+      left = targetRect.left + targetRect.width - cardWidth;
+    } else if (targetCenterX < window.innerWidth * 0.4) {
+      // Target is on the left side of the screen -> align left edges
+      left = targetRect.left;
+    } else {
+      // Target is in the middle -> center horizontally
+      left = targetCenterX - cardWidth / 2;
     }
-    if (left < 16) {
-      left = 16;
-    }
+
+    // STRICTLY clamp left within viewport boundaries
+    const minLeft = edgeMargin;
+    const maxLeft = Math.max(minLeft, window.innerWidth - cardWidth - edgeMargin);
+    left = Math.min(Math.max(minLeft, left), maxLeft);
 
     return {
       position: "fixed",
-      top: `${top}px`,
-      left: `${left}px`,
+      top: `${Math.round(top)}px`,
+      left: `${Math.round(left)}px`,
+      width: `${cardWidth}px`,
+      maxWidth: "calc(100vw - 32px)",
+      maxHeight: "calc(100vh - 32px)",
       zIndex: 100000,
     };
   };
 
   return (
     <div
-      className="fixed inset-0 z-[99990] transition-opacity duration-300"
+      className="fixed inset-0 z-[99990] transition-opacity duration-300 pointer-events-none"
       aria-modal="true"
       role="dialog"
       aria-label={currentStep.title}
     >
       {/* Dimmed backdrop with Spotlight Cutout */}
       {targetRect && !isCenteredFallback ? (
-        <>
-          {/* Spotlight Highlight Box */}
-          <div
-            className="fixed pointer-events-none rounded-2xl border-2 border-[#e59bc9] ring-4 ring-[#e59bc9]/25 transition-all duration-300 ease-out"
-            style={{
-              top: `${targetRect.top}px`,
-              left: `${targetRect.left}px`,
-              width: `${targetRect.width}px`,
-              height: `${targetRect.height}px`,
-              boxShadow:
-                "0 0 0 9999px rgba(12, 7, 16, 0.78), 0 0 30px rgba(229, 155, 201, 0.45)",
-              zIndex: 99995,
-            }}
-          />
-        </>
+        <div
+          className="fixed pointer-events-none rounded-2xl border-2 border-[#e59bc9] ring-4 ring-[#e59bc9]/30 transition-all duration-200 ease-out"
+          style={{
+            top: `${targetRect.top}px`,
+            left: `${targetRect.left}px`,
+            width: `${targetRect.width}px`,
+            height: `${targetRect.height}px`,
+            boxShadow:
+              "0 0 0 9999px rgba(12, 7, 16, 0.78), 0 0 24px rgba(229, 155, 201, 0.45)",
+            zIndex: 99995,
+          }}
+        />
       ) : (
-        <div className="fixed inset-0 bg-[#0c0710]/80 backdrop-blur-xs transition-opacity duration-300 pointer-events-auto" />
+        <div className="fixed inset-0 bg-[#0c0710]/80 backdrop-blur-xs transition-opacity duration-200 pointer-events-auto" />
       )}
 
       {/* Floating Tour Tooltip Card */}
       <div
-        ref={tooltipRef}
         style={calculateTooltipStyle()}
-        className="w-[calc(100vw-32px)] max-w-sm sm:max-w-md pointer-events-auto rounded-3xl border border-[#e59bc9]/35 bg-[#1e1322]/95 p-5 text-white shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200"
+        className="pointer-events-auto rounded-3xl border border-[#e59bc9]/35 bg-[#1e1322]/95 p-4 sm:p-5 text-white shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 overflow-y-auto"
       >
         {/* Header Bar */}
         <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10">
