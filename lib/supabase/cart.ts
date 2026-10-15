@@ -4,28 +4,7 @@ import { CartItem } from "@/components/marketplace/marketplace-provider";
 import { mapDbProductToMarketplaceProduct } from "@/lib/marketplace/product-adapter";
 import { CartItemWithProduct, CartOfferDetails } from "./types";
 
-const DISMISSED_OFFERS_KEY = "circuitcart:dismissed_offers";
 
-export function getDismissedOfferIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(DISMISSED_OFFERS_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-export function markOfferDismissed(offerId: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    const dismissed = getDismissedOfferIds();
-    dismissed.add(offerId);
-    localStorage.setItem(DISMISSED_OFFERS_KEY, JSON.stringify(Array.from(dismissed)));
-  } catch {
-    // Ignore storage errors
-  }
-}
 
 /**
  * Fetches all persistent cart items for the authenticated user,
@@ -92,15 +71,6 @@ export async function getCartItems(options?: { throwOnError?: boolean }): Promis
     }
 
     const items: CartItem[] = [];
-    const dismissedOfferIds = getDismissedOfferIds();
-
-    // Query database-level dismissals for this buyer
-    const { data: dbDismissals } = await supabase
-      .from("cart_offer_dismissals")
-      .select("offer_id")
-      .eq("buyer_id", user.id);
-    const dbDismissedIds = new Set((dbDismissals || []).map((d: { offer_id: string }) => d.offer_id));
-    const isOfferDismissed = (id?: string | null) => !id ? false : dbDismissedIds.has(id) || dismissedOfferIds.has(id);
 
     for (const raw of data as unknown as CartItemWithProduct[]) {
       if (!raw.products) continue;
@@ -118,13 +88,7 @@ export async function getCartItems(options?: { throwOnError?: boolean }): Promis
         const isExpired = expiresAtMs <= nowMs;
         const isWithdrawn = o.status === "withdrawn" || o.status === "declined";
         const isValid = o.status === "accepted" && !isExpired && !isWithdrawn;
-        const dismissed = isOfferDismissed(o.id);
-
-        if (dismissed) {
-          // Explicitly dismissed by buyer: proceed at standard listing price without offer
-          effectiveOfferId = undefined;
-          offerDetails = undefined;
-        } else if (isValid) {
+        if (isValid) {
           // Valid accepted offer: apply negotiated unit price and lock quantity
           product.originalPrice = product.price;
           product.price = Number(o.unit_price);
@@ -140,16 +104,10 @@ export async function getCartItems(options?: { throwOnError?: boolean }): Promis
             isExpired: false,
             isWithdrawn: false,
             isValid: true,
-            priceChanged: false,
-            isDismissed: false,
             conversationId: o.conversation_id || null,
           };
         } else {
-          // Offer is expired, withdrawn, or declined.
-          // IMPORTANT: Do NOT silently clear offer_id from database row!
-          // Keeping offer_id attached ensures server-authoritative checkout (private.cart_unit_price)
-          // will stop checkout and abort payment initialization if unconfirmed.
-          // The buyer must explicitly review and confirm the original price.
+          // Offer is expired, withdrawn, or declined: keep offer_id attached to block checkout
           effectiveOfferId = o.id;
           offerDetails = {
             id: o.id,
@@ -160,8 +118,6 @@ export async function getCartItems(options?: { throwOnError?: boolean }): Promis
             isExpired,
             isWithdrawn,
             isValid: false,
-            priceChanged: true,
-            isDismissed: false,
             conversationId: o.conversation_id || null,
           };
         }
@@ -181,7 +137,7 @@ export async function getCartItems(options?: { throwOnError?: boolean }): Promis
           .limit(1)
           .maybeSingle();
 
-        if (activeOffer && !isOfferDismissed(activeOffer.id)) {
+        if (activeOffer) {
           // Auto-reconcile cart row with the valid accepted offer
           try {
             await supabase
@@ -209,41 +165,8 @@ export async function getCartItems(options?: { throwOnError?: boolean }): Promis
             isExpired: false,
             isWithdrawn: false,
             isValid: true,
-            priceChanged: false,
-            isDismissed: false,
             conversationId: activeOffer.conversation_id || null,
           };
-        } else if (!offerDetails) {
-          // If no active offer exists, check if there is an accepted or withdrawn offer that expired
-          const { data: pastOffer } = await supabase
-            .from("chat_offers")
-            .select("id, unit_price, quantity, status, expires_at, conversation_id")
-            .eq("buyer_id", user.id)
-            .eq("product_id", raw.product_id)
-            .in("status", ["accepted", "withdrawn"])
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (pastOffer) {
-            const isExpired = Date.parse(pastOffer.expires_at) <= Date.now();
-            const isWithdrawn = pastOffer.status === "withdrawn";
-            if ((isExpired || isWithdrawn) && !isOfferDismissed(pastOffer.id)) {
-              offerDetails = {
-                id: pastOffer.id,
-                unitPrice: Number(pastOffer.unit_price),
-                quantity: pastOffer.quantity ?? raw.quantity,
-                status: isExpired ? "expired" : pastOffer.status,
-                expiresAt: pastOffer.expires_at,
-                isExpired,
-                isWithdrawn,
-                isValid: false,
-                priceChanged: true,
-                isDismissed: false,
-                conversationId: pastOffer.conversation_id || null,
-              };
-            }
-          }
         }
       }
 
@@ -310,17 +233,6 @@ export async function addCartItem(productId: string, quantity = 1): Promise<void
     .limit(1)
     .maybeSingle();
 
-  let isOfferDismissed = false;
-  if (activeOffer) {
-    const { data: dismissal } = await supabase
-      .from("cart_offer_dismissals")
-      .select("id")
-      .eq("buyer_id", user.id)
-      .eq("offer_id", activeOffer.id)
-      .maybeSingle();
-    isOfferDismissed = Boolean(dismissal) || getDismissedOfferIds().has(activeOffer.id);
-  }
-
   // 3. Check if product already exists in user's cart
   const { data: existing } = await supabase
     .from("cart_items")
@@ -329,7 +241,7 @@ export async function addCartItem(productId: string, quantity = 1): Promise<void
     .eq("product_id", productId)
     .maybeSingle();
 
-  if (activeOffer && !isOfferDismissed) {
+  if (activeOffer) {
     // If the buyer has an accepted private offer, the cart item MUST bind to that offer
     // and lock strictly to the negotiated quantity.
     if (existing) {
@@ -468,46 +380,19 @@ export async function updateCartItemQuantity(
 /**
  * Dismisses an offer on a cart item so it reverts to the standard listing price.
  */
-export async function dismissCartOffer(productId: string, offerId?: string): Promise<void> {
-  if (offerId) {
-    markOfferDismissed(offerId);
-  }
+export async function dismissCartOffer(productId: string, _offerId?: string): Promise<void> {
   const user = await getCurrentUser();
   if (!user) return;
 
   const supabase = createClient();
+  const { error } = await supabase
+    .from("cart_items")
+    .update({ offer_id: null })
+    .eq("user_id", user.id)
+    .eq("product_id", productId);
 
-  // 1. Invoke database RPC dismiss_cart_offer (persists to cart_offer_dismissals and clears offer_id)
-  const { error: rpcError } = await supabase.rpc("dismiss_cart_offer", {
-    p_product_id: productId,
-    p_offer_id: offerId || null,
-  });
-
-  if (rpcError) {
-    // 2. Direct fallback: upsert into cart_offer_dismissals if table exists
-    if (offerId) {
-      try {
-        await supabase
-          .from("cart_offer_dismissals")
-          .upsert({
-            buyer_id: user.id,
-            offer_id: offerId,
-            product_id: productId,
-          });
-      } catch {
-        // Table may not exist prior to migration
-      }
-    }
-
-    const { error } = await supabase
-      .from("cart_items")
-      .update({ offer_id: null })
-      .eq("user_id", user.id)
-      .eq("product_id", productId);
-
-    if (error) {
-      throw new Error(`Failed to dismiss offer: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(`Failed to dismiss offer: ${error.message}`);
   }
 }
 

@@ -387,9 +387,9 @@ export function MarketplaceProvider({
   }, [cartItems]);
 
   const dismissOffer = useCallback(
-    async (productId: string, offerId?: string) => {
+    async (productId: string, _offerId?: string) => {
       try {
-        await dismissCartOffer(productId, offerId);
+        await dismissCartOffer(productId);
         await refreshCart({ preserveOnError: true });
       } catch (err: unknown) {
         console.warn("Failed to dismiss offer:", err);

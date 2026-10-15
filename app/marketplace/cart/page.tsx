@@ -144,7 +144,6 @@ export default function CartPage() {
     resetLocalCart,
     totalCartCount,
     cartSubtotal,
-    dismissOffer,
   } = useMarketplace();
 
   React.useEffect(() => {
@@ -373,12 +372,9 @@ export default function CartPage() {
     }, 0);
   }, [cartItems]);
 
-  const unconfirmedPriceChangeItems = React.useMemo(() => {
-    return cartItems.filter(
-      (item) => item.offer && !item.offer.isValid && !item.offer.isDismissed
-    );
+  const hasExpiredOffer = React.useMemo(() => {
+    return cartItems.some((item) => item.offer && !item.offer.isValid);
   }, [cartItems]);
-  const hasUnconfirmedPriceChanges = unconfirmedPriceChangeItems.length > 0;
 
   const getFallbackIcon = (category: string) => {
     switch (category) {
@@ -402,8 +398,8 @@ export default function CartPage() {
     if (submitLock.current || recoveryState !== "idle") return;
     if (cartItems.length === 0) return;
 
-    if (hasUnconfirmedPriceChanges) {
-      toast.error("Please review and confirm price updates for items with expired or withdrawn offers before placing your order.");
+    if (hasExpiredOffer) {
+      toast.error("Offer expired. Please request a new offer from the seller.");
       setIsCheckoutOpen(false);
       return;
     }
@@ -701,14 +697,14 @@ export default function CartPage() {
         <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Cart Items List (8 cols) */}
           <div className="lg:col-span-8 space-y-4">
-            {hasUnconfirmedPriceChanges && (
+            {hasExpiredOffer && (
               <div role="alert" className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-200 space-y-1 shadow-md">
                 <div className="font-bold flex items-center gap-1.5 text-amber-300">
                   <AlertTriangle className="size-4" />
-                  <span>Price Confirmation Required</span>
+                  <span>Offer Expired</span>
                 </div>
                 <p className="text-[#d6cbd5] leading-relaxed">
-                  One or more items in your cart had negotiated private offers that are no longer available (expired or withdrawn). You must explicitly confirm the original catalog price on the item(s) below before proceeding to checkout.
+                  Offer expired. Please request a new offer from the seller.
                 </p>
               </div>
             )}
@@ -786,23 +782,11 @@ export default function CartPage() {
                   </div>
 
                   {item.offer && !item.offer.isValid && (
-                    <div className="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2.5">
-                      <div className="text-amber-200">
-                        <strong className="font-bold text-amber-300 block mb-1">
-                          Negotiated discount is no longer available.
-                        </strong>
-                        The private offer {item.offer.isWithdrawn ? "was withdrawn by the seller" : item.offer.isDeclined ? "was declined" : "has expired"}.
-                        To purchase this item, you must confirm that you accept the original catalog price of{" "}
-                        <span className="font-extrabold text-white">{formatPrice(item.product.price)}</span>.
+                    <div className="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+                      <div className="text-amber-200 font-bold text-amber-300">
+                        Offer expired. Please request a new offer from the seller.
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
-                        <button
-                          type="button"
-                          onClick={() => void dismissOffer(item.product.id, item.offer?.id)}
-                          className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-[#1e1322] text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          Confirm Original Price ({formatPrice(item.product.price)})
-                        </button>
+                      <div className="flex items-center gap-2 pt-1">
                         <Link
                           href={item.offer.conversationId ? `/messages?conversationId=${item.offer.conversationId}` : "/messages"}
                           className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors flex items-center gap-1"
@@ -938,28 +922,28 @@ export default function CartPage() {
               <div className="pt-2 space-y-3">
                 <button
                   type="button"
-                  disabled={hasUnconfirmedPriceChanges}
+                  disabled={hasExpiredOffer}
                   onClick={() => {
-                    if (hasUnconfirmedPriceChanges) {
-                      toast.error("Please confirm the updated catalog price on item(s) above before checkout.");
+                    if (hasExpiredOffer) {
+                      toast.error("Offer expired. Please request a new offer from the seller.");
                       return;
                     }
                     setIsCheckoutOpen(true);
                   }}
                   className={cn(
                     "w-full py-3 text-white text-xs font-semibold rounded-xl transition-colors text-center shadow-xs focus-visible:outline-2 focus-visible:outline-[#e59bc9]",
-                    hasUnconfirmedPriceChanges
+                    hasExpiredOffer
                       ? "bg-amber-600/50 hover:bg-amber-600/60 cursor-not-allowed opacity-80"
                       : "bg-[#65486f] hover:bg-[#7a5985] cursor-pointer"
                   )}
                 >
-                  {hasUnconfirmedPriceChanges
-                    ? "Review Price Updates Above"
+                  {hasExpiredOffer
+                    ? "Offer Expired — Action Required"
                     : "Proceed to Checkout"}
                 </button>
-                {hasUnconfirmedPriceChanges && (
+                {hasExpiredOffer && (
                   <p className="text-[11px] text-amber-300 text-center">
-                    Please confirm the updated catalog price on item(s) above before checkout.
+                    Offer expired. Please request a new offer from the seller.
                   </p>
                 )}
               </div>
